@@ -101,7 +101,7 @@ export function AnnotationList() {
             <option value="">{t.reader.list.allFields}</option>
             {domainOptions.map((n) => (
               <option key={n.domain.id} value={n.domain.id}>
-                {"\u3000".repeat(n.depth)}
+                {"\u3000".repeat(n.depth) /* i18n-ignore: 全角空格表示层级缩进 */}
                 {n.domain.name}
               </option>
             ))}

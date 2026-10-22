@@ -115,8 +115,10 @@ describe("文件名", () => {
     expect(sanitizeFileName("方法/对比: v2?")).toBe("方法 对比 v2");
     expect(sanitizeFileName("  ..隐藏.  ")).toBe("隐藏");
     expect(sanitizeFileName("a\tb\nc")).toBe("a b c");
-    expect(sanitizeFileName("   ")).toBe("未命名画布");
-    expect(sanitizeFileName("..")).toBe("未命名画布");
+    // 与界面语言无关
+    expect(sanitizeFileName("   ")).toBe("untitled canvas");
+    expect(sanitizeFileName("..")).toBe("untitled canvas");
+    expect(sanitizeFileName("untitled")).toBe("untitled");
     expect(sanitizeFileName("con")).toBe("con_");
     expect(sanitizeFileName("x".repeat(300))).toHaveLength(180);
     const zh = sanitizeFileName("画".repeat(100));

@@ -26,6 +26,8 @@ const common: Messages["common"] = {
   language: {
     label: "Language",
     switchTitle: "Change interface language",
+    changedElsewhere: "The interface language was changed to English in another tab.",
+    reload: "Reload",
   },
   time: {
     justNow: "just now",

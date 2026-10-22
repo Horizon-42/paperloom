@@ -27,7 +27,8 @@ export type PdfInfoReader = (data: ArrayBuffer) => Promise<PdfInfo>;
 const FILE_EXT_RE = /\.(pdf|docx?|tex|dvi|ps|eps|fm|cdr|indd|rtf|odt|pptx?|xlsx?|qxd|pub|wpd|txt|md)$/i;
 const OFFICE_PREFIX_RE = /^microsoft\s+(word|powerpoint|excel)\s*-/i;
 // PDF 元数据里常见的占位标题
-const PLACEHOLDER_RE = // i18n-ignore: 识别规则（含中文的"无标题"），不是界面文字
+const PLACEHOLDER_RE =
+  // i18n-ignore: 识别规则（含中文的"无标题"），不是界面文字
   /^(untitled|untitled[\s-]*\d+|无标题|document\s*\d*|title|template|.*\btemplate|table of contents|executive summary|powerpoint presentation|presentation\d*|slide\s*\d+|main|manuscript|article|paper|draft|cover|abstract|doi|pdf)$/i;
 
 /** 元数据标题是否明显无意义（空、纯数字、Word 转换名、文件名、模板占位符等） */

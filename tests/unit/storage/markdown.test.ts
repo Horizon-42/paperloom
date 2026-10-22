@@ -53,7 +53,7 @@ describe("文件名", () => {
     expect(safeFileName("LSTM: A Search Space Odyssey")).toBe("LSTM A Search Space Odyssey");
     expect(safeFileName('a/b\\c:d*e?f"g<h>i|j#k^l[m]n')).toBe("a b c d e f g h i j k l m n");
     expect(safeFileName("...hidden.")).toBe("hidden");
-    expect(safeFileName("  ")).toBe("未命名");
+    expect(safeFileName("  ")).toBe("untitled");
     expect(safeFileName("CON")).toBe("CON_");
     expect(safeFileName("tab\there\u0000")).toBe("tab here");
     const long = safeFileName("长".repeat(200));
@@ -170,6 +170,6 @@ describe("英文界面：生成的 Markdown 跟随界面语言，文件名不变
     expect(md).toContain("## Papers & annotations");
     expect(md).toContain("#### Page 3");
     expect(md).toContain("Term: **Long Short-Term Memory**");
-    expect(safeFileName("  ")).toBe("Untitled");
+    expect(safeFileName("  ")).toBe("untitled");
   });
 });

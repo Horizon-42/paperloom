@@ -41,12 +41,17 @@ function truncateUtf8(s: string, maxBytes: number): string {
   return out;
 }
 
+/**
+ * 标题清理后为空时的文件名主干。与界面语言无关：文件名随语言变化会让 Obsidian 里的链接失效
+ */
+export const UNTITLED_FILE = "untitled";
+
 /** 标题 → 安全的文件名主干（不含扩展名）。限制在 maxBytes 字节内（多数文件系统单个文件名上限 255 字节） */
 export function safeFileName(raw: string, maxBytes = 150): string {
   let s = raw.normalize("NFC").replace(ILLEGAL, " ").replace(/\s+/g, " ").trim();
   s = s.replace(/^[.\s]+/, ""); // 开头的点会变成隐藏文件
   s = truncateUtf8(s, maxBytes).replace(/[.\s]+$/, ""); // Windows 不允许结尾的点和空格
-  if (!s) s = ui.data.markdown.untitledFile;
+  if (!s) s = UNTITLED_FILE;
   if (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(s)) s += "_";
   return s;
 }

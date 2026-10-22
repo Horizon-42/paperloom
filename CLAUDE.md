@@ -12,7 +12,7 @@
   `--no-process-scan`（不用 lsof 检查其他端口上的 node 进程）、`--force`（端口上的程序无法确认身份、或目录不像 Paperloom 数据时仍执行）（见 D10）。
 - `npm run typecheck` — tsc 类型检查（app + node 两个 tsconfig）
 - `npm test` — Vitest 单元测试（`tests/engine/**`、`tests/unit/**`）
-- `npm run e2e` — Playwright（`tests/e2e/**`，自动在 5199 端口起服务）。各模块另有独立配置：
+- `npm run e2e` — Playwright（`tests/e2e/**`，自动在 5199 端口起服务，界面多语言用例在 5198）。各模块另有独立配置：
   `npx playwright test -c tests/e2e/<viewer|annotation|term|glossary|canvas|storage|projects|tags|i18n|static>.config.ts`（static 是在线版冒烟测试，先构建）；
   `PAPERLENS_LITERATURE_DIR=<你的论文目录>` 时额外跑真实论文用例；用哪几篇写在 `tests/e2e/real-papers.local.json`（git 忽略，格式见同目录的 `real-papers.example.json`）
 
@@ -86,7 +86,7 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 
 - 界面文案中英两套，都在 `src/i18n/locales/{zh,en}/<模块>.ts`（D13）：代码里用 `t.<模块>.<键>`（`import { t } from "@/i18n"`），
   带参数的文案写成函数（`t.library.paperCount(n)`），文案里嵌元素用 `<Trans text=… values={{…}} />`，时间用 `@/i18n/format`。
-  **代码里不写死任何语言的界面文字**（`tests/unit/i18n/hardcoded.test.ts` 扫描检查；确需中文字符的非界面代码写 `// i18n-ignore: <原因>`）；
+  **代码里不写死任何语言的界面文字**（`tests/unit/i18n/hardcoded.test.ts` 扫描检查；确需中文字符的非界面代码在行尾、或单独在上一行写 `// i18n-ignore: <原因>`，写成 `\uXXXX` 也算中文）；
   中文文案是结构来源，英文必须一一对应（类型检查 + `messages.test.ts`）。显示项目名一律用 `projectDisplayName`，本地服务的错误经 `services/storage/errors.ts`。
   代码标识符用英文；注释用中文，简洁，只解释不显而易见的地方。
 - 导入路径用 `@/` 别名。
@@ -97,9 +97,9 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 - 开发模式下 `window.__paperlens` 暴露 `db` 和各 store，供 e2e 测试注入数据。
 - **测试绝不能碰真实的 `data/`**：所有 Playwright 配置的 webServer 都要设 `PAPERLENS_STORAGE=off`（或指向临时的 `PAPERLENS_DATA_DIR`），并且 `reuseExistingServer: false`。
   迁移脚本的测试只用临时目录，并用 `--ports` 指定测试自己起的端口、加 `--no-process-scan`（缺省会探测 5173、4173 和本机其他 node 进程的端口）。
-- 界面语言（D13）：启动时确定一次（`?lang=` > localStorage `paperlens.locale` > 默认英文，不看浏览器语言），切换 = 重新加载页面；
+- 界面语言（D13）：启动时确定一次（`?lang=` > localStorage `paperlens.locale` > 第一次运行时记下的语言：新使用者英文、升级前就在用的中文，不看浏览器语言），切换 = 重新加载页面；
   Worker 名用 `workerName(workerKind(kind))` 把语言带进去。单元测试固定中文（`tests/setup.ts`）；Playwright 的 webServer 都设
-  `VITE_PAPERLENS_DEFAULT_LOCALE=zh`（现有用例按中文断言），只有 `i18n.config.ts` 不设，测真实的默认语言。
+  `VITE_PAPERLENS_DEFAULT_LOCALE=zh`（现有用例按中文断言），只有 `i18n.config.ts` 和 `npm run e2e` 里的 i18n 项目（5198 端口）不设，测真实的默认语言。
 - 论文标签（D11）：`Paper.tags`，规范化与查询在 `src/lib/tags.ts`，写入经 `src/services/tagService.ts`；不加索引，筛选在内存里做。
 - 导出/镜像不包含派生数据：`pageTexts`、`occurrences`、kv 中 `indexer:`、`storage:` 开头的记录。
 

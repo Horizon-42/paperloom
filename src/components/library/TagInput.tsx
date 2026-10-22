@@ -179,9 +179,9 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
         return;
       }
       case ",":
-      case "\uFF0C": // 全角逗号
+      case "\uFF0C": // i18n-ignore: 全角逗号也是分隔符
       case ";":
-      case "\uFF1B": // 全角分号
+      case "\uFF1B": // i18n-ignore: 全角分号也是分隔符
         e.preventDefault();
         if (q) commitText(draft);
         return;

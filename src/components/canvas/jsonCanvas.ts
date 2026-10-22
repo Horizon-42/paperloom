@@ -2,8 +2,8 @@
 // 批注、术语、论文、自由笔记都导出为 text 节点（内容为 Markdown，带原文和出处）；边的 label 用关系名。
 // 论文、术语带 Obsidian 双链，指向存储模块导出的 data/markdown/papers|terms/<名称>.md（文件名规则与之相同）。
 import { t } from "@/i18n";
-import { defaultBoardName, type CanvasExportData } from "@/services/canvasService";
-import { markdownFileNames, safeFileName } from "@/services/storage/markdown";
+import type { CanvasExportData } from "@/services/canvasService";
+import { UNTITLED_FILE, markdownFileNames, safeFileName } from "@/services/storage/markdown";
 import type { Annotation, Board, BoardNode, Note, Paper, Term } from "@/types/models";
 import { RELATION_STYLE, linksToEdges, relationText } from "./model";
 
@@ -157,13 +157,12 @@ const MAX_STEM_BYTES = 180;
 
 /**
  * 画布名 → 合法文件名主干（不含扩展名）：与存储模块的 Markdown 文件名规则相同，按 UTF-8 字节截断。
- * 清理后为空时用 fallback（缺省为当前界面语言的默认画布名）
+ * 清理后为空时用 fallback（与界面语言无关，理由同 UNTITLED_FILE）
  */
-export function sanitizeFileName(name: string, fallback = defaultBoardName()): string {
+export function sanitizeFileName(name: string, fallback = "untitled canvas"): string {
   const out = safeFileName(name, MAX_STEM_BYTES);
-  // safeFileName 在名称清理后为空时返回它自己的兜底名（随界面语言），用空串探出这个兜底名；画布本来就叫这个名字时保留
-  const emptyName = safeFileName("", MAX_STEM_BYTES);
-  return out === emptyName && name.trim() !== emptyName ? fallback : out;
+  // safeFileName 在名称清理后为空时返回 UNTITLED_FILE；画布本来就叫这个名字时保留
+  return out === UNTITLED_FILE && name.trim() !== UNTITLED_FILE ? fallback : out;
 }
 
 /**

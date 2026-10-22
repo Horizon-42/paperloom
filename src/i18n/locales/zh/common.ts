@@ -27,6 +27,9 @@ export default {
   language: {
     label: "界面语言",
     switchTitle: "切换界面语言",
+    /** 其他标签页改了界面语言时，本标签页的提示（用新语言显示） */
+    changedElsewhere: "界面语言已在其他标签页改为中文。",
+    reload: "重新加载",
   },
   time: {
     justNow: "刚刚",

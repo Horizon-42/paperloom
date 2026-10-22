@@ -253,8 +253,6 @@ export default {
   },
   /** 自动生成的 Markdown（data/markdown/、没有本地服务时下载的合并文件） */
   markdown: {
-    /** 标题清理后为空时的文件名 */
-    untitledFile: "未命名",
     /** "标签：值" */
     field: (label: string, value: string) => `${label}：${value}`,
     list: (items: readonly string[]) => items.join("、"),

@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
 // 界面多语言：默认英文界面（与浏览器语言无关），走一遍各视图和常用弹层，界面上（文字和 title/aria-label/placeholder）不能出现中文；
 // 用 EN | CN 按钮切换到中文再切回英文。本配置不设 VITE_PAPERLENS_DEFAULT_LOCALE，测的是真实的默认语言。测试数据（fixtures 里的英文 PDF）本身不含中文，所以页面上出现的中文都来自界面文案。
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -77,6 +78,8 @@ test.describe("英文界面", () => {
     await expect(page.locator('[data-testid="language-switcher"] [data-locale="zh"]')).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByTestId("storage-status")).toHaveAttribute("data-phase", "offline");
     await expectNoCjk(page, "空文库");
+    // 标签按钮的文字只有标签名（量宽度用的隐藏副本不在按钮里）
+    expect(await tabs(page).allTextContents()).toEqual(["Read", "Glossary", "Annotations", "Canvas"]);
 
     const { row, word } = await openFixture(page);
     await expectNoCjk(page, "阅读器");
@@ -156,10 +159,70 @@ test.describe("英文界面", () => {
     await expectNoCjk(page, "切回英文后");
   });
 
-  test("?lang=zh 指定语言并记住", async ({ page }) => {
+  test("?lang=zh 指定语言并记住，然后从地址里去掉", async ({ page }) => {
     await page.goto("/?lang=zh");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
     expect(await page.evaluate(() => [document.documentElement.lang, localStorage.getItem("paperlens.locale")])).toEqual(["zh-CN", "zh"]);
+    expect(new URL(page.url()).searchParams.has("lang")).toBe(false);
+  });
+
+  test("确认对话框（删除论文、导入备份覆盖）没有中文", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("library-sidebar")).toBeVisible();
+    const { row } = await openFixture(page);
+
+    await row.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Delete paper…" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expectNoCjk(page, "删除论文确认");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // 导出一份备份再导入：显示覆盖前的确认（不真的导入）
+    await page.getByTestId("storage-status").click();
+    const dialog = page.getByTestId("storage-dialog");
+    await expect(dialog).toBeVisible();
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByTestId("export-json").click()]);
+    const text = readFileSync((await download.path())!, "utf8");
+    await dialog.getByTestId("import-json-input").setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(text) });
+    await expect(dialog.getByTestId("import-preview")).toBeVisible();
+    await expectNoCjk(page, "导入覆盖确认");
+  });
+
+  test("在一个标签页切换语言：同一浏览器的其他标签页提示重新加载", async ({ page, context }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("library-sidebar")).toBeVisible();
+    const other = await context.newPage();
+    await other.goto("/");
+    await expect(other.getByTestId("library-sidebar")).toBeVisible();
+
+    await page.locator('[data-testid="language-switcher"] [data-locale="zh"]').click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+    // 另一个标签页仍是英文，提示用新语言（中文）显示
+    const notice = other.getByTestId("language-changed");
+    await expect(notice).toBeVisible();
+    await expect(notice).toHaveAttribute("lang", "zh-CN");
+    expect(await other.evaluate(() => document.documentElement.lang)).toBe("en");
+    await notice.getByRole("button").click();
+    await expect(other.locator("html")).toHaveAttribute("lang", "zh-CN");
+    await expect(other.getByTestId("language-changed")).toHaveCount(0);
+  });
+});
+
+test.describe("多语言之前就在用的浏览器", () => {
+  test("已有 PaperLens 的记录、没有选过语言：保持中文", async ({ page }) => {
+    // 模拟升级前留下的记录（只在第一次加载前写入）
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("seeded")) {
+        sessionStorage.setItem("seeded", "1");
+        localStorage.setItem("paperlens.lastProject", "default");
+      }
+    });
+    await page.goto("/");
+    await expect(page.getByTestId("library-sidebar")).toBeVisible();
+    expect(await page.evaluate(() => [document.documentElement.lang, localStorage.getItem("paperlens.locale")])).toEqual(["zh-CN", "zh"]);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   });
 });
 

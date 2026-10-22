@@ -255,7 +255,6 @@ const data: Messages["data"] = {
     },
   },
   markdown: {
-    untitledFile: "Untitled",
     field: (label, value) => `${label}: ${value}`,
     list: (items) => items.join(", "),
     authorList: (items) => items.join("; "),

@@ -42,9 +42,9 @@ function EditorLoader({ req, onClose }: { req: TermEditorRequest; onClose: () =>
 
 const MODES: readonly MatchMode[] = ["auto", "caseSensitive", "caseInsensitive"];
 
-/** 别名输入的分隔符：英文和全角的逗号、分号（全角字符写成转义，界面文案检查只认字面中文） */
+/** 别名输入的分隔符：英文和全角的逗号、分号 */
 const ALIAS_SEPARATORS = /[,\uff0c;\uff1b]/;
-const FULLWIDTH_COMMA = "\uff0c";
+const FULLWIDTH_COMMA = "\uff0c"; // i18n-ignore: 分隔符，不是界面文字
 
 /** 表面形式加引号后连成一句 */
 const quotedForms = (forms: readonly string[]) => t.common.list(forms.map((f) => `“${f}”`));

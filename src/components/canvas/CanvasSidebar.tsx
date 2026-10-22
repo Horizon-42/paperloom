@@ -139,7 +139,7 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
           {boardHasDomains && <option value="board">{t.canvas.sidebar.boardDomains}</option>}
           {domainOptions.map((n) => (
             <option key={n.domain.id} value={n.domain.id}>
-              {"\u3000".repeat(n.depth)}
+              {"\u3000".repeat(n.depth) /* i18n-ignore: 全角空格表示层级缩进 */}
               {n.domain.name}
             </option>
           ))}

@@ -1,4 +1,5 @@
-// 启动时确定语言：?lang= > localStorage > 默认（英文，与浏览器语言无关）；Worker 里从 Worker 名解析（workerKind）。
+// 启动时确定语言：?lang= > localStorage > 第一次运行时的语言（新使用者英文、与浏览器语言无关；多语言之前就在用的中文）；
+// Worker 里从 Worker 名解析（workerKind）。
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 async function freshI18n() {
@@ -25,6 +26,31 @@ describe("语言检测", () => {
     expect(m.locale).toBe("en");
   });
 
+  it("第一次运行时记下语言：之后写入的其他记录不会让它变成中文", async () => {
+    expect((await freshI18n()).locale).toBe("en");
+    expect(localStorage.getItem("paperlens.locale")).toBe("en");
+    localStorage.setItem("paperlens.lastProject", "default");
+    expect((await freshI18n()).locale).toBe("en");
+  });
+
+  it("多语言之前就在用（已有 PaperLens 的记录、没有语言选择）：保持中文并记住", async () => {
+    localStorage.setItem("paperlens.lastProject", "default");
+    localStorage.setItem("paperlens:storage:sync", "{}");
+    expect((await freshI18n()).locale).toBe("zh");
+    expect(localStorage.getItem("paperlens.locale")).toBe("zh");
+  });
+
+  it("其他网站的记录不算", async () => {
+    localStorage.setItem("other-app", "1");
+    expect((await freshI18n()).locale).toBe("en");
+  });
+
+  it("默认语言的环境变量可以带地区（zh-CN 等）", async () => {
+    const { parseLocale } = await freshI18n();
+    expect(["zh", "zh-CN", "zh_Hans", " ZH-tw ", "en-US", "EN"].map(parseLocale)).toEqual(["zh", "zh", "zh", "zh", "en", "en"]);
+    expect(["fr", "", "chinese", undefined, null].map(parseLocale)).toEqual([undefined, undefined, undefined, undefined, undefined]);
+  });
+
   it("切换按钮的顺序和缩写来自语言配置", async () => {
     const { LOCALES } = await freshI18n();
     expect(LOCALES.map((l) => l.short)).toEqual(["EN", "CN"]);
@@ -37,6 +63,8 @@ describe("语言检测", () => {
     expect(m.locale).toBe("en");
     expect(m.t.common.ok).toBe("OK");
     expect(localStorage.getItem("paperlens.locale")).toBe("en");
+    // 记住之后从地址里去掉，其他参数不变
+    expect(window.location.search).toBe("?project=default");
   });
 
   it("Worker 里从 Worker 名解析语言（workerKind + workerName）", async () => {

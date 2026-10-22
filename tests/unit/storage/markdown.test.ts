@@ -149,7 +149,7 @@ describe("英文界面：生成的 Markdown 跟随界面语言，文件名不变
     expect(byName.get("terms/C++ CLI.md")).toContain("_(No notes yet)_");
 
     const paper = byName.get("papers/LSTM A Search Space Odyssey.md")!;
-    expect(paper).toContain("- Authors: Klaus Greff, Rupesh Srivastava");
+    expect(paper).toContain("- Authors: Klaus Greff; Rupesh Srivastava");
     expect(paper).toContain("- Year: 2017");
     expect(paper).toContain("- Pages: 12");
     expect(paper).toContain("## Annotations (3)");

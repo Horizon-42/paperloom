@@ -1,0 +1,32 @@
+.md-content {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.md-content > :first-child { margin-top: 0; }
+.md-content > :last-child { margin-bottom: 0; }
+.md-content p,
+.md-content ul,
+.md-content ol,
+.md-content pre,
+.md-content blockquote { margin: 0.4em 0; }
+.md-content ul { list-style: disc; padding-left: 1.25em; }
+.md-content ol { list-style: decimal; padding-left: 1.25em; }
+.md-content h1,
+.md-content h2,
+.md-content h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
+.md-content h1 { font-size: 1.15em; }
+.md-content h2 { font-size: 1.08em; }
+.md-content h3 { font-size: 1em; }
+.md-content a { color: var(--color-blue-600); text-decoration: underline; }
+.md-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--color-neutral-100);
+  border-radius: 3px;
+  padding: 0 0.25em;
+}
+.md-content pre { background: var(--color-neutral-100); border-radius: 4px; padding: 0.5em; overflow-x: auto; }
+.md-content pre code { background: none; padding: 0; }
+.md-content blockquote { border-left: 3px solid var(--color-neutral-300); padding-left: 0.6em; color: var(--color-neutral-600); }
+.md-content .katex-display { margin: 0.4em 0; overflow-x: auto; overflow-y: hidden; }

@@ -1,0 +1,164 @@
+// 关系选择浮层：新建连线时选择关系类型，点击已有连线时修改或删除（删除是全局的，要二次确认）。
+import { useState } from "react";
+import * as Popover from "@radix-ui/react-popover";
+import { RELATIONS, RELATION_LABELS } from "@/services/linkService";
+import type { LinkRelation } from "@/types/models";
+import { RELATION_STYLE } from "./model";
+import { btnDanger, btnGhost, btnPrimary, cx, input } from "./ui";
+
+export interface RelationPickerProps {
+  /** 浮层锚点（client 坐标） */
+  anchor: { x: number; y: number };
+  mode: "create" | "edit";
+  initial: { relation: LinkRelation; label?: string };
+  /** 两端的标题，显示在顶部 */
+  endpoints?: { from: string; to: string };
+  /** reverse：编辑时选择了调换方向 */
+  onSubmit: (relation: LinkRelation, label: string, reverse: boolean) => void;
+  onDelete?: () => void;
+  onClose: () => void;
+}
+
+function Swatch({ relation }: { relation: LinkRelation }) {
+  const s = RELATION_STYLE[relation];
+  return (
+    <svg width="22" height="8" aria-hidden className="shrink-0">
+      <line x1="1" y1="4" x2="21" y2="4" stroke={s.color} strokeWidth="2" strokeDasharray={s.dash} />
+    </svg>
+  );
+}
+
+export function RelationPicker({ anchor, mode, initial, endpoints, onSubmit, onDelete, onClose }: RelationPickerProps) {
+  const [relation, setRelation] = useState<LinkRelation>(initial.relation);
+  const [label, setLabel] = useState(initial.label ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reverse, setReverse] = useState(false);
+  const ends = endpoints && reverse ? { from: endpoints.to, to: endpoints.from } : endpoints;
+
+  const submit = () => {
+    if (relation === "custom" && !label.trim()) {
+      setError("自定义关系需要填写文字");
+      return;
+    }
+    onSubmit(relation, label.trim(), reverse);
+  };
+
+  return (
+    <Popover.Root open onOpenChange={(o) => !o && onClose()}>
+      <Popover.Anchor asChild>
+        <div style={{ position: "fixed", left: anchor.x, top: anchor.y, width: 1, height: 1, pointerEvents: "none" }} />
+      </Popover.Anchor>
+      <Popover.Portal>
+        <Popover.Content
+          side="bottom"
+          align="center"
+          sideOffset={6}
+          collisionPadding={12}
+          className="nokey z-50 w-[300px] rounded-lg border border-neutral-200 bg-white p-3 text-[13px] shadow-xl"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !(e.target instanceof HTMLButtonElement)) {
+              e.preventDefault();
+              if (!confirmDelete) submit();
+            }
+          }}
+          data-relation-picker={mode}
+        >
+          {confirmDelete ? (
+            <div data-confirm-delete-link>
+              <div className="mb-1 font-medium text-neutral-900">删除这条连线？</div>
+              <p className="mb-3 text-[12.5px] leading-relaxed text-neutral-500">
+                连线是全局的：删除后会从<strong className="font-medium text-neutral-700">所有画布</strong>和术语弹窗的
+                <strong className="font-medium text-neutral-700">「相关笔记」</strong>中一起消失。两端的条目不受影响。
+              </p>
+              <div className="flex justify-end gap-1.5">
+                <button type="button" className={cx(btnGhost, "h-7 px-2.5 text-[12.5px]")} onClick={() => setConfirmDelete(false)}>
+                  取消
+                </button>
+                <button type="button" className={cx(btnDanger, "h-7 px-2.5 text-[12.5px]")} onClick={() => onDelete?.()} autoFocus>
+                  删除连线
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-2 font-medium text-neutral-900">{mode === "create" ? "新建连线" : "修改连线"}</div>
+              {ends && (
+                <div className="mb-2 flex items-center gap-1.5 text-[11.5px] text-neutral-500" data-link-ends>
+                  <span className="min-w-0 flex-1 truncate" title={ends.from}>
+                    {ends.from}
+                  </span>
+                  {mode === "edit" ? (
+                    <button
+                      type="button"
+                      className={cx("shrink-0 rounded px-1 hover:bg-neutral-100", reverse && "bg-blue-50 text-blue-700")}
+                      title="调换方向"
+                      aria-label="调换方向"
+                      aria-pressed={reverse}
+                      onClick={() => setReverse((r) => !r)}
+                    >
+                      ⇄
+                    </button>
+                  ) : (
+                    <span className="shrink-0">→</span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-right" title={ends.to}>
+                    {ends.to}
+                  </span>
+                </div>
+              )}
+              <div className="mb-2 grid grid-cols-3 gap-1" role="radiogroup" aria-label="关系">
+                {RELATIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    role="radio"
+                    aria-checked={relation === r}
+                    className={cx(
+                      "flex items-center gap-1 rounded-md border px-1.5 py-1 text-[12px]",
+                      relation === r ? "border-blue-300 bg-blue-50 text-blue-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50",
+                    )}
+                    onClick={() => {
+                      setRelation(r);
+                      setError(null);
+                    }}
+                  >
+                    <Swatch relation={r} />
+                    {RELATION_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+              <input
+                className={cx(input, "h-7 text-[12.5px]")}
+                placeholder={relation === "custom" ? "关系文字（必填）" : "备注（可选）"}
+                value={label}
+                autoFocus={mode === "create"}
+                onChange={(e) => {
+                  setLabel(e.target.value);
+                  setError(null);
+                }}
+                aria-label="关系文字"
+                data-relation-label
+              />
+              {error && <div className="mt-1 text-[11.5px] text-red-600">{error}</div>}
+              <div className="mt-3 flex items-center gap-1.5">
+                {mode === "edit" && onDelete && (
+                  <button type="button" className={cx(btnGhost, "h-7 px-2 text-[12.5px] text-red-600 hover:bg-red-50")} onClick={() => setConfirmDelete(true)}>
+                    删除连线…
+                  </button>
+                )}
+                <span className="flex-1" />
+                <button type="button" className={cx(btnGhost, "h-7 px-2.5 text-[12.5px]")} onClick={onClose}>
+                  取消
+                </button>
+                <button type="button" className={cx(btnPrimary, "h-7 px-3 text-[12.5px]")} onClick={submit}>
+                  {mode === "create" ? "连线" : "保存"}
+                </button>
+              </div>
+            </>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}

@@ -1,0 +1,159 @@
+/* 阅读器页面结构 + pdf.js 文本层样式。
+   文本层规则摘自 pdfjs-dist 6 的 web/pdf_viewer.css（.textLayer 部分），去掉了高亮、图片等用不到的规则。
+   依赖的 CSS 变量由 .pl-page 提供：--scale-factor、--user-unit、--total-scale-factor、--scale-round-x/y。 */
+
+.pl-page {
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  position: relative;
+  flex: none;
+  direction: ltr;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.06),
+    0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.pl-canvas-host {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+.pl-canvas-host canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  margin: 0;
+}
+
+.pl-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pl-layer-under {
+  z-index: 1;
+  /* 高亮、下划线画在文字下面，用正片叠底与 canvas 混合，文字保持原色。
+     本层是层叠上下文（z-index），混合必须设在这一层上才能作用到 canvas */
+  mix-blend-mode: multiply;
+}
+
+.pl-text-host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.pl-layer-over {
+  z-index: 3;
+}
+
+.pl-margin {
+  position: relative;
+  flex: none;
+  overflow: visible;
+}
+
+/* ---- pdf.js TextLayer ---- */
+
+.textLayer {
+  color-scheme: only light;
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 0;
+
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+/* 旋转页：文本层按未旋转的页面排版，再整体旋转到位（与 pdf_viewer.css 一致） */
+.textLayer[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.textLayer[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.textLayer[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  /* 浏览器连字（fi、fl）会在设置 letter-spacing 后失效，导致词级校正量算错；统一关掉 */
+  font-variant-ligatures: none;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}
+
+/* 词级校正（wordFix.ts）拆出的子 span：随父 span 排版，只设置 letter-spacing */
+.textLayer span.pl-seg {
+  position: static !important;
+  transform: none !important;
+  font-size: inherit !important;
+}
+
+.textLayer span[role="img"] {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.textLayer ::selection {
+  background: rgba(0 0 255 / 0.25);
+  background: color-mix(in srgb, AccentColor, transparent 50%);
+  color: transparent;
+}
+
+.textLayer br::selection {
+  background: transparent;
+}
+
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.textLayer.selecting .endOfContent {
+  top: 0;
+}

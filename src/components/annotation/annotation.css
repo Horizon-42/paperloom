@@ -1,0 +1,51 @@
+/* 批注模块样式 */
+
+.pl-hl-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.pl-hl {
+  position: absolute;
+  border-radius: 1.5px;
+}
+
+.pl-hl[data-selected],
+.pl-hl[data-hover] {
+  box-shadow: 0 0 0 1.5px var(--hl-strong);
+}
+
+.pl-hl[data-flash] {
+  animation: pl-hl-flash 0.45s ease-in-out 4;
+}
+
+@keyframes pl-hl-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1.5px var(--hl-strong);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--hl-strong);
+    filter: saturate(2.5) brightness(0.9);
+  }
+}
+
+.pl-card {
+  transition:
+    top 140ms ease-out,
+    box-shadow 120ms;
+}
+
+.pl-card[data-flash] {
+  animation: pl-card-flash 0.45s ease-in-out 4;
+}
+
+@keyframes pl-card-flash {
+  50% {
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.45);
+  }
+}
+
+.pl-marker {
+  transition: top 140ms ease-out;
+}

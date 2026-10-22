@@ -1,0 +1,97 @@
+/* 笔记画布：React Flow 覆盖样式、节点手柄、定位闪烁 */
+
+.pl-canvas .react-flow__node {
+  /* 节点外观由组件自己画 */
+  border-radius: 8px;
+}
+
+/* 连线手柄：每条边中间 40% 的透明热区（14px 宽，跨在边框上），中心画一个圆点；悬停或选中节点时显示圆点 */
+.pl-canvas .pl-chandle {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  min-width: 0;
+  min-height: 0;
+}
+.pl-canvas .pl-chandle.react-flow__handle-top,
+.pl-canvas .pl-chandle.react-flow__handle-bottom {
+  width: 40%;
+  min-width: 28px;
+  height: 14px;
+}
+.pl-canvas .pl-chandle.react-flow__handle-left,
+.pl-canvas .pl-chandle.react-flow__handle-right {
+  width: 14px;
+  height: 40%;
+  min-height: 28px;
+}
+.pl-canvas .pl-chandle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  background: #3b82f6;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.pl-canvas .react-flow__node:hover .pl-chandle::after,
+.pl-canvas .react-flow__node.selected .pl-chandle::after {
+  opacity: 1;
+}
+.pl-canvas .pl-chandle:hover {
+  background: rgb(59 130 246 / 0.14);
+}
+/* 拖出连线时，整个节点都是落点 */
+.pl-canvas .pl-cdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  opacity: 1;
+  z-index: 5;
+}
+.pl-canvas .pl-cdrop.connectingto,
+.pl-canvas .pl-cdrop.valid {
+  background: rgb(59 130 246 / 0.08);
+  box-shadow: inset 0 0 0 2px rgb(59 130 246 / 0.6);
+}
+
+.pl-cnode[data-flash] {
+  animation: pl-cnode-flash 1.6s ease-out;
+}
+@keyframes pl-cnode-flash {
+  0%,
+  40% {
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.75), 0 4px 16px rgb(59 130 246 / 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0);
+  }
+}
+
+.pl-canvas .react-flow__edge.selected .react-flow__edge-path {
+  filter: drop-shadow(0 0 2px rgb(59 130 246 / 0.6));
+}
+
+.pl-elabel {
+  pointer-events: all;
+}
+
+/* 节点内的 Markdown 字号略小 */
+.pl-cnode .md-content {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.pl-cnode .md-content p {
+  margin: 0.2em 0;
+}

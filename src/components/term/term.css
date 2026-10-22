@@ -1,0 +1,90 @@
+/* 术语下划线（under-text 覆盖层）。每段 = 匹配在一行上的屏幕矩形，虚线画在 PDF 下边对应的屏幕边上 */
+
+.pl-term-layer {
+  position: absolute;
+  inset: 0;
+  --pl-ul: 1px;
+  --pl-ul-color: rgb(37 99 235 / 0.8);
+}
+
+.pl-term-ul {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+.pl-term-ul::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--pl-ul);
+  background-image: linear-gradient(to right, var(--pl-ul-color) 60%, transparent 60%);
+  background-size: calc(var(--pl-ul) * 4) 100%;
+  background-repeat: repeat-x;
+}
+
+.pl-term-ul[data-edge="top"]::after {
+  top: 0;
+  bottom: auto;
+}
+
+.pl-term-ul:is([data-edge="left"], [data-edge="right"])::after {
+  top: 0;
+  bottom: 0;
+  height: auto;
+  width: var(--pl-ul);
+  background-image: linear-gradient(to bottom, var(--pl-ul-color) 60%, transparent 60%);
+  background-size: 100% calc(var(--pl-ul) * 4);
+  background-repeat: repeat-y;
+}
+.pl-term-ul[data-edge="left"]::after {
+  left: 0;
+  right: auto;
+}
+.pl-term-ul[data-edge="right"]::after {
+  left: auto;
+  right: 0;
+}
+
+/* 同时命中多个术语（同一缩写在不同领域）：琥珀色 */
+.pl-term-ul[data-multi] {
+  --pl-ul-color: rgb(217 119 6 / 0.9);
+}
+
+/* 弹窗正锚在这一处 */
+.pl-term-ul[data-active] {
+  background: rgb(59 130 246 / 0.14);
+  mix-blend-mode: multiply;
+}
+.pl-term-ul[data-active]::after {
+  background-image: none;
+  background-color: var(--pl-ul-color);
+}
+
+/* 跳转定位后的闪烁 */
+.pl-term-flash {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  background: rgb(250 204 21 / 0.55);
+  box-shadow: 0 0 0 2px rgb(234 179 8 / 0.6);
+  mix-blend-mode: multiply;
+  animation: pl-term-flash 1.6s ease-out forwards;
+}
+
+@keyframes pl-term-flash {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 指针在术语上：文本层的 I 形光标换成手形（仍可从这里开始拖选） */
+.pl-page[data-term-hover] .textLayer span {
+  cursor: pointer;
+}

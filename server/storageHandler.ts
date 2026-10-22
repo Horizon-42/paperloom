@@ -499,7 +499,8 @@ export function candidatePaths(rawUrl: string, root: string): string[] {
  * 存储接口本身由 createStorageHandler 处理（挂在它前面），这里不为 /__paperlens 开例外。
  */
 export function createDataDirGuard(root: string, dataDir: string): Middleware {
-  const fold = process.platform === "darwin" || process.platform === "win32" ? (p: string) => p.toLowerCase() : (p: string) => p;
+  // 所有平台都忽略大小写：macOS、Windows 不区分大小写；Linux 上多拦一些无害，各平台行为一致
+  const fold = (p: string) => p.toLowerCase();
   // 同时比较字面路径和真实路径：macOS 的 /var → /private/var、项目里指向数据目录的符号链接等
   const both = (p: string) => [...new Set([path.resolve(p), realpathNearest(p)].map(fold))];
   const backupPrefix = fold(MIGRATION_BACKUP_PREFIX);

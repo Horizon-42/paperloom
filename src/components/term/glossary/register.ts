@@ -24,7 +24,9 @@ function rank(t: Term, raw: string, tokens: string[]): number {
 
 registerSearchProvider({
   kind: "term",
-  label: t.term.searchLabel,
+  get label() {
+    return t.term.searchLabel;
+  },
   order: 2,
   limit: 50,
   async search(q) {

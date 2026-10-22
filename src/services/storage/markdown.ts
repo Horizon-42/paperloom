@@ -272,7 +272,7 @@ function paperFile(m: Model, p: Paper): string {
   ];
   const L = ui.data.markdown;
   const meta: string[] = [];
-  if (p.authors.length) meta.push(`- ${L.field(L.authors, L.list(p.authors))}`);
+  if (p.authors.length) meta.push(`- ${L.field(L.authors, L.authorList(p.authors))}`);
   if (p.year !== undefined) meta.push(`- ${L.field(L.year, String(p.year))}`);
   if (paths.length) meta.push(`- ${L.field(L.domains, escapeInline(domainList(paths)))}`);
   if (userTags.length) meta.push(`- ${L.field(L.tags, escapeInline(L.list(userTags)))}`);
@@ -328,7 +328,7 @@ export function buildCombinedMarkdown(input: MarkdownInput, exportedAt: number):
   for (const p of m.papers) {
     out.push(`### ${p.title}`, "");
     const facts: string[] = [];
-    if (p.authors.length) facts.push(L.field(L.authors, L.list(p.authors)));
+    if (p.authors.length) facts.push(L.field(L.authors, L.authorList(p.authors)));
     if (p.year !== undefined) facts.push(L.field(L.year, String(p.year)));
     const paths = domainPaths(m, p.domainIds);
     if (paths.length) facts.push(L.field(L.domains, escapeInline(domainList(paths))));

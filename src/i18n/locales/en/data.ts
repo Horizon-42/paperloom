@@ -1,10 +1,12 @@
 // data 模块的界面文案（英文）。结构必须与 zh/data.ts 一致，由类型检查保证。
 import type { Messages } from "../zh";
 
+/** "once"、"3 times" */
+const times = (n: number) => (n === 1 ? "once" : `${n} times`);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const TABLES: Record<string, [string, string]> = {
-  domains: ["domain", "domains"],
+  domains: ["field", "fields"],
   papers: ["paper", "papers"],
   annotations: ["annotation", "annotations"],
   terms: ["term", "terms"],
@@ -108,7 +110,7 @@ const data: Messages["data"] = {
           plural(c.terms, "term"),
           plural(c.annotations, "annotation"),
           plural(c.boards, "canvas", "canvases"),
-          ...(c.domains ? [plural(c.domains, "domain")] : []),
+          ...(c.domains ? [plural(c.domains, "field")] : []),
         ])}`,
       exportedAt: (when) => ` (exported ${when})`,
       warnOnline: (dir) => `Importing replaces all data in this browser. Your current data is backed up to ${dir}/backups/ first.`,
@@ -256,21 +258,22 @@ const data: Messages["data"] = {
     untitledFile: "Untitled",
     field: (label, value) => `${label}: ${value}`,
     list: (items) => items.join(", "),
+    authorList: (items) => items.join("; "),
     longList: (items) => items.join("; "),
     pages: (pages, more) => pages.join(", ") + (more ? ", …" : ""),
     aliases: "Aliases",
     scope: "Scope",
-    domainDeleted: "(domain deleted)",
+    domainDeleted: "(field deleted)",
     noNote: "_(No notes yet)_",
     appearsIn: "Appears in",
     notFoundYet: "_(Not found in the library yet)_",
-    occurrences: (count, pages) => `${plural(count, "time")} (${pages.includes(",") ? "pp." : "p."} ${pages})`,
-    countIn: (title, count) => `${title} (${plural(count, "time")})`,
+    occurrences: (count, pages) => `${times(count)} (${pages.includes(",") ? "pp." : "p."} ${pages})`,
+    countIn: (title, count) => `${title} (${times(count)})`,
     orphaned: "_(Passage not found after the PDF was replaced)_",
     term: "Term",
     authors: "Authors",
     year: "Year",
-    domains: "Domains",
+    domains: "Fields",
     tags: "Tags",
     pageCount: "Pages",
     annotations: (n) => `Annotations (${n})`,

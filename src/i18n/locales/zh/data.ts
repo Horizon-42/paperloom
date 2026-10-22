@@ -258,6 +258,8 @@ export default {
     /** "标签：值" */
     field: (label: string, value: string) => `${label}：${value}`,
     list: (items: readonly string[]) => items.join("、"),
+    /** 作者列表（英文作者名可能是 "Last, First"，所以英文用分号分隔） */
+    authorList: (items: readonly string[]) => items.join("、"),
     /** 领域路径等较长的项之间 */
     longList: (items: readonly string[]) => items.join("；"),
     /** 页码列表；more 表示后面还有 */

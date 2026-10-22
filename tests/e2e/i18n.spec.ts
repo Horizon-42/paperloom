@@ -21,6 +21,10 @@ function cjkOnPage(): string[] {
     const text = n.textContent ?? "";
     if (CJK.test(text) && n.parentElement && visible(n.parentElement)) out.add(`${n.parentElement.tagName.toLowerCase()}: ${text.trim().slice(0, 80)}`);
   }
+  // 下拉框的选项不可见时也算（展开后就会显示）
+  for (const o of Array.from(document.querySelectorAll("option"))) {
+    if (CJK.test(o.textContent ?? "")) out.add(`option: ${(o.textContent ?? "").trim().slice(0, 80)}`);
+  }
   for (const el of Array.from(document.querySelectorAll("[title],[aria-label],[placeholder],[alt]"))) {
     for (const a of ["title", "aria-label", "placeholder", "alt"]) {
       const v = el.getAttribute(a);
@@ -37,6 +41,17 @@ async function expectNoCjk(page: Page, where: string) {
 }
 
 const tabs = (page: Page) => page.locator('[data-testid="library-sidebar"] [role="tablist"] [role="tab"]');
+
+/** 在文字片段中间横向拖选，出现选区工具栏 */
+async function selectInSpan(page: Page, span: ReturnType<Page["locator"]>) {
+  const b = (await span.boundingBox())!;
+  const y = b.y + b.height / 2;
+  await page.mouse.move(b.x + b.width * 0.1, y);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width * 0.6, y, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator("[data-annotation-toolbar]")).toBeVisible();
+}
 
 async function openFixture(page: Page) {
   await page.getByTestId("import-input").setInputFiles(simplePdf);
@@ -61,15 +76,17 @@ test.describe("英文界面", () => {
     const { row, word } = await openFixture(page);
     await expectNoCjk(page, "阅读器");
 
-    // 选区工具栏 → 高亮
-    const b = (await word.boundingBox())!;
-    const y = b.y + b.height / 2;
-    await page.mouse.move(b.x + b.width * 0.1, y);
-    await page.mouse.down();
-    await page.mouse.move(b.x + b.width * 0.6, y, { steps: 5 });
-    await page.mouse.up();
-    await expect(page.locator("[data-annotation-toolbar]")).toBeVisible();
+    // 选区工具栏 → 设为术语：术语编辑器
+    await selectInSpan(page, word);
     await expectNoCjk(page, "选区工具栏");
+    await page.locator('[data-annotation-toolbar] [data-action="term"]').click();
+    await expect(page.locator("[data-term-editor]")).toBeVisible();
+    await expectNoCjk(page, "术语编辑器");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-term-editor]")).toHaveCount(0);
+
+    // 选区工具栏 → 高亮
+    await selectInSpan(page, word);
     await page.locator("[data-annotation-toolbar] [data-color]").first().click();
     await expect(page.locator(".pl-hl")).toHaveCount(1);
     await expectNoCjk(page, "高亮之后");
@@ -100,6 +117,18 @@ test.describe("英文界面", () => {
       await page.waitForTimeout(500);
       await expectNoCjk(page, `主视图 ${i}`);
     }
+
+    // 画布：新建对话框、新建后的画布
+    await expect(page.locator("[data-create-first-board]")).toBeVisible();
+    await page.locator("[data-create-first-board]").click();
+    const nameInput = page.locator('[data-canvas-dialog="board-name"] input');
+    await expect(nameInput).toBeVisible();
+    await expectNoCjk(page, "新建画布对话框");
+    await nameInput.fill("Board A");
+    await nameInput.press("Enter");
+    await expect(page.locator("[data-canvas-flow]")).toBeVisible();
+    await page.waitForTimeout(500);
+    await expectNoCjk(page, "画布");
   });
 
   test("切换到中文、再切回英文；选择在重新加载后保留", async ({ page }) => {

@@ -1,7 +1,7 @@
 // 文库侧栏：项目切换、导入、全局搜索、视图切换、领域树、论文列表、标签编辑弹层
-import { t } from "@/i18n";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { t } from "@/i18n";
 import { useAppStore, type MainView } from "@/app/stores/app";
 import { SIDEBAR_DEFAULT_WIDTH, useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
@@ -71,8 +71,6 @@ const VIEWS: { value: MainView & keyof typeof t.library.sidebar.views; Icon: typ
 
 function SidebarHeader() {
   const fileInput = useRef<HTMLInputElement>(null);
-  const view = useAppStore((s) => s.view);
-  const setView = useAppStore((s) => s.setView);
 
   return (
     <div className="space-y-2.5 px-3 pb-2.5 pt-3">
@@ -106,24 +104,69 @@ function SidebarHeader() {
 
       <SearchBox />
 
-      <div role="tablist" aria-label={t.library.sidebar.viewsLabel} className="grid grid-cols-3 gap-0.5 rounded-lg bg-neutral-200/60 p-0.5">
-        {VIEWS.map(({ value, Icon }) => (
+      <ViewTabs />
+    </div>
+  );
+}
+
+/** 图标 + 间距、每个标签的左右内边距（与下面的类名一致） */
+const TAB_ICON_PX = 13 + 4;
+const TAB_PAD_PX = 2 * 6;
+
+/**
+ * 主视图标签排成一行，按放得下的程度依次退化：图标 + 文字 → 只有文字 → 只有图标（文字放进 title）。
+ * 按文字的实际宽度判断，与语言无关（较长的语言、较窄的侧栏都适用）。
+ */
+function ViewTabs() {
+  const view = useAppStore((s) => s.view);
+  const setView = useAppStore((s) => s.setView);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<"full" | "text" | "icon">("full");
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const check = () => {
+      // 只有图标时文字不渲染，量不到宽度：用隐藏的量尺（始终渲染、不占位）
+      const labels = Array.from(list.querySelectorAll<HTMLElement>("[data-tab-measure]"));
+      const cs = getComputedStyle(list);
+      const fixed = (parseFloat(cs.columnGap) || 0) * (labels.length - 1) + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + labels.length * TAB_PAD_PX;
+      const text = labels.reduce((sum, el) => sum + el.scrollWidth, 0) + fixed;
+      const width = list.clientWidth;
+      setMode(width >= text + labels.length * TAB_ICON_PX ? "full" : width >= text ? "text" : "icon");
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={listRef} role="tablist" aria-label={t.library.sidebar.viewsLabel} className="relative flex gap-0.5 rounded-lg bg-neutral-200/60 p-0.5" data-mode={mode}>
+      {VIEWS.map(({ value, Icon }) => {
+        const label = t.library.sidebar.views[value];
+        return (
           <button
             key={value}
             type="button"
             role="tab"
             aria-selected={view === value}
+            aria-label={mode === "icon" ? label : undefined}
             onClick={() => setView(value)}
+            title={mode === "icon" ? label : undefined}
             className={cx(
-              "flex h-6 items-center justify-center gap-1 rounded-md text-[12px] transition-colors",
+              "flex h-6 min-w-0 flex-auto items-center justify-center gap-1 rounded-md px-1.5 text-[12px] transition-colors",
               view === value ? "bg-white font-medium text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-800",
             )}
           >
-            <Icon width={13} height={13} />
-            {t.library.sidebar.views[value]}
+            {mode !== "text" && <Icon width={13} height={13} className="shrink-0" />}
+            {mode !== "icon" && <span className="truncate">{label}</span>}
+            <span data-tab-measure aria-hidden className="pointer-events-none invisible absolute whitespace-nowrap font-medium">
+              {label}
+            </span>
           </button>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }

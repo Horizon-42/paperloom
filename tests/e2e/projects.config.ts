@@ -22,28 +22,28 @@ export default defineConfig({
   timeout: 120_000,
   // 用例共用服务和数据目录，串行执行
   workers: 1,
-  use: { locale: "zh-CN", trace: "retain-on-failure" },
+  use: { trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {
       command: "npx vite --port 5401 --strictPort",
       url: "http://localhost:5401",
       cwd: root,
-      env: { PAPERLENS_DATA_DIR: join(tmpRoot, "a", "data"), PAPERLENS_STORAGE: "on" },
+      env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_DATA_DIR: join(tmpRoot, "a", "data"), PAPERLENS_STORAGE: "on" },
       reuseExistingServer: false,
     },
     {
       command: "npx vite --port 5402 --strictPort",
       url: "http://localhost:5402",
       cwd: root,
-      env: { PAPERLENS_DATA_DIR: join(tmpRoot, "b", "data"), PAPERLENS_STORAGE: "on" },
+      env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_DATA_DIR: join(tmpRoot, "b", "data"), PAPERLENS_STORAGE: "on" },
       reuseExistingServer: false,
     },
     {
       command: "npx vite --port 5403 --strictPort",
       url: "http://localhost:5403",
       cwd: root,
-      env: { PAPERLENS_STORAGE: "off" },
+      env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_STORAGE: "off" },
       reuseExistingServer: false,
     },
   ],

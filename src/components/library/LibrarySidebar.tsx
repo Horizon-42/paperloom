@@ -97,12 +97,16 @@ function SidebarHeader() {
             e.target.value = "";
           }}
         />
-        <LanguageSwitcher />
       </div>
 
       <ProjectRegistryBanner />
 
-      <SearchBox />
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <SearchBox />
+        </div>
+        <LanguageSwitcher />
+      </div>
 
       <ViewTabs />
     </div>

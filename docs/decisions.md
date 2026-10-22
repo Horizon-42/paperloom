@@ -111,7 +111,9 @@
 
 - **不引入 i18n 库**：文案是普通的 TS 对象，`src/i18n/locales/zh/<模块>.ts` 是结构来源，`en/` 的类型是 `Messages[<模块>]`，缺一条、多一条、参数不对都过不了类型检查。
   带参数的文案写成函数，英文的单复数在函数里处理；需要嵌元素的句子用 `{占位符}` + `<Trans>`。
-- **语言在页面启动时确定一次**：`?lang=` > 本浏览器的选择（localStorage `paperlens.locale`，与项目无关）> 浏览器语言（zh* → 中文）> 英文。
+- **语言在页面启动时确定一次**：`?lang=` > 本浏览器的选择（localStorage `paperlens.locale`，与项目无关）> 默认语言。
+  默认语言是英文，**不看浏览器语言**（2026-10-22 按用户要求）；构建/开发时可用 `VITE_PAPERLENS_DEFAULT_LOCALE=zh` 改，测试服务器都这样设，因为现有测试按中文界面断言。
+  切换按钮是侧栏搜索框右边的 EN | CN 分段按钮（缩写来自 `LOCALES[].short`），当前语言高亮，点另一个即切换。
   切换语言 = 先尽量保存、再重新加载页面（与切换项目相同），所以 `t` 可以在模块加载时读取，不需要 React context。
 - **Worker** 读不到 localStorage：Worker 名里带语言（`workerKind`，如 `paperlens-storage~en@default`），Worker 里从 `self.name` 解析。
 - **只翻译界面**：论文标题、笔记等用户数据不翻译。新建时自动起的名字（"未命名画布"等）按当时的界面语言生成，之后就是数据，不随语言切换变化。

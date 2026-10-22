@@ -1,4 +1,4 @@
-// 启动时确定语言：?lang= > localStorage > 浏览器语言；Worker 里从 Worker 名解析（workerKind）。
+// 启动时确定语言：?lang= > localStorage > 默认（英文，与浏览器语言无关）；Worker 里从 Worker 名解析（workerKind）。
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 async function freshI18n() {
@@ -13,15 +13,21 @@ describe("语言检测", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("本浏览器的选择优先于浏览器语言", async () => {
-    localStorage.setItem("paperlens.locale", "en");
-    vi.stubGlobal("navigator", { ...navigator, languages: ["zh-CN"], language: "zh-CN" });
-    expect((await freshI18n()).locale).toBe("en");
+  it("本浏览器的选择优先于默认语言", async () => {
+    localStorage.setItem("paperlens.locale", "zh");
+    expect((await freshI18n()).locale).toBe("zh");
   });
 
-  it("没有选择时按浏览器语言", async () => {
-    vi.stubGlobal("navigator", { ...navigator, languages: ["zh-TW", "en"], language: "zh-TW" });
-    expect((await freshI18n()).locale).toBe("zh");
+  it("没有选择时默认英文，即使浏览器是中文", async () => {
+    vi.stubGlobal("navigator", { ...navigator, languages: ["zh-CN", "zh"], language: "zh-CN" });
+    const m = await freshI18n();
+    expect(m.DEFAULT_LOCALE).toBe("en");
+    expect(m.locale).toBe("en");
+  });
+
+  it("切换按钮的顺序和缩写来自语言配置", async () => {
+    const { LOCALES } = await freshI18n();
+    expect(LOCALES.map((l) => l.short)).toEqual(["EN", "CN"]);
   });
 
   it("?lang= 优先，并记住", async () => {
@@ -35,12 +41,13 @@ describe("语言检测", () => {
 
   it("Worker 里从 Worker 名解析语言（workerKind + workerName）", async () => {
     vi.stubGlobal("WorkerGlobalScope", function WorkerGlobalScope() {});
-    vi.stubGlobal("name", "paperlens-storage~en@proj-1");
-    vi.stubGlobal("navigator", { ...navigator, languages: ["zh-CN"], language: "zh-CN" });
-    expect((await freshI18n()).locale).toBe("en");
     vi.stubGlobal("name", "paperlens-indexer~zh@default");
-    vi.stubGlobal("navigator", { ...navigator, languages: ["en-US"], language: "en-US" });
     expect((await freshI18n()).locale).toBe("zh");
+    vi.stubGlobal("name", "paperlens-storage~en@proj-1");
+    expect((await freshI18n()).locale).toBe("en");
+    // 名字里没有语言（旧的 Worker 名）：默认语言
+    vi.stubGlobal("name", "paperlens-storage@proj-1");
+    expect((await freshI18n()).locale).toBe("en");
   });
 
   it("workerKind 生成的名字仍能解析出项目 id", async () => {

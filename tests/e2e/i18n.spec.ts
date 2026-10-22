@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-// 界面多语言：英文浏览器默认英文界面，走一遍各视图和常用弹层，界面上（文字和 title/aria-label/placeholder）不能出现中文；
-// 切换到中文再切回英文。测试数据（fixtures 里的英文 PDF）本身不含中文，所以页面上出现的中文都来自界面文案。
+// 界面多语言：默认英文界面（与浏览器语言无关），走一遍各视图和常用弹层，界面上（文字和 title/aria-label/placeholder）不能出现中文；
+// 用 EN | CN 按钮切换到中文再切回英文。本配置不设 VITE_PAPERLENS_DEFAULT_LOCALE，测的是真实的默认语言。测试数据（fixtures 里的英文 PDF）本身不含中文，所以页面上出现的中文都来自界面文案。
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -10,6 +10,8 @@ const simplePdf = fileURLToPath(new URL("../../fixtures/simple.pdf", import.meta
 function cjkOnPage(): string[] {
   const CJK = /[　-〿㐀-鿿＀-￯]/;
   const out = new Set<string>();
+  // 标了 lang="zh…" 的元素（语言切换按钮上的"中文"）是有意用中文写的语言名
+  const zhMarked = (el: Element | null) => !!el?.closest('[lang^="zh"]');
   const visible = (el: Element) => {
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return false;
@@ -19,13 +21,14 @@ function cjkOnPage(): string[] {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const text = n.textContent ?? "";
-    if (CJK.test(text) && n.parentElement && visible(n.parentElement)) out.add(`${n.parentElement.tagName.toLowerCase()}: ${text.trim().slice(0, 80)}`);
+    if (CJK.test(text) && n.parentElement && visible(n.parentElement) && !zhMarked(n.parentElement)) out.add(`${n.parentElement.tagName.toLowerCase()}: ${text.trim().slice(0, 80)}`);
   }
   // 下拉框的选项不可见时也算（展开后就会显示）
   for (const o of Array.from(document.querySelectorAll("option"))) {
     if (CJK.test(o.textContent ?? "")) out.add(`option: ${(o.textContent ?? "").trim().slice(0, 80)}`);
   }
   for (const el of Array.from(document.querySelectorAll("[title],[aria-label],[placeholder],[alt]"))) {
+    if (zhMarked(el)) continue;
     for (const a of ["title", "aria-label", "placeholder", "alt"]) {
       const v = el.getAttribute(a);
       if (v && CJK.test(v)) out.add(`${el.tagName.toLowerCase()}[${a}]: ${v.slice(0, 80)}`);
@@ -66,10 +69,12 @@ async function openFixture(page: Page) {
 test.describe("英文界面", () => {
   test.use({ locale: "en-US" });
 
-  test("浏览器是英文时默认英文；各视图和弹层里没有中文", async ({ page }) => {
+  test("默认英文；各视图和弹层里没有中文", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+    await expect(page.locator('[data-testid="language-switcher"] [data-locale="en"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-testid="language-switcher"] [data-locale="zh"]')).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByTestId("storage-status")).toHaveAttribute("data-phase", "offline");
     await expectNoCjk(page, "空文库");
 
@@ -135,8 +140,7 @@ test.describe("英文界面", () => {
     await page.goto("/");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
 
-    await page.getByTestId("language-switcher").click();
-    await page.locator('[data-testid="language-menu"] [data-locale="zh"]').click();
+    await page.locator('[data-testid="language-switcher"] [data-locale="zh"]').click();
     // 切换会重新加载页面：等新页面的 <html lang>
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
@@ -146,8 +150,7 @@ test.describe("英文界面", () => {
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.lang)).toBe("zh-CN");
 
-    await page.getByTestId("language-switcher").click();
-    await page.locator('[data-testid="language-menu"] [data-locale="en"]').click();
+    await page.locator('[data-testid="language-switcher"] [data-locale="en"]').click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
     await expectNoCjk(page, "切回英文后");
@@ -160,13 +163,17 @@ test.describe("英文界面", () => {
   });
 });
 
-test.describe("中文界面", () => {
+test.describe("中文浏览器", () => {
   test.use({ locale: "zh-CN" });
 
-  test("浏览器是中文时默认中文", async ({ page }) => {
+  test("浏览器是中文时也默认英文，点 CN 切换到中文", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("library-sidebar")).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.lang)).toBe("zh-CN");
+    expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+    await expectNoCjk(page, "中文浏览器的默认界面");
+    await page.locator('[data-testid="language-switcher"] [data-locale="zh"]').click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+    await expect(page.locator('[data-testid="language-switcher"] [data-locale="zh"]')).toHaveAttribute("aria-pressed", "true");
     expect((await page.evaluate(cjkOnPage)).length).toBeGreaterThan(0);
   });
 });

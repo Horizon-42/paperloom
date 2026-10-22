@@ -23,21 +23,21 @@ export default defineConfig({
   timeout: 90_000,
   // 用例共用一个服务和数据目录，串行执行
   workers: 1,
-  use: { locale: "zh-CN", baseURL: "http://localhost:5331", trace: "retain-on-failure", acceptDownloads: true },
+  use: { baseURL: "http://localhost:5331", trace: "retain-on-failure", acceptDownloads: true },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {
       command: "npx vite --port 5331 --strictPort",
       url: "http://localhost:5331",
       cwd: root,
-      env: { PAPERLENS_DATA_DIR: dataDir, PAPERLENS_STORAGE: "on" },
+      env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_DATA_DIR: dataDir, PAPERLENS_STORAGE: "on" },
       reuseExistingServer: false,
     },
     {
       command: "npx vite --port 5338 --strictPort",
       url: "http://localhost:5338",
       cwd: root,
-      env: { PAPERLENS_STORAGE: "off" },
+      env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_STORAGE: "off" },
       reuseExistingServer: false,
     },
   ],

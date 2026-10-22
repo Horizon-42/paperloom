@@ -15,7 +15,8 @@ export default {
     /** 只有论文一组时的占位文字 */
     placeholderPapers: "搜索论文标题、作者、标签",
     /** 有多组时：各组名称（如"论文、批注、术语"） */
-    placeholder: (groups: readonly string[]) => `搜索${groups.join("、")}（#标签）`,
+    /** 搜索范围不止一两类时只说"全部"（侧栏放不下完整列表） */
+    placeholder: (groups: readonly string[]) => (groups.length >= 3 ? "搜索全部（#标签）" : `搜索${groups.join("、")}（#标签）`),
     title: "搜索论文标题、作者、标签；以 # 开头只搜标签，如 #待读",
     ariaLabel: "全局搜索",
     clear: "清除搜索",

@@ -14,13 +14,15 @@ export default defineConfig({
   testMatch: "static*.spec.ts",
   outputDir: join(tmpdir(), "paperlens-e2e-static"),
   timeout: 60_000,
-  use: { locale: "zh-CN", baseURL: "http://localhost:5197", trace: "retain-on-failure" },
+  use: { baseURL: "http://localhost:5197", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: `npm run build:web && rm -rf "${site}" && mkdir -p "${site}" && cp -R dist "${site}/paperlens" && python3 -m http.server 5197 --bind 127.0.0.1 -d "${site}"`,
     url: "http://localhost:5197/paperlens/",
     cwd: root,
     timeout: 180_000,
+    // 冒烟测试按中文界面断言：构建时把默认语言设成中文
+    env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh" },
     reuseExistingServer: false,
   },
 });

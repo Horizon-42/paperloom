@@ -1,5 +1,5 @@
 // 界面语言（见 docs/decisions.md D13）。文案都在 locales/<语言>/<模块>.ts，组件里不写死任何一种语言。
-// 语言在页面启动时确定一次（URL 的 ?lang= > 本浏览器的选择 > 浏览器语言 > 英文），切换语言 = 保存后重新加载页面，
+// 语言在页面启动时确定一次（URL 的 ?lang= > 本浏览器的选择 > 默认语言，默认英文），切换语言 = 保存后重新加载页面，
 // 所以模块加载时就可以读 t，运行中不会变。用法：t.library.importButton、t.library.paperCount(3)。
 // Worker 读不到 localStorage：创建 Worker 时用 workerKind(kind) 把语言带进 Worker 名，Worker 里从 self.name 解析。
 import { en } from "./locales/en";
@@ -8,10 +8,10 @@ import { zh, type Messages } from "./locales/zh";
 export type { Messages };
 export type Locale = "zh" | "en";
 
-/** 可选的语言；label 用该语言自己的写法，不随界面语言变化 */
-export const LOCALES: readonly { value: Locale; label: string; htmlLang: string }[] = [
-  { value: "zh", label: "中文", htmlLang: "zh-CN" }, // i18n-ignore: 语言名用该语言自己的写法
-  { value: "en", label: "English", htmlLang: "en" },
+/** 可选的语言（切换按钮按这个顺序排）；label 用该语言自己的写法、short 是按钮上的缩写，都不随界面语言变化 */
+export const LOCALES: readonly { value: Locale; label: string; short: string; htmlLang: string }[] = [
+  { value: "en", label: "English", short: "EN", htmlLang: "en" },
+  { value: "zh", label: "中文", short: "CN", htmlLang: "zh-CN" }, // i18n-ignore: 语言名用该语言自己的写法
 ];
 
 /** 本浏览器选择的界面语言（与项目无关，所有项目共用） */
@@ -23,14 +23,11 @@ export function isLocale(v: unknown): v is Locale {
   return v === "zh" || v === "en";
 }
 
-/** 浏览器语言列表里第一个能对应上的；都对应不上时用英文 */
-export function localeFromLanguages(langs: readonly string[]): Locale {
-  for (const l of langs) {
-    const base = l.toLowerCase().split("-")[0];
-    if (isLocale(base)) return base;
-  }
-  return "en";
-}
+/**
+ * 用户没有选择过时的语言：英文，与浏览器语言无关。
+ * 构建/开发时可用环境变量 VITE_PAPERLENS_DEFAULT_LOCALE=zh 改（测试按中文界面断言，测试服务器都设成 zh）。
+ */
+export const DEFAULT_LOCALE: Locale = isLocale(import.meta.env.VITE_PAPERLENS_DEFAULT_LOCALE) ? import.meta.env.VITE_PAPERLENS_DEFAULT_LOCALE : "en";
 
 const WORKER_TAG = /~(zh|en)(?=@|$)/;
 
@@ -54,11 +51,10 @@ function detectLocale(): Locale {
       if (isLocale(saved)) return saved;
     } catch {
       if (isLocale(q)) return q;
-      // 读不到 localStorage（隐私模式等）：按浏览器语言
+      // 读不到 localStorage（隐私模式等）：用默认语言
     }
   }
-  const nav = globalThis.navigator;
-  return localeFromLanguages(nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : []);
+  return DEFAULT_LOCALE;
 }
 
 export let locale: Locale = detectLocale();

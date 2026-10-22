@@ -17,14 +17,14 @@ export default defineConfig({
   workers: 2,
   // 并行开发时其他模块改文件会触发 Vite 整页重载，打断正在运行的用例；重试一次
   retries: 1,
-  use: { locale: "zh-CN", baseURL: "http://localhost:5322", trace: "retain-on-failure" },
+  use: { baseURL: "http://localhost:5322", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: "npx vite --port 5322 --strictPort",
     url: "http://localhost:5322",
     cwd: root,
     // 不启用本地存储服务：否则会写入真实的 data/，或在空的 IndexedDB 里自动恢复 data/ 中的数据，破坏测试隔离
-    env: { PAPERLENS_STORAGE: "off" },
+    env: { VITE_PAPERLENS_DEFAULT_LOCALE: "zh", PAPERLENS_STORAGE: "off" },
     reuseExistingServer: false,
   },
 });

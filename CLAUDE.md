@@ -97,8 +97,9 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 - 开发模式下 `window.__paperlens` 暴露 `db` 和各 store，供 e2e 测试注入数据。
 - **测试绝不能碰真实的 `data/`**：所有 Playwright 配置的 webServer 都要设 `PAPERLENS_STORAGE=off`（或指向临时的 `PAPERLENS_DATA_DIR`），并且 `reuseExistingServer: false`。
   迁移脚本的测试只用临时目录，并用 `--ports` 指定测试自己起的端口、加 `--no-process-scan`（缺省会探测 5173、4173 和本机其他 node 进程的端口）。
-- 界面语言（D13）：启动时确定一次（`?lang=` > localStorage `paperlens.locale` > 浏览器语言 > 英文），切换 = 重新加载页面；
-  Worker 名用 `workerName(workerKind(kind))` 把语言带进去。单元测试固定中文（`tests/setup.ts`），Playwright 配置都设 `locale: "zh-CN"`。
+- 界面语言（D13）：启动时确定一次（`?lang=` > localStorage `paperlens.locale` > 默认英文，不看浏览器语言），切换 = 重新加载页面；
+  Worker 名用 `workerName(workerKind(kind))` 把语言带进去。单元测试固定中文（`tests/setup.ts`）；Playwright 的 webServer 都设
+  `VITE_PAPERLENS_DEFAULT_LOCALE=zh`（现有用例按中文断言），只有 `i18n.config.ts` 不设，测真实的默认语言。
 - 论文标签（D11）：`Paper.tags`，规范化与查询在 `src/lib/tags.ts`，写入经 `src/services/tagService.ts`；不加索引，筛选在内存里做。
 - 导出/镜像不包含派生数据：`pageTexts`、`occurrences`、kv 中 `indexer:`、`storage:` 开头的记录。
 

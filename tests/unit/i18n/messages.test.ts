@@ -1,6 +1,6 @@
 // 文案配置：各语言结构一致、英文里没有中文、函数文案能正常生成文字。
 import { describe, expect, it } from "vitest";
-import { localeFromLanguages, messagesFor } from "@/i18n";
+import { messagesFor } from "@/i18n";
 import { interpolate } from "@/i18n/Trans";
 
 const CJK = /[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]/;
@@ -71,14 +71,6 @@ describe("文案配置", () => {
       }
     }
     expect(bad).toEqual([]);
-  });
-
-  it("浏览器语言 → 界面语言", () => {
-    expect(localeFromLanguages(["zh-CN", "en"])).toBe("zh");
-    expect(localeFromLanguages(["zh-TW"])).toBe("zh");
-    expect(localeFromLanguages(["de-DE", "en-US"])).toBe("en");
-    expect(localeFromLanguages(["de-DE", "fr"])).toBe("en");
-    expect(localeFromLanguages([])).toBe("en");
   });
 
   it("interpolate 只替换给出的占位符", () => {

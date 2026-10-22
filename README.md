@@ -10,6 +10,10 @@
 
 **在线试用：<https://horizon-42.github.io/paperloom/>**（打开就能用，数据只存在你的浏览器里）
 
+![演示：打开论文、划线写笔记、把缩写设为术语、查看术语在哪些论文中出现、术语表和笔记画布](docs/images/demo.zh.gif)
+
+<sub>演示中的论文均以 CC BY 4.0 许可发布于 arXiv：Mistral 7B（[2310.06825](https://arxiv.org/abs/2310.06825)）、Mixtral of Experts（[2401.04088](https://arxiv.org/abs/2401.04088)）、LLaMA（[2302.13971](https://arxiv.org/abs/2302.13971)）、Mamba（[2312.00752](https://arxiv.org/abs/2312.00752)）、DPO（[2305.18290](https://arxiv.org/abs/2305.18290)）。</sub>
+
 ## 功能
 
 - **精确到词的高亮批注**：基于 PDF 字形位置定位，高亮贴合每个字，不会偏到半个词。笔记用 Markdown（支持公式），显示在页边，与原文对齐。

@@ -12,6 +12,10 @@ Your papers and notes stay on your own computer. Nothing is uploaded to any serv
 
 **Try it online: <https://horizon-42.github.io/paperloom/>** (nothing to install; data stays in your browser)
 
+![Demo: open a paper, highlight and write a note, turn an acronym into a glossary term, see where a term appears, then the glossary and the note canvas](docs/images/demo.gif)
+
+<sub>Papers shown in the demo are published on arXiv under CC BY 4.0: Mistral 7B ([2310.06825](https://arxiv.org/abs/2310.06825)), Mixtral of Experts ([2401.04088](https://arxiv.org/abs/2401.04088)), LLaMA ([2302.13971](https://arxiv.org/abs/2302.13971)), Mamba ([2312.00752](https://arxiv.org/abs/2312.00752)), DPO ([2305.18290](https://arxiv.org/abs/2305.18290)).</sub>
+
 ## Features
 
 - **Word-precise highlights**: positions come from the PDF's glyph geometry, so highlights hug each word instead of drifting by half a word. Notes are Markdown (with math) and sit in the margin, aligned with the text.
@@ -26,7 +30,7 @@ Your papers and notes stay on your own computer. Nothing is uploaded to any serv
 
 ### Online version
 
-Data is stored in your browser (IndexedDB). Clearing site data, switching browsers or computers will lose it, so export a backup regularly from "数据与备份" (Data & backup) at the bottom left. The JSON backup contains paper metadata, highlights, terms and canvases but **not the PDF files themselves** — keep your original PDFs; after restoring a backup in a new browser, import those PDFs again and they are matched back up.
+Data is stored in your browser (IndexedDB). Clearing site data, switching browsers or computers will lose it, so export a backup regularly from **Data & backup** (click the save status at the bottom left). The JSON backup contains paper metadata, highlights, terms and canvases but **not the PDF files themselves** — keep your original PDFs; after restoring a backup in a new browser, import those PDFs again and they are matched back up.
 
 ### Run locally (recommended for long-term use)
 

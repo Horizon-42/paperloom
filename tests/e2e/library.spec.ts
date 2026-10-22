@@ -1,4 +1,4 @@
-// 文库冒烟测试：导入 → 出现在列表 → 新建领域 → 拖入领域 → 点击领域可见
+// 文库冒烟测试：导入 → 出现在「未分类」→ 新建领域 → 拖入领域 → 领域像文件夹一样展开可见
 // 截图路径可用 LIBRARY_SCREENSHOT 指定；设置 PAPERLENS_REAL_PDF_DIR 时额外用真实 PDF 测试批量导入
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -51,9 +51,11 @@ test("import a PDF, file it into a domain, filter by domain", async ({ page }) =
   const pdf = await makePdf(title, "Alice Zhang; Bob Li");
   await page.getByTestId("import-input").setInputFiles({ name: "smoke_test.pdf", mimeType: "application/pdf", buffer: pdf });
 
+  // 新导入的论文在「未分类」里；领域树里的行只有标题和年份，作者在悬停提示里
   const row = paperRows(sidebar).filter({ hasText: title });
   await expect(row).toBeVisible();
-  await expect(row).toContainText("Alice Zhang, Bob Li");
+  await expect(row).toHaveAttribute("data-parent-domain-id", "");
+  await expect(row).toHaveAttribute("title", /Alice Zhang, Bob Li/);
   await expect(row).toContainText("2021");
 
   // 同一文件再导入一次：提示已在文库中，不新增
@@ -64,17 +66,24 @@ test("import a PDF, file it into a domain, filter by domain", async ({ page }) =
   await createDomain(sidebar, "轨迹预测");
   const domain = domainRow(sidebar, "轨迹预测");
 
-  // 论文拖到领域上 → 归入该领域
+  // 论文拖到领域上 → 移进该领域；「未分类」空了就不显示
   await row.dragTo(domain);
   await expect(domain).toContainText("1");
+  await expect(sidebar.locator("[data-unfiled]")).toHaveCount(0);
+  await expect(paperRows(sidebar)).toHaveCount(0); // 领域默认折叠
 
+  // 点领域：选中并展开，论文在它下面
   await domain.click();
-  await expect(sidebar.getByRole("heading", { name: /轨迹预测/ })).toBeVisible();
+  await expect(domain).toHaveAttribute("aria-expanded", "true");
+  await expect(domain).toHaveAttribute("aria-selected", "true");
   await expect(paperRows(sidebar)).toHaveCount(1);
-  await expect(row.locator("span[title='轨迹预测']")).toHaveCount(1); // 领域色点
-
-  await sidebar.getByRole("button", { name: /未分类/ }).click();
+  const domainId = await domain.getAttribute("data-domain-id");
+  await expect(row).toHaveAttribute("data-parent-domain-id", domainId!);
+  await expect(row).toHaveAttribute("aria-level", "2");
+  // 收起
+  await domain.getByRole("button", { name: "折叠" }).click();
   await expect(paperRows(sidebar)).toHaveCount(0);
+  await domain.getByRole("button", { name: "展开" }).click();
 
   // 子领域：把新领域拖到"轨迹预测"上成为其子领域；选中父领域仍能看到子领域下的论文
   await createDomain(sidebar, "ATM");
@@ -142,6 +151,169 @@ test("拖到领域上是移动（可撤销）；右键「添加到领域」保�
   expect(errors).toEqual([]);
 });
 
+test("领域树：多领域标记、拖到论文行和「未分类」、右键从所在领域移除、导入到选中的领域并定位、视图切换", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  await page.waitForFunction(() => (window as any).__paperlens?.useLibraryStore);
+  const sidebar = sidebarOf(page);
+  await page.evaluate(async () => {
+    const { db } = (window as any).__paperlens;
+    await db.domains.bulkAdd([
+      { id: "A", name: "甲", parentId: null, color: "#3b82f6", order: 0 },
+      { id: "A1", name: "甲一", parentId: "A", color: "#10b981", order: 0 },
+      { id: "B", name: "乙", parentId: null, color: "#f59e0b", order: 1 },
+    ]);
+    const paper = (id: string, domainIds: string[]) => ({ id, fileHash: `h-${id}`, title: `Paper ${id}`, authors: [], domainIds, pageCount: 1, addedAt: 1 });
+    await db.papers.bulkAdd([paper("p", ["A1", "B"]), paper("q", ["B"]), paper("r", [])]);
+  });
+  const rowIn = (paperId: string, parent: string) => sidebar.locator(`[data-paper-id="${paperId}"][data-parent-domain-id="${parent}"]`);
+  const domainsOf = (id: string) => page.evaluate(async (id) => (await (window as any).__paperlens.db.papers.get(id)).domainIds, id);
+
+  // 计数含子领域、不重复；展开后子领域在前、论文在后；多领域的论文在每个领域下各出现一次，带标记
+  await expect(domainRow(sidebar, "甲")).toContainText("1");
+  await expect(domainRow(sidebar, "乙")).toContainText("2");
+  await domainRow(sidebar, "甲").click();
+  await domainRow(sidebar, "甲一").click();
+  await domainRow(sidebar, "乙").click();
+  await expect(rowIn("p", "A1")).toHaveAttribute("aria-level", "3");
+  await expect(rowIn("p", "A1").locator("[data-multi-field]")).toHaveAttribute("aria-label", "也在：乙");
+  await expect(rowIn("p", "B").locator("[data-multi-field]")).toHaveAttribute("aria-label", "也在：甲 / 甲一");
+  await expect(rowIn("q", "B").locator("[data-multi-field]")).toHaveCount(0);
+
+  // 「乙」里的 p 拖到「甲一」里的论文行上 = 拖到「甲一」：只移出「乙」（p 本来就在甲一，结果只剩甲一）
+  await rowIn("p", "B").dragTo(rowIn("p", "A1"));
+  await expect.poll(() => domainsOf("p")).toEqual(["A1"]);
+  await expect(rowIn("p", "B")).toHaveCount(0);
+  // q 从「乙」拖到「未分类」：移出乙
+  await rowIn("q", "B").dragTo(sidebar.locator("[data-unfiled]"));
+  await expect.poll(() => domainsOf("q")).toEqual([]);
+  await expect(page.locator('[data-annotation-toast="info"]', { hasText: "已移出「乙」" })).toBeVisible();
+  await expect(rowIn("q", "")).toBeVisible();
+
+  // 右键「从「甲一」移除」：只移出这一行所在的领域
+  await page.evaluate(() => (window as any).__paperlens.db.papers.update("p", { domainIds: ["A1", "B"] }));
+  await rowIn("p", "A1").click({ button: "right" });
+  await page.locator("[data-remove-from-domain]").click();
+  await expect.poll(() => domainsOf("p")).toEqual(["B"]);
+  // 领域行上右键是领域菜单，不是论文菜单
+  await domainRow(sidebar, "乙").click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "新建子领域" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "编辑信息…" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // 选中「甲一」后收起「甲」，导入：归入甲一，并展开到它、定位闪烁
+  await domainRow(sidebar, "甲一").click();
+  await domainRow(sidebar, "甲").getByRole("button", { name: "折叠" }).click();
+  await expect(domainRow(sidebar, "甲一")).toHaveCount(0);
+  await page.getByTestId("import-input").setInputFiles({ name: "new.pdf", mimeType: "application/pdf", buffer: await makePdf("Fresh Import", "Dan") });
+  const fresh = paperRows(sidebar).filter({ hasText: "Fresh Import" });
+  await expect(fresh).toBeInViewport();
+  await expect(fresh).toHaveAttribute("data-parent-domain-id", "A1");
+  await expect(fresh).toHaveClass(/ring-amber/);
+
+  // 「未分类」收起；视图和展开状态刷新后保留
+  await sidebar.locator("[data-unfiled]").click();
+  await expect(rowIn("q", "")).toHaveCount(0);
+  await sidebar.locator('[data-library-view="all"]').click();
+  await expect(sidebar.getByRole("listbox", { name: "全部论文" }).locator("[role=option]")).toHaveCount(4);
+  await page.reload();
+  await expect(sidebar.getByRole("listbox", { name: "全部论文" })).toBeVisible();
+  await sidebar.locator('[data-library-view="tree"]').click();
+  await expect(fresh).toBeVisible();
+  await expect(rowIn("q", "")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("领域树：在树里编辑标签、筛选时新建领域、移动后撤销、键盘导航", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  await page.waitForFunction(() => (window as any).__paperlens?.useLibraryStore);
+  const sidebar = sidebarOf(page);
+  await page.evaluate(async () => {
+    const { db } = (window as any).__paperlens;
+    await db.domains.bulkAdd([
+      { id: "A", name: "甲", parentId: null, color: "#3b82f6", order: 0 },
+      { id: "B", name: "乙", parentId: null, color: "#f59e0b", order: 1 },
+    ]);
+    const paper = (id: string, domainIds: string[], tags?: string[]) => ({ id, fileHash: `h-${id}`, title: `Paper ${id}`, authors: [], domainIds, pageCount: 1, addedAt: 1, ...(tags ? { tags } : {}) });
+    await db.papers.bulkAdd([paper("p", ["A", "B"], ["x"]), paper("q", ["A"])]);
+  });
+  const rowIn = (paperId: string, parent: string) => sidebar.locator(`[data-paper-id="${paperId}"][data-parent-domain-id="${parent}"]`);
+  const domainsOf = (id: string) => page.evaluate(async (id) => (await (window as any).__paperlens.db.papers.get(id)).domainIds, id);
+  await domainRow(sidebar, "甲").click();
+  await domainRow(sidebar, "乙").click();
+
+  // 标签编辑器锚定在点击的那一行上（p 在甲、乙下各一行），在屏幕内
+  await rowIn("p", "B").hover();
+  await rowIn("p", "B").locator("[data-tag-trigger]").click();
+  const editor = page.locator('[data-tag-editor="p"]');
+  await expect(editor).toBeInViewport();
+  const eb = (await editor.boundingBox())!;
+  const rb = (await rowIn("p", "B").boundingBox())!;
+  expect(Math.abs(eb.y - (rb.y + rb.height))).toBeLessThan(40);
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(rowIn("p", "B")).toBeFocused(); // 焦点回到打开它的那一行（不是同一篇论文在「甲」下的那行）
+  // 在行上按 T
+  await rowIn("q", "A").focus();
+  await page.keyboard.press("t");
+  await expect(page.locator('[data-tag-editor="q"]')).toBeInViewport();
+  await page.keyboard.press("Escape");
+
+  // 按标签筛选时新建领域：新领域（没有匹配论文）也显示并进入重命名
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setTagFilter(["x"]));
+  await expect(rowIn("q", "A")).toHaveCount(0);
+  await sidebar.getByRole("button", { name: "新建领域" }).click();
+  const input = sidebar.getByRole("textbox", { name: "领域名称" });
+  await expect(input).toBeFocused();
+  await input.fill("丙");
+  await input.press("Enter");
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setTagFilter([]));
+  await expect(domainRow(sidebar, "丙")).toBeVisible();
+
+  // 「全部」上显示筛选匹配数
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setTagFilter(["x"]));
+  await expect(sidebar.locator('[data-library-view="all"]')).toContainText("1/2");
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setTagFilter([]));
+  await expect(sidebar.locator('[data-library-view="all"]')).toContainText("2");
+
+  // 右键「从「乙」移除」可撤销
+  await rowIn("p", "B").click({ button: "right" });
+  await page.locator("[data-remove-from-domain]").click();
+  await expect.poll(() => domainsOf("p")).toEqual(["A"]);
+  await page.locator('[data-annotation-toast="info"]', { hasText: "已移出「乙」" }).getByRole("button", { name: "撤销" }).click();
+  await expect.poll(() => domainsOf("p")).toEqual(["A", "B"]);
+
+  // 选中的领域是导入目标：再点一次取消选中，Esc 也取消
+  const selection = () => page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().selection);
+  await expect.poll(selection).toEqual({ kind: "domain", id: "B" }); // 开头点「乙」展开时已选中
+  await expect(page.getByRole("button", { name: "导入" })).toHaveAttribute("title", /将归入「乙」/);
+  await domainRow(sidebar, "乙").click();
+  await expect.poll(selection).toEqual({ kind: "all" });
+  await expect(domainRow(sidebar, "乙")).toHaveAttribute("aria-expanded", "true"); // 取消选中不收起
+  await domainRow(sidebar, "乙").click();
+  await page.keyboard.press("Escape");
+  await expect.poll(selection).toEqual({ kind: "all" });
+
+  // 移动后撤销
+  await rowIn("q", "A").dragTo(domainRow(sidebar, "乙"));
+  await expect.poll(() => domainsOf("q")).toEqual(["B"]);
+  await page.locator('[data-annotation-toast="info"]', { hasText: "已移到「乙」" }).getByRole("button", { name: "撤销" }).click();
+  await expect.poll(() => domainsOf("q")).toEqual(["A"]);
+
+  // 键盘：上下移动焦点，论文行上按左键回到所在领域，展开的领域按左键收起
+  await rowIn("p", "A").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(rowIn("q", "A")).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(domainRow(sidebar, "甲")).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(domainRow(sidebar, "甲")).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("ArrowDown");
+  await expect(domainRow(sidebar, "乙")).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");
@@ -163,8 +335,11 @@ test("edit metadata and delete a domain", async ({ page }) => {
   await dialog.getByRole("checkbox").first().check();
   await dialog.getByRole("button", { name: "保存" }).click();
   await expect(dialog).toBeHidden();
+  // 归入「方法」后从「未分类」移走；展开「方法」可见
+  await expect(sidebar.locator("[data-unfiled]")).toHaveCount(0);
+  await domainRow(sidebar, "方法").click();
   await expect(row).toContainText("A Better Title");
-  await expect(row).toContainText("张三, 李四, 王五");
+  await expect(row).toHaveAttribute("title", /张三, 李四, 王五/);
   await expect(row).toContainText("2020");
 
   await domainRow(sidebar, "方法").click({ button: "right" });
@@ -172,8 +347,8 @@ test("edit metadata and delete a domain", async ({ page }) => {
   await expect(page.getByRole("dialog")).toContainText("1 篇论文将移出这些领域");
   await page.getByRole("button", { name: "删除领域" }).click();
   await expect(domainRow(sidebar, "方法")).toHaveCount(0);
-  await expect(paperRows(sidebar)).toHaveCount(1); // 论文本身保留
-  await sidebar.getByRole("button", { name: /未分类/ }).click();
+  // 论文本身保留，回到「未分类」
+  await expect(sidebar.locator("[data-unfiled]")).toContainText("1");
   await expect(paperRows(sidebar)).toHaveCount(1);
 
   // 删除论文
@@ -253,7 +428,8 @@ test("virtualized long list: reveal after import, context menu and drag still wo
     await db.papers.bulkAdd(papers);
     useLibraryStore.getState().setSort("title");
   });
-  await expect(sidebar.getByRole("heading", { name: /全部论文/ })).toContainText("600");
+  await expect(sidebar.locator('[data-library-view="all"]')).toContainText("600");
+  await expect(sidebar.locator("[data-unfiled]")).toContainText("600");
   expect(await paperRows(sidebar).count()).toBeLessThan(60); // 只渲染可视区域附近的行
 
   // 新论文按标题排在列表中部：导入后应滚动到它并高亮
@@ -264,7 +440,7 @@ test("virtualized long list: reveal after import, context menu and drag still wo
   await expect(row).toHaveClass(/ring-amber/);
 
   // 滚回顶部后再导入同一文件：重复 → 再次定位到它
-  await sidebar.getByRole("listbox", { name: "全部论文" }).evaluate((el) => (el.scrollTop = 0));
+  await sidebar.getByRole("tree").evaluate((el) => (el.scrollTop = 0));
   await expect(row).toHaveCount(0);
   await page.getByTestId("import-input").setInputFiles({ name: "middle-copy.pdf", mimeType: "application/pdf", buffer: pdf });
   await expect(page.getByTestId("import-status")).toContainText("已在文库中");
@@ -275,9 +451,12 @@ test("virtualized long list: reveal after import, context menu and drag still wo
   await expect(page.getByRole("menuitem", { name: "编辑信息…" })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // 拖到领域
-  await row.dragTo(domainRow(sidebar, "目标领域"));
+  // 拖到领域（领域在树的顶部：滚回顶部，拖「未分类」里靠前的一篇）
+  await sidebar.getByRole("tree").evaluate((el) => (el.scrollTop = 0));
+  const top = paperRows(sidebar).filter({ hasText: "A000 seeded paper" });
+  await top.dragTo(domainRow(sidebar, "目标领域"));
   await expect(domainRow(sidebar, "目标领域")).toContainText("1");
+  await expect(sidebar.locator("[data-unfiled]")).toContainText("600"); // 600 + 1 篇导入 − 1 篇移走
   expect(errors).toEqual([]);
 });
 

@@ -395,6 +395,22 @@ export async function movePaperToDomain(paperId: string, domainId: string, from:
   });
 }
 
+/**
+ * 把论文移出领域（拖到「未分类」上）：移出 from 中的领域（"all" = 所有领域）。
+ * 返回移动前的 domainIds（供撤销）；没有变化时返回 null
+ */
+export async function movePaperOutOfDomains(paperId: string, from: readonly string[] | "all"): Promise<string[] | null> {
+  return db.transaction("rw", db.papers, async () => {
+    const p = await getPaper(paperId);
+    if (!p) return null;
+    const drop = new Set(from === "all" ? p.domainIds : from);
+    const next = p.domainIds.filter((id) => !drop.has(id));
+    if (next.length === p.domainIds.length) return null;
+    await updatePaper(paperId, { domainIds: next });
+    return p.domainIds;
+  });
+}
+
 /** 撤销移动：恢复原来的领域（期间被删除的领域跳过） */
 export async function restorePaperDomains(paperId: string, domainIds: readonly string[]): Promise<void> {
   await db.transaction("rw", db.papers, db.domains, async () => {

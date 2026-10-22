@@ -1,5 +1,7 @@
 // 侧栏内部拖放用的 dataTransfer 类型
 export const PAPER_MIME = "application/x-paperlens-paper";
+/** 论文是从领域树里哪个文件夹拖出来的：领域 id，「未分类」为 "-"；从平铺列表、搜索结果拖出时没有 */
+export const PAPER_FROM_MIME = "application/x-paperlens-paper-from";
 export const DOMAIN_MIME = "application/x-paperlens-domain";
 
 export function hasType(e: { dataTransfer: DataTransfer | null }, type: string): boolean {

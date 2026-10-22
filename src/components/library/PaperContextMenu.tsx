@@ -1,4 +1,5 @@
-// 论文列表共用一个右键菜单：在容器上监听 contextmenu，按 data-paper-id 找到目标论文。
+// 论文列表共用一个右键菜单：在容器上监听 contextmenu，按 data-paper-id 找到目标论文；
+// 领域树里的论文行还带 data-parent-domain-id（所在的领域，「未分类」里为空），菜单据此提供「从「X」移除」。
 // 比每行一个 Radix ContextMenu 轻得多（列表虚拟化后行会频繁挂载/卸载）。
 import { t } from "@/i18n";
 import { useRef, useState, type ReactElement } from "react";
@@ -7,59 +8,66 @@ import { useAnnotationStore } from "@/app/stores/annotation";
 import { useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
 import { flattenTree } from "@/services/domainTree";
-import { addPaperToDomain, removePaperFromDomains } from "@/services/paperService";
+import { addPaperToDomain, movePaperOutOfDomains, restorePaperDomains } from "@/services/paperService";
 import { IconCheck, IconChevronRight } from "./icons";
 import { useLibraryData } from "./libraryData";
 import { cx, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
 
-/** 当前选中的领域（用于"从当前领域移除"） */
-export interface CurrentDomain {
-  id: string;
-  name: string;
-  subtreeIds: string[];
+/** 右键菜单指向的论文行 */
+export interface PaperMenuTarget {
+  paperId: string;
+  /** 领域树里所在的领域；「未分类」里为 null；平铺列表、搜索结果里为 undefined */
+  parentId: string | null | undefined;
 }
 
 interface Props {
-  currentDomain: CurrentDomain | null;
   /** 子元素必须是能接收 ref 和事件属性的单个元素（如 VirtualList 的滚动容器） */
-  children: (menuTargetId: string | null) => ReactElement;
+  children: (menuTarget: PaperMenuTarget | null) => ReactElement;
 }
 
-export function PaperContextMenu({ currentDomain, children }: Props) {
-  const { paperById, tree } = useLibraryData();
-  const [targetId, setTargetId] = useState<string | null>(null);
-  const paper = targetId ? paperById.get(targetId) : undefined;
-  const inCurrent = !!paper && !!currentDomain && paper.domainIds.some((id) => currentDomain.subtreeIds.includes(id));
+/** 「从「X」移除」：只移出这一行所在的领域，可撤销 */
+async function removeFromDomain(paperId: string, domainId: string, name: string) {
+  const before = await movePaperOutOfDomains(paperId, [domainId]);
+  if (before) useAnnotationStore.getState().showToast(t.library.movePaper.removedFrom(name), { undo: () => restorePaperDomains(paperId, before) });
+}
+
+export function PaperContextMenu({ children }: Props) {
+  const { paperById, domainById, tree } = useLibraryData();
+  const [target, setTarget] = useState<PaperMenuTarget | null>(null);
+  const paper = target ? paperById.get(target.paperId) : undefined;
+  const parent = target?.parentId ? domainById.get(target.parentId) : undefined;
   const store = useLibraryStore.getState;
   // 「标签…」：等菜单关闭、不再把焦点还给原处之后再打开标签编辑，否则弹层刚拿到焦点就被抢走而关闭
-  const pendingTags = useRef<string | null>(null);
+  const pendingTags = useRef<PaperMenuTarget | null>(null);
 
   return (
-    <ContextMenu.Root onOpenChange={(open) => !open && setTargetId(null)}>
+    <ContextMenu.Root onOpenChange={(open) => !open && setTarget(null)}>
       <ContextMenu.Trigger
         asChild
         onContextMenu={(e) => {
-          const id = (e.target as Element).closest?.("[data-paper-id]")?.getAttribute("data-paper-id");
-          if (!id) {
-            e.preventDefault(); // 空白处不弹菜单
+          const row = (e.target as Element).closest?.("[data-paper-id]");
+          const id = row?.getAttribute("data-paper-id");
+          if (!row || !id) {
+            e.preventDefault(); // 空白处、领域行上不弹论文菜单
             return;
           }
           pendingTags.current = null;
-          setTargetId(id);
+          const parentAttr = row.getAttribute("data-parent-domain-id");
+          setTarget({ paperId: id, parentId: parentAttr === null ? undefined : parentAttr || null });
         }}
       >
-        {children(targetId)}
+        {children(target)}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         {paper && (
           <ContextMenu.Content
             className={menuContent}
             onCloseAutoFocus={(e) => {
-              const id = pendingTags.current;
-              if (!id) return;
+              const row = pendingTags.current;
+              if (!row) return;
               pendingTags.current = null;
               e.preventDefault();
-              store().openTagEditor(id, { kind: "row" });
+              store().openTagEditor(row.paperId, { kind: "row", parentId: row.parentId });
             }}
           >
             <ContextMenu.Item className={menuItem} onSelect={() => useReaderStore.getState().openPaper(paper.id)}>
@@ -68,7 +76,7 @@ export function PaperContextMenu({ currentDomain, children }: Props) {
             <ContextMenu.Item className={menuItem} onSelect={() => store().openDialog({ kind: "editPaper", paperId: paper.id })}>
               {t.library.paperMenu.editInfo}
             </ContextMenu.Item>
-            <ContextMenu.Item className={menuItem} onSelect={() => (pendingTags.current = paper.id)}>
+            <ContextMenu.Item className={menuItem} onSelect={() => (pendingTags.current = target)}>
               {t.library.paperMenu.tags}
               <span className="ml-auto pl-6 text-[11px] text-neutral-400">T</span>
             </ContextMenu.Item>
@@ -109,13 +117,9 @@ export function PaperContextMenu({ currentDomain, children }: Props) {
                 </ContextMenu.SubContent>
               </ContextMenu.Portal>
             </ContextMenu.Sub>
-            {currentDomain && (
-              <ContextMenu.Item
-                className={menuItem}
-                disabled={!inCurrent}
-                onSelect={() => void removePaperFromDomains(paper.id, currentDomain.subtreeIds)}
-              >
-                <span className="truncate">{t.library.paperMenu.removeFromDomain(currentDomain.name)}</span>
+            {parent && (
+              <ContextMenu.Item className={menuItem} onSelect={() => void removeFromDomain(paper.id, parent.id, parent.name)} data-remove-from-domain>
+                <span className="truncate">{t.library.paperMenu.removeFromDomain(parent.name)}</span>
               </ContextMenu.Item>
             )}
             <ContextMenu.Separator className={menuSeparator} />

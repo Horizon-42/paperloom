@@ -88,6 +88,8 @@ test("library performance with 2000 papers", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => (window as any).__paperlens?.db);
   await seed(page);
+  // 测平铺列表（2000 行都在一个列表里；视图选择会被记住，重新加载后仍是它）
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setView("all"));
 
   // 冷启动：重新加载页面，记录侧栏挂载和第一行论文出现的时间（相对导航开始）
   await page.addInitScript(() => {
@@ -108,7 +110,7 @@ test("library performance with 2000 papers", async ({ page }) => {
     boots.push(await page.evaluate(() => (window as any).__boot));
   }
   await page.waitForFunction(() => (window as any).__paperlens?.db);
-  await expect(page.getByTestId("library-sidebar").getByRole("heading", { name: /全部论文/ })).toContainText(String(N_PAPERS));
+  await expect(page.getByTestId("library-sidebar").locator('[data-library-view="all"]')).toContainText(String(N_PAPERS));
   const rowsInDom = await page.locator("[data-paper-id]").count();
 
   // 单次 update：可见行、不可见行、只改 lastOpenedAt 各测一次

@@ -1,11 +1,10 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db/schema";
-import type { Domain, Paper } from "@/types/models";
-import { filterPapersBySelection, formatAuthorsShort, sortPapers } from "@/components/library/paperQuery";
+import type { Paper } from "@/types/models";
+import { formatAuthorsShort, sortPapers } from "@/components/library/paperQuery";
 import { paperMatches, parseQuery, registerSearchProvider, runSearch } from "@/components/library/search";
 
-const dom = (id: string, parentId: string | null): Domain => ({ id, name: id, parentId, order: 0, color: "#000" });
 const paper = (id: string, extra: Partial<Paper> = {}): Paper => ({
   id,
   fileHash: `h-${id}`,
@@ -15,29 +14,6 @@ const paper = (id: string, extra: Partial<Paper> = {}): Paper => ({
   pageCount: 1,
   addedAt: 0,
   ...extra,
-});
-
-const domains = [dom("atm", null), dom("traj", "atm"), dom("ml", null)];
-
-describe("filterPapersBySelection", () => {
-  const papers = [
-    paper("p1", { domainIds: ["traj"] }),
-    paper("p2", { domainIds: ["atm", "ml"] }),
-    paper("p3", { domainIds: [] }),
-    paper("p4", { domainIds: ["deleted"] }),
-  ];
-  const ids = (xs: Paper[]) => xs.map((p) => p.id).sort();
-
-  it("includes sub-domains", () => {
-    expect(ids(filterPapersBySelection(papers, domains, { kind: "domain", id: "atm" }))).toEqual(["p1", "p2"]);
-    expect(ids(filterPapersBySelection(papers, domains, { kind: "domain", id: "traj" }))).toEqual(["p1"]);
-  });
-
-  it("handles all / unfiled / missing domain", () => {
-    expect(filterPapersBySelection(papers, domains, { kind: "all" })).toHaveLength(4);
-    expect(ids(filterPapersBySelection(papers, domains, { kind: "unfiled" }))).toEqual(["p3", "p4"]);
-    expect(filterPapersBySelection(papers, domains, { kind: "domain", id: "gone" })).toEqual([]);
-  });
 });
 
 describe("sortPapers", () => {

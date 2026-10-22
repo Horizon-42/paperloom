@@ -31,7 +31,6 @@ export default {
     navLabel: "领域",
     all: "全部论文",
     unfiled: "未分类",
-    heading: "领域",
     newDomain: "新建领域",
     treeLabel: "领域树",
     empty: "还没有领域。点击 + 新建，然后把论文拖到领域上归类。",
@@ -64,22 +63,15 @@ export default {
 
   paperList: {
     ariaLabel: "论文列表",
-    count: (n: number) => `${n} 篇`,
-    /** 按标签筛选后为空；inView：选中的不是"全部论文" */
-    noTagged: (tags: readonly string[], inView: boolean) => {
-      const what = tags.length === 1 ? `带「${tags[0]}」标签的论文` : "同时带有这些标签的论文";
-      return inView ? `当前视图中没有${what}。` : `没有${what}。`;
-    },
+    /** 按标签筛选后为空 */
+    noTagged: (tags: readonly string[]) => (tags.length === 1 ? `没有带「${tags[0]}」标签的论文。` : "没有同时带有这些标签的论文。"),
     clearTagFilter: "清除标签筛选",
     emptyLibrary: "文库是空的。点击上方「导入」选择 PDF，或直接把 PDF 拖进窗口。",
-    allFiled: "所有论文都已归类。",
-    emptyDomain: "这个领域还没有论文。把列表里的论文拖到左侧领域上即可归类。",
     noPapers: "没有论文。",
     tagFilterBar: "标签筛选",
     clear: "清除",
     filterByTag: "按标签筛选",
     filterByTagCount: (n: number) => `按标签筛选（已选 ${n} 个）`,
-    tagButton: "标签",
     filterAllHint: "（同时带有所选标签）",
     manageTags: "管理标签…",
     sortLabel: (label: string) => `排序：${label}`,
@@ -110,6 +102,18 @@ export default {
   /** 把论文拖到领域上（移动） */
   movePaper: {
     moved: (name: string) => `已移到「${name}」`,
+    /** 拖到「未分类」上：移出拖出时所在的领域 */
+    removedFrom: (name: string) => `已移出「${name}」`,
+    movedToUnfiled: "已移到「未分类」",
+  },
+
+  /** 侧栏的论文视图：领域树 / 全部论文 */
+  tree: {
+    viewLabel: "论文视图",
+    byField: "按领域",
+    all: "全部",
+    /** 论文行上的标记：也在其他领域里 */
+    alsoIn: (paths: readonly string[]) => `也在：${paths.join("、")}`,
   },
 
   editPaper: {

@@ -32,6 +32,8 @@ export interface VirtualListProps<T> extends Omit<HTMLAttributes<HTMLDivElement>
   overscan?: number;
   /** 行区域左右内边距 */
   gutter?: number;
+  /** 列表开头留白（如给第一行上方的插入线留位置） */
+  paddingTop?: number;
   /** 列表末尾留白 */
   paddingBottom?: number;
   handleRef?: Ref<VirtualListHandle>;
@@ -93,6 +95,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
     renderItem,
     overscan = 6,
     gutter = 8,
+    paddingTop = 0,
     paddingBottom = 12,
     handleRef,
     footer,
@@ -103,6 +106,8 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
   const layout = useMemo(() => buildRowLayout(items, rowHeight), [items, rowHeight]);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
+  const padTop = useRef(paddingTop);
+  padTop.current = paddingTop;
   const [first, setFirst] = useState(0); // 第一可见行；只有跨行时才触发重新渲染
   const [viewport, setViewport] = useState(0);
 
@@ -117,7 +122,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
 
   const syncFirst = useCallback(() => {
     const node = el.current;
-    if (node) setFirst(layoutRef.current.indexAt(node.scrollTop));
+    if (node) setFirst(layoutRef.current.indexAt(node.scrollTop - padTop.current));
   }, []);
 
   useLayoutEffect(() => {
@@ -143,7 +148,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
         const node = el.current;
         const L = layoutRef.current;
         if (!node || index < 0 || index >= L.count) return;
-        const top = L.top(index);
+        const top = L.top(index) + padTop.current;
         const bottom = top + L.height(index);
         if (top < node.scrollTop) node.scrollTop = top;
         else if (bottom > node.scrollTop + node.clientHeight) node.scrollTop = bottom - node.clientHeight;
@@ -154,7 +159,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
   );
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    setFirst(layoutRef.current.indexAt(e.currentTarget.scrollTop));
+    setFirst(layoutRef.current.indexAt(e.currentTarget.scrollTop - padTop.current));
     onScroll?.(e);
   };
 
@@ -170,7 +175,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
     rows.push(
       <div
         key={getKey(item)}
-        style={{ position: "absolute", top: layout.top(i), left: gutter, right: gutter, height: layout.height(i) }}
+        style={{ position: "absolute", top: paddingTop + layout.top(i), left: gutter, right: gutter, height: layout.height(i) }}
       >
         {renderItem(item, i)}
       </div>,
@@ -179,7 +184,7 @@ function VirtualListInner<T>(props: VirtualListProps<T>, ref: ForwardedRef<HTMLD
 
   return (
     <div ref={setRefs} onScroll={handleScroll} {...rest}>
-      <div style={{ position: "relative", height: layout.total + (n ? paddingBottom : 0) }}>{rows}</div>
+      <div style={{ position: "relative", height: paddingTop + layout.total + (n ? paddingBottom : 0) }}>{rows}</div>
       {footer}
     </div>
   );

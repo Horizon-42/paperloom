@@ -3,7 +3,7 @@
 // 加标签：作者行末尾的按钮（悬停/聚焦/当前论文时显示），或在行上按 T。
 import { t } from "@/i18n";
 import { memo } from "react";
-import { useLibraryStore } from "@/app/stores/library";
+import { useLibraryStore, type TagEditorState } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
 import { domainPath } from "@/services/domainTree";
 import type { Domain, Paper } from "@/types/models";
@@ -35,18 +35,23 @@ interface Props {
 
 const MAX_DOTS = 5;
 
-/** 打开（或在已为这篇论文打开时关闭）锚定在论文行上的标签编辑 */
-export function toggleRowTagEditor(paperId: string) {
+/** 打开（或在已为这一行打开时关闭）锚定在论文行上的标签编辑；parentId 见 TagEditorAnchor */
+export function toggleRowTagEditor(paperId: string, parentId?: string | null) {
   const st = useLibraryStore.getState();
-  if (st.tagEditor?.paperId === paperId && st.tagEditor.anchor.kind === "row") st.closeTagEditor();
-  else st.openTagEditor(paperId, { kind: "row" });
+  if (isRowEditing(st.tagEditor, paperId, parentId)) st.closeTagEditor();
+  else st.openTagEditor(paperId, { kind: "row", parentId });
+}
+
+/** 标签编辑弹层正锚定在这一行上 */
+export function isRowEditing(editor: TagEditorState | null, paperId: string, parentId?: string | null): boolean {
+  return !!editor && editor.paperId === paperId && editor.anchor.kind === "row" && editor.anchor.parentId === parentId;
 }
 
 export const PaperRow = memo(function PaperRow({ paper, domainById, active, flash, menuOpen }: Props) {
   const domains = paper.domainIds.map((id) => domainById.get(id)).filter((d): d is Domain => !!d);
   const authors = formatAuthorsShort(paper.authors);
   const tags = paper.tags ?? [];
-  const editing = useLibraryStore((s) => s.tagEditor?.paperId === paper.id && s.tagEditor.anchor.kind === "row");
+  const editing = useLibraryStore((s) => isRowEditing(s.tagEditor, paper.id));
   const open = () => useReaderStore.getState().openPaper(paper.id);
 
   return (

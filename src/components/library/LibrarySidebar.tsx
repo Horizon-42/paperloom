@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type 
 import { LanguageChangedNotice, LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { t } from "@/i18n";
 import { useAppStore, type MainView } from "@/app/stores/app";
-import { SIDEBAR_DEFAULT_WIDTH, useLibraryStore } from "@/app/stores/library";
+import { SIDEBAR_DEFAULT_WIDTH, importTargetDomainId, useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
 import { findTag } from "@/lib/tags";
 import { markPaperOpened } from "@/services/paperService";
@@ -14,6 +14,7 @@ import { ImportStatus } from "./ImportStatus";
 import { enqueueImport, filesFromList } from "./importController";
 import { LibraryDataProvider, useLibraryData } from "./libraryData";
 import { LibraryDialogs } from "./LibraryDialogs";
+import { LibraryToolbar, TagFilterBar } from "./LibraryToolbar";
 import { PaperList } from "./PaperList";
 import { ProjectRegistryBanner, ProjectSwitcher } from "./ProjectSwitcher";
 import { useSearchProviders } from "./search";
@@ -34,6 +35,8 @@ export function LibrarySidebar() {
 function SidebarInner() {
   const width = useLibraryStore((s) => s.sidebarWidth);
   const query = useLibraryStore((s) => s.query);
+  const view = useLibraryStore((s) => s.view);
+  const tagFilter = useLibraryStore((s) => s.tagFilter);
   const fileDragActive = useWindowFileDrop();
   useTrackLastOpened();
   useSelectionGuard();
@@ -48,8 +51,15 @@ function SidebarInner() {
       data-library-sidebar
     >
       <SidebarHeader />
-      <DomainTree />
-      {query.trim() ? <SearchResults query={query} /> : <PaperList />}
+      {query.trim() ? (
+        <SearchResults query={query} />
+      ) : (
+        <>
+          <LibraryToolbar />
+          {tagFilter.length > 0 && <TagFilterBar tags={tagFilter} />}
+          {view === "tree" ? <DomainTree /> : <PaperList />}
+        </>
+      )}
       <ImportStatus />
       <StorageStatus />
       <ResizeHandle />
@@ -71,6 +81,10 @@ const VIEWS: { value: MainView & keyof typeof t.library.sidebar.views; Icon: typ
 
 function SidebarHeader() {
   const fileInput = useRef<HTMLInputElement>(null);
+  // 选中的领域是导入目标：写在按钮的提示里
+  const targetId = useLibraryStore(importTargetDomainId);
+  const { domainById } = useLibraryData();
+  const target = targetId ? domainById.get(targetId)?.name : undefined;
 
   return (
     <div className="space-y-2.5 px-3 pb-2.5 pt-3">
@@ -80,7 +94,7 @@ function SidebarHeader() {
           type="button"
           onClick={() => fileInput.current?.click()}
           className="inline-flex h-7 items-center gap-1 rounded-md bg-blue-600 px-2.5 text-[12.5px] font-medium text-white shadow-sm hover:bg-blue-700"
-          title={t.library.sidebar.importTitle}
+          title={target ? `${t.library.sidebar.importTitle}\n${t.library.sidebar.dropInto(target)}` : t.library.sidebar.importTitle}
         >
           <IconUpload width={14} height={14} />
           {t.library.sidebar.importButton}
@@ -311,9 +325,9 @@ function useWindowFileDrop(): boolean {
 }
 
 function FileDropOverlay() {
-  const selection = useLibraryStore((s) => s.selection);
+  const targetId = useLibraryStore(importTargetDomainId);
   const { domainById } = useLibraryData();
-  const target = selection.kind === "domain" ? domainById.get(selection.id)?.name : undefined;
+  const target = targetId ? domainById.get(targetId)?.name : undefined;
   return (
     <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-blue-500/5 p-6">
       <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-blue-400 bg-white/60">

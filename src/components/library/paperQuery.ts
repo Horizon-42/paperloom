@@ -1,26 +1,13 @@
 // 论文列表的筛选与排序（纯函数）
 import { t } from "@/i18n";
-import type { LibrarySelection, PaperSort } from "@/app/stores/library";
-import { getSubtreeIds, isUnfiled } from "@/services/domainTree";
-import type { Domain, Paper } from "@/types/models";
+import type { PaperSort } from "@/app/stores/library";
+import type { Paper } from "@/types/models";
 
 /** 排序选项；显示名用 sortLabel */
 export const SORT_OPTIONS: readonly PaperSort[] = ["added", "title", "year", "lastOpened"];
 
 export function sortLabel(sort: PaperSort): string {
   return t.library.paperList.sort[sort];
-}
-
-/** 选中领域时包含其所有子领域下的论文 */
-export function filterPapersBySelection(papers: Paper[], domains: Domain[], selection: LibrarySelection): Paper[] {
-  if (selection.kind === "all") return papers;
-  if (selection.kind === "unfiled") {
-    const existing = new Set(domains.map((d) => d.id));
-    return papers.filter((p) => isUnfiled(p, existing));
-  }
-  if (!domains.some((d) => d.id === selection.id)) return [];
-  const ids = new Set(getSubtreeIds(domains, selection.id));
-  return papers.filter((p) => p.domainIds.some((id) => ids.has(id)));
 }
 
 const collator = new Intl.Collator("zh-CN", { numeric: true, sensitivity: "base" });

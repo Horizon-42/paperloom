@@ -52,7 +52,7 @@ React 18 + TypeScript 5.9（strict）+ Vite 8、pdfjs-dist 6、Dexie 4 + dexie-r
 src/
   app/            App.tsx 布局；stores/ 下是 Zustand 界面状态（每个模块一个文件）
   components/
-    library/      领域树、论文列表、导入
+    library/      领域树（领域是文件夹、论文在其中，D15）、全部论文平铺列表、导入
     viewer/       ReaderArea（标签、分屏）、PdfViewer、PageView、文本层；overlays.ts 是覆盖层注册表
     annotation/   高亮、选区工具栏、MarginRail 角注、批注列表
     term/         术语下划线、TermPopover、TermEditor、GlossaryView

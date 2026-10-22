@@ -18,17 +18,18 @@ export function TagEditorHost() {
   return <TagEditorPopover key={editor.seq} editor={editor} />;
 }
 
-/** 锚点元素：侧栏里的论文行，或分栏工具栏上的标签按钮 */
+/** 锚点元素：侧栏里的论文行（领域树里按所在领域区分同一篇论文的几行），或分栏工具栏上的标签按钮 */
 function anchorSelector(editor: TagEditorState): string {
   const id = CSS.escape(editor.paperId);
-  return editor.anchor.kind === "toolbar"
-    ? `[data-pane="${editor.anchor.paneId}"] [data-tag-control="${id}"]`
-    : `[data-library-sidebar] [role="option"][data-paper-id="${id}"]`;
+  const a = editor.anchor;
+  if (a.kind === "toolbar") return `[data-pane="${a.paneId}"] [data-tag-control="${id}"]`;
+  if (a.parentId === undefined) return `[data-library-sidebar] [role="option"][data-paper-id="${id}"]`;
+  return `[data-library-sidebar] [role="treeitem"][data-paper-id="${id}"][data-parent-domain-id="${CSS.escape(a.parentId ?? "")}"]`;
 }
 
 /** 再次点击就关闭弹层的那个按钮 */
 function triggerSelector(editor: TagEditorState): string {
-  return editor.anchor.kind === "toolbar" ? anchorSelector(editor) : `[data-tag-trigger="${CSS.escape(editor.paperId)}"]`;
+  return editor.anchor.kind === "toolbar" ? anchorSelector(editor) : `${anchorSelector(editor)} [data-tag-trigger]`;
 }
 
 function TagEditorPopover({ editor }: { editor: TagEditorState }) {

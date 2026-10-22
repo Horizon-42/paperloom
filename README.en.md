@@ -20,7 +20,7 @@ Your papers and notes stay on your own computer. Nothing is uploaded to any serv
 
 - **Word-precise highlights**: positions come from the PDF's glyph geometry, so highlights hug each word instead of drifting by half a word. Notes are Markdown (with math) and sit in the margin, aligned with the text.
 - **Personal glossary**: each term can have aliases (acronym, full form, plurals). Every match across all papers is underlined automatically. Terms can be scoped to specific fields, so the same acronym can mean different things in different areas.
-- **Library**: nested fields (a paper can belong to several), tags, search and filters.
+- **Library**: fields work like nested folders you expand and collapse, with papers inside; drag to move a paper (it can belong to several fields). Switch to "All" to browse by date, year or tag.
 - **Side by side**: tabs and a split view for comparing two papers.
 - **Note canvas**: arrange highlights, terms and papers on a canvas and link them.
 - **Projects**: each project is a fully separate set of papers and notes; open different projects in different browser tabs.

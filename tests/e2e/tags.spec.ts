@@ -25,9 +25,11 @@ function trackErrors(page: Page): string[] {
   return errors;
 }
 
+/** 打开应用，切到「全部论文」平铺列表（行上显示标签；按领域浏览的用例自己切回去） */
 async function boot(page: Page) {
   await page.goto("/");
   await page.waitForFunction(() => !!(window as any).__paperlens?.useLibraryStore);
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setView("all"));
 }
 
 async function seed(page: Page, papers: SeedPaper[], domains: { id: string; name: string }[] = []) {
@@ -58,7 +60,6 @@ const tagInputOf = (editor: Locator) => editor.getByRole("combobox", { name: "�
 const tagsOf = (page: Page, id: string) =>
   page.evaluate(async (id) => ((await (window as any).__paperlens.db.papers.get(id))?.tags ?? null) as string[] | null, id);
 const filterOf = (page: Page) => page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().tagFilter as string[]);
-const listCount = (sidebar: Locator) => sidebar.getByRole("heading").filter({ hasText: "篇" });
 
 test("row button opens the editor: autocomplete an existing tag, create a new one, search shows tags", async ({ page }) => {
   const errors = trackErrors(page);
@@ -498,7 +499,6 @@ test("tag filter: chip click toggles, multiple tags AND, combines with domains, 
   await expect.poll(() => filterOf(page)).toEqual(["x"]);
   expect(await page.evaluate(() => (window as any).__paperlens.useReaderStore.getState().panes[0].activePaperId)).toBeNull();
   await expect(rows).toHaveCount(2);
-  await expect(listCount(sidebar)).toContainText("2 篇");
   await expect(rowOf(sidebar, "a").locator("[data-tag-chip='x']")).toHaveAttribute("aria-pressed", "true");
   const bar = sidebar.getByRole("group", { name: "标签筛选" });
   await expect(bar.locator("[data-tag]")).toHaveText(["x"]);
@@ -523,27 +523,28 @@ test("tag filter: chip click toggles, multiple tags AND, combines with domains, 
   await expect(rows).toHaveCount(1);
   await expect(bar.locator("[data-tag]")).toHaveText(["x", "y"]);
 
-  // 与领域叠加
-  await sidebar.locator("[data-domain-id]", { hasText: "方法论" }).click();
-  const domainRows = sidebar.getByRole("listbox", { name: /方法论/ }).locator("[role=option]");
-  await expect(domainRows).toHaveCount(1);
-  await sidebar.getByRole("button", { name: /未分类/ }).click();
-  await expect(sidebar.getByRole("listbox", { name: "未分类" }).locator("[role=option]")).toHaveCount(0);
-  await expect(sidebar).toContainText("当前视图中没有同时带有这些标签的论文。");
-  // 筛选栏上去掉 y（键盘：Tab 到 × 上回车）：未分类里带 x 的是 b；焦点移到下一个按钮
+  // 按领域浏览时与筛选叠加：只显示有匹配论文的领域（自动展开），「未分类」里没有匹配的就不显示
+  await sidebar.locator('[data-library-view="tree"]').click();
+  const tree = sidebar.getByRole("tree");
+  await expect(tree.locator("[data-paper-id]")).toHaveCount(1);
+  await expect(tree.locator('[data-paper-id="a"][data-parent-domain-id="d1"]')).toBeVisible();
+  await expect(tree.locator("[data-unfiled]")).toHaveCount(0);
+  // 筛选栏上去掉 y（键盘：Tab 到 × 上回车）：带 x 的还有未分类里的 b；焦点移到下一个按钮
   await bar.getByRole("button", { name: "取消按「x」筛选" }).focus();
   await page.keyboard.press("Tab");
   await expect(bar.getByRole("button", { name: "取消按「y」筛选" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(bar.getByRole("button", { name: "清除" })).toBeFocused();
-  await expect(sidebar.getByRole("listbox", { name: "未分类" }).locator("[role=option]")).toHaveCount(1);
-  await expect(rowOf(sidebar, "b")).toBeVisible();
+  await expect(tree.locator("[data-paper-id]")).toHaveCount(2);
+  await expect(tree.locator('[data-paper-id="b"][data-parent-domain-id=""]')).toBeVisible();
+  // 清除筛选：领域回到原来的折叠状态，「未分类」里是 b 和 d
   await bar.getByRole("button", { name: "清除" }).click();
   await expect(bar).toBeHidden();
-  await expect(sidebar.getByRole("listbox", { name: "未分类" }).locator("[role=option]")).toHaveCount(2);
+  await expect(tree.locator("[data-paper-id]")).toHaveCount(2);
+  await expect(tree.locator('[data-parent-domain-id=""]')).toHaveCount(2);
 
   // 再点一次行上的标签：从筛选中去掉
-  await sidebar.getByRole("button", { name: /全部论文/ }).click();
+  await sidebar.locator('[data-library-view="all"]').click();
   await rowOf(sidebar, "b").locator("[data-tag-chip='x']").click();
   await expect(rows).toHaveCount(2);
   await rowOf(sidebar, "b").locator("[data-tag-chip='x']").click();
@@ -704,7 +705,7 @@ test("virtual list: tagged and untagged rows don't overlap; reveal clears a hidi
   });
   const sidebar = sidebarOf(page);
   const list = sidebar.getByRole("listbox", { name: "全部论文" });
-  await expect(sidebar.getByRole("heading", { name: /全部论文/ })).toContainText("600");
+  await expect(sidebar.locator('[data-library-view="all"]')).toContainText("600");
   expect(await list.locator("[role=option]").count()).toBeLessThan(60);
 
   const checkRows = async () => {
@@ -740,7 +741,9 @@ test("virtual list: tagged and untagged rows don't overlap; reveal clears a hidi
 
   // 被标签筛选挡住的论文：定位时清除筛选
   await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setTagFilter(["偶数组"]));
-  await expect(sidebar.getByRole("heading", { name: /全部论文/ })).toContainText("100 篇");
+  await expect(list.locator("[role=option]").first()).toBeVisible();
+  for (const id of await list.locator("[role=option]").evaluateAll((els) => els.map((e) => e.getAttribute("data-paper-id")!)))
+    expect(Number(id.slice(4)) % 6).toBe(0); // 只剩「偶数组」（编号是 6 的倍数）
   await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().revealPaper("seed301"));
   await expect.poll(() => filterOf(page)).toEqual([]);
   await expect(rowOf(sidebar, "seed301")).toBeInViewport();

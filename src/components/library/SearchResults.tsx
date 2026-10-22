@@ -5,7 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useLibraryData } from "./libraryData";
 import { PaperContextMenu } from "./PaperContextMenu";
 import { PaperRow, paperRowHeight } from "./PaperRow";
-import { useActivePaperId, useCurrentDomain } from "./PaperList";
+import { useActivePaperId } from "./PaperList";
 import { getSearchProvider, runSearch, useSearchProviders, type SearchGroup, type SearchHit } from "./search";
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -22,7 +22,6 @@ export function SearchResults({ query }: { query: string }) {
   const q = useDebounced(query.trim(), 120);
   const groups = useLiveQuery(() => runSearch(q, providers), [q, providers]);
   const { domainById, paperById } = useLibraryData();
-  const currentDomain = useCurrentDomain();
   const activePaperId = useActivePaperId();
 
   const total = groups?.reduce((n, g) => n + g.total, 0) ?? 0;
@@ -33,8 +32,8 @@ export function SearchResults({ query }: { query: string }) {
         {t.library.search.results}
         {groups && <span className="ml-1.5 font-normal tabular-nums text-neutral-400">{t.library.search.resultCount(total)}</span>}
       </div>
-      <PaperContextMenu currentDomain={currentDomain}>
-        {(menuTargetId) => (
+      <PaperContextMenu>
+        {(menuTarget) => (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
             {groups && total === 0 && (
               <p className="px-2.5 py-6 text-center text-xs text-neutral-400">{t.library.search.noMatch(q)}</p>
@@ -54,7 +53,7 @@ export function SearchResults({ query }: { query: string }) {
                             domainById={domainById}
                             active={paper.id === activePaperId}
                             flash={false}
-                            menuOpen={paper.id === menuTargetId}
+                            menuOpen={paper.id === menuTarget?.paperId}
                           />
                         </div>
                       ) : (

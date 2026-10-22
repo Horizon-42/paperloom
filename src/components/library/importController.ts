@@ -1,5 +1,5 @@
 // 导入队列：把选择/拖入的文件依次交给 paperService，进度和结果写进 library store
-import { selectedDomainId, useLibraryStore, type ImportJobItem } from "@/app/stores/library";
+import { importTargetDomainId, useLibraryStore, type ImportJobItem } from "@/app/stores/library";
 import { importPdf, type ImportOutcome } from "@/services/paperService";
 
 interface QueueItem {
@@ -19,7 +19,7 @@ function toItem(o: ImportOutcome): ImportJobItem {
 export function enqueueImport(files: File[]): void {
   if (!files.length) return;
   const store = useLibraryStore.getState();
-  const domainId = selectedDomainId(store.selection);
+  const domainId = importTargetDomainId(store);
   queue.push(...files.map((file) => ({ file, domainId })));
   store.setImportJob((prev) =>
     prev && !prev.finished

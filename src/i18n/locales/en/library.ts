@@ -36,7 +36,6 @@ const library: Messages["library"] = {
     navLabel: "Fields",
     all: "All papers",
     unfiled: "Unfiled",
-    heading: "Fields",
     newDomain: "New field",
     treeLabel: "Field tree",
     empty: "No fields yet. Click + to create one, then drag papers onto it to file them.",
@@ -68,21 +67,14 @@ const library: Messages["library"] = {
 
   paperList: {
     ariaLabel: "Paper list",
-    count: (n) => String(n),
-    noTagged: (tags, inView) => {
-      const where = inView ? " in this view" : "";
-      return tags.length === 1 ? `No papers tagged ${q(tags[0])}${where}.` : `No papers have all of these tags${where}.`;
-    },
+    noTagged: (tags) => (tags.length === 1 ? `No papers tagged ${q(tags[0])}.` : "No papers have all of these tags."),
     clearTagFilter: "Clear tag filter",
     emptyLibrary: "Your library is empty. Click “Import” above to choose PDFs, or drop PDFs onto the window.",
-    allFiled: "All papers are filed.",
-    emptyDomain: "No papers in this field yet. Drag papers from the list onto a field on the left to file them.",
     noPapers: "No papers.",
     tagFilterBar: "Tag filter",
     clear: "Clear",
     filterByTag: "Filter by tag",
     filterByTagCount: (n) => `Filter by tag (${n} selected)`,
-    tagButton: "Tags",
     filterAllHint: " (papers with all selected tags)",
     manageTags: "Manage tags…",
     sortLabel: (label) => `Sort: ${label}`,
@@ -110,6 +102,15 @@ const library: Messages["library"] = {
 
   movePaper: {
     moved: (name) => `Moved to ${q(name)}`,
+    removedFrom: (name) => `Removed from ${q(name)}`,
+    movedToUnfiled: "Moved to Unfiled",
+  },
+
+  tree: {
+    viewLabel: "Paper view",
+    byField: "By field",
+    all: "All",
+    alsoIn: (paths) => `Also in: ${paths.join("; ")}`,
   },
 
   editPaper: {

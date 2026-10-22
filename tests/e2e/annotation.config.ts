@@ -15,7 +15,7 @@ export default defineConfig({
   // 与其他模块并行跑 e2e 时互不覆盖结果目录（默认的 test-results 每次运行会被整个清空）
   outputDir: join(tmpdir(), "paperlens-e2e-annotation"),
   workers: 2,
-  use: { baseURL: "http://localhost:5321", trace: "retain-on-failure" },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5321", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: "npx vite --port 5321 --strictPort",

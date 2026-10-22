@@ -19,7 +19,7 @@ import {
 } from "@/services/storage/exportImport";
 import { flushStorage, getStorageApi } from "@/services/storage/sync";
 import { IconAlert, IconDownload, IconFolder, IconUpload, IconX } from "./icons";
-import { formatDateTime, relativeTime } from "./time";
+import { formatDateTime, relativeTime } from "@/i18n/format";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

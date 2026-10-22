@@ -2,6 +2,7 @@
 // 有本地服务时以 data/projects.json 为准（同时在 localStorage 留一份，服务不在时还能列出）；
 // 没有本地服务时项目列表只存在本浏览器的 localStorage 里（只是没有文件夹镜像）。
 // 本模块在 main.tsx 里先于数据库加载：不能导入 db/schema 及依赖它的模块。
+import { t } from "@/i18n";
 import { currentProject, useProjectsStore, type ProjectInfo } from "@/app/stores/projects";
 import {
   dbNameFor,
@@ -250,7 +251,7 @@ export async function bootProject(): Promise<BootResult> {
 
   // 标签页标题带项目名，多个标签页好区分
   const setTitle = () => {
-    document.title = `${currentProject(useProjectsStore.getState()).name} · Paperloom`;
+    document.title = t.common.pageTitle(currentProject(useProjectsStore.getState()).name);
   };
   setTitle();
   useProjectsStore.subscribe(setTitle);

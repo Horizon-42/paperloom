@@ -4,7 +4,10 @@ import "katex/dist/katex.min.css";
 import "./index.css";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { htmlLang, t } from "@/i18n";
 import { bootProject } from "@/services/projects";
+
+document.documentElement.lang = htmlLang();
 
 void bootProject().then(async (r) => {
   if (r.kind === "ok") {
@@ -12,6 +15,6 @@ void bootProject().then(async (r) => {
     return;
   }
   const { ProjectNotFound } = await import("@/app/ProjectNotFound");
-  document.title = "找不到项目 · Paperloom";
+  document.title = t.app.notFound.pageTitle;
   createRoot(document.getElementById("root")!).render(createElement(ProjectNotFound, r));
 });

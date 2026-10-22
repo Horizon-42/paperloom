@@ -22,7 +22,7 @@ export default defineConfig({
   timeout: 120_000,
   // 用例共用服务和数据目录，串行执行
   workers: 1,
-  use: { trace: "retain-on-failure" },
+  use: { locale: "zh-CN", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {

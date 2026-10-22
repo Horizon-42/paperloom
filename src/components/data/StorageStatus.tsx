@@ -10,7 +10,7 @@ import { ConflictDialog } from "./ConflictDialog";
 import { DataDialog } from "./DataDialog";
 import { MigrationNotice } from "./MigrationNotice";
 import { IconX } from "./icons";
-import { relativeTime } from "./time";
+import { relativeTime } from "@/i18n/format";
 
 const DAY = 86_400_000;
 

@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "tests/e2e", "scripts", "server", "tests/unit/storage/node"]
+  "include": ["vite.config.ts", "playwright.config.ts", "tests/e2e", "scripts", "server", "tests/unit/storage/node", "tests/unit/i18n/hardcoded.test.ts"]
 }

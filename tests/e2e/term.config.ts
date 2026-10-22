@@ -17,7 +17,7 @@ export default defineConfig({
   workers: 2,
   // 并行开发时其他模块改文件会触发 Vite 整页重载，打断正在运行的用例；重试一次
   retries: 1,
-  use: { baseURL: "http://localhost:5322", trace: "retain-on-failure" },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5322", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: "npx vite --port 5322 --strictPort",

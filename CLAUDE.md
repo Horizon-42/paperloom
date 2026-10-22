@@ -84,7 +84,10 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 
 ## 约定
 
-- 界面文案用中文；代码标识符用英文；注释用中文，简洁，只解释不显而易见的地方。
+- 界面文案中英两套，都在 `src/i18n/locales/{zh,en}/<模块>.ts`（D13）：代码里用 `t.<模块>.<键>`（`import { t } from "@/i18n"`），
+  带参数的文案写成函数（`t.library.paperCount(n)`），文案里嵌元素用 `<Trans text=… values={{…}} />`，时间用 `@/i18n/format`。
+  **代码里不写死任何语言的界面文字**（`tests/unit/i18n/hardcoded.test.ts` 扫描检查）；中文文案是结构来源，英文必须一一对应（类型检查 + `messages.test.ts`）。
+  代码标识符用英文；注释用中文，简洁，只解释不显而易见的地方。
 - 导入路径用 `@/` 别名。
 - 持久化数据在 Dexie 里，组件用 `useLiveQuery` 读取；Zustand 只放界面状态（当前标签、弹窗开关等），不要把数据库内容复制进 store。
 - 数据库写操作集中在 `db/repo/` 和 `services/`，组件不直接写表。
@@ -93,6 +96,8 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 - 开发模式下 `window.__paperlens` 暴露 `db` 和各 store，供 e2e 测试注入数据。
 - **测试绝不能碰真实的 `data/`**：所有 Playwright 配置的 webServer 都要设 `PAPERLENS_STORAGE=off`（或指向临时的 `PAPERLENS_DATA_DIR`），并且 `reuseExistingServer: false`。
   迁移脚本的测试只用临时目录，并用 `--ports` 指定测试自己起的端口、加 `--no-process-scan`（缺省会探测 5173、4173 和本机其他 node 进程的端口）。
+- 界面语言（D13）：启动时确定一次（`?lang=` > localStorage `paperlens.locale` > 浏览器语言 > 英文），切换 = 重新加载页面；
+  Worker 名用 `workerName(workerKind(kind))` 把语言带进去。单元测试固定中文（`tests/setup.ts`），Playwright 配置都设 `locale: "zh-CN"`。
 - 论文标签（D11）：`Paper.tags`，规范化与查询在 `src/lib/tags.ts`，写入经 `src/services/tagService.ts`；不加索引，筛选在内存里做。
 - 导出/镜像不包含派生数据：`pageTexts`、`occurrences`、kv 中 `indexer:`、`storage:` 开头的记录。
 

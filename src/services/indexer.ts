@@ -5,6 +5,7 @@
 // 匹配任务运行中来了全库请求（术语或领域树变了）就取消当前任务、合并后重跑；其他请求排队等当前任务结束。
 // 多个标签页同时打开时用 navigator.locks 选出一个标签页做索引，其余只读结果（进度经 BroadcastChannel 同步）；
 // 锁和频道按项目区分，不同项目的标签页互不影响。
+import { workerKind } from "@/i18n";
 import { liveQuery } from "dexie";
 import { db } from "@/db/schema";
 import { projectScoped, workerName } from "@/lib/project";
@@ -374,7 +375,7 @@ function createMatchRunner() {
     if (worker) return worker;
     try {
       // Worker 读不到页面 URL：项目放在 Worker 名里（lib/project.ts）
-      worker = new Worker(new URL("../workers/indexer.worker.ts", import.meta.url), { type: "module", name: workerName("paperlens-indexer") });
+      worker = new Worker(new URL("../workers/indexer.worker.ts", import.meta.url), { type: "module", name: workerName(workerKind("paperlens-indexer")) });
     } catch (e) {
       console.warn("[indexer] 无法创建 Worker，改在主线程扫描", e);
       broken = true;

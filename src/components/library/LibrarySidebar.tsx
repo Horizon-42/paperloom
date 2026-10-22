@@ -1,4 +1,5 @@
 // 文库侧栏：项目切换、导入、全局搜索、视图切换、领域树、论文列表、标签编辑弹层
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useAppStore, type MainView } from "@/app/stores/app";
 import { SIDEBAR_DEFAULT_WIDTH, useLibraryStore } from "@/app/stores/library";
@@ -97,6 +98,7 @@ function SidebarHeader() {
             e.target.value = "";
           }}
         />
+        <LanguageSwitcher />
       </div>
 
       <ProjectRegistryBanner />

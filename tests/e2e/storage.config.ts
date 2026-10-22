@@ -23,7 +23,7 @@ export default defineConfig({
   timeout: 90_000,
   // 用例共用一个服务和数据目录，串行执行
   workers: 1,
-  use: { baseURL: "http://localhost:5331", trace: "retain-on-failure", acceptDownloads: true },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5331", trace: "retain-on-failure", acceptDownloads: true },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: [
     {

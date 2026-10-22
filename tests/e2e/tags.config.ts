@@ -15,7 +15,7 @@ export default defineConfig({
   outputDir: join(tmpdir(), "paperlens-e2e-tags"),
   timeout: 60_000,
   workers: 2,
-  use: { baseURL: "http://localhost:5411", trace: "retain-on-failure" },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5411", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: "npx vite --port 5411 --strictPort",

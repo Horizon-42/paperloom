@@ -8,7 +8,7 @@ export default defineConfig({
   testIgnore: "static*.spec.ts",
   outputDir: join(tmpdir(), "paperlens-e2e-default"),
   timeout: 30_000,
-  use: { baseURL: "http://localhost:5199", trace: "retain-on-failure" },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5199", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "npx vite --port 5199 --strictPort",

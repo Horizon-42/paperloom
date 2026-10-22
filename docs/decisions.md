@@ -106,3 +106,16 @@
 公开发布前改名：PaperLens 已有多个同名的科研工具（浏览器插件、iOS App、论文评审模型），不利于被搜到。只改用户看得到的名字（界面文案、页面标题、提示与错误信息、文档）；
 内部标识保持不变，否则已有的数据和同步记录会对不上：数据库名 `paperlens` / `paperlens-p-<id>`、localStorage 键、锁与频道名、接口路径 `/__paperlens/...`、请求头 `X-PaperLens*`、
 数据文件的 `format: "paperlens"`、服务标识 `paperlens-storage`、环境变量 `PAPERLENS_*`、开发模式的 `window.__paperlens`、类名 `PaperLensDB`。测试 PDF（fixtures/）里的文字也不改。
+
+## D13 界面多语言：中文 / 英文（2026-10-22）
+
+- **不引入 i18n 库**：文案是普通的 TS 对象，`src/i18n/locales/zh/<模块>.ts` 是结构来源，`en/` 的类型是 `Messages[<模块>]`，缺一条、多一条、参数不对都过不了类型检查。
+  带参数的文案写成函数，英文的单复数在函数里处理；需要嵌元素的句子用 `{占位符}` + `<Trans>`。
+- **语言在页面启动时确定一次**：`?lang=` > 本浏览器的选择（localStorage `paperlens.locale`，与项目无关）> 浏览器语言（zh* → 中文）> 英文。
+  切换语言 = 先尽量保存、再重新加载页面（与切换项目相同），所以 `t` 可以在模块加载时读取，不需要 React context。
+- **Worker** 读不到 localStorage：Worker 名里带语言（`workerKind`，如 `paperlens-storage~en@default`），Worker 里从 `self.name` 解析。
+- **只翻译界面**：论文标题、笔记等用户数据不翻译。新建时自动起的名字（"未命名画布"等）按当时的界面语言生成，之后就是数据，不随语言切换变化。
+  自动生成的 Markdown（`data/markdown/`、导出到 Obsidian）跟随界面语言；切换语言后下一次保存会按新语言重写这些文件。
+- **本地服务**返回的错误由前端按错误代码翻译，服务端原文只作兜底；迁移脚本等命令行输出面向开发者，保持中文。
+- **检查**：`tests/unit/i18n/hardcoded.test.ts` 用 TypeScript 语法树扫描 `src/`（除 `i18n/locales/`）里的字符串和 JSX 文字，不能含中文；
+  确需中文字符的代码（如中文标点识别）逐条登记在它的 `ALLOW` 里。`messages.test.ts` 检查中英结构一致、英文里没有中文。

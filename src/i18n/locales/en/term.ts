@@ -1,0 +1,6 @@
+// term 模块的界面文案（英文）。结构必须与 zh/term.ts 一致，由类型检查保证。
+import type { Messages } from "../zh";
+
+const term: Messages["term"] = {};
+
+export default term;

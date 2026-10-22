@@ -14,7 +14,7 @@ export default defineConfig({
   testMatch: "static*.spec.ts",
   outputDir: join(tmpdir(), "paperlens-e2e-static"),
   timeout: 60_000,
-  use: { baseURL: "http://localhost:5197", trace: "retain-on-failure" },
+  use: { locale: "zh-CN", baseURL: "http://localhost:5197", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     command: `npm run build:web && rm -rf "${site}" && mkdir -p "${site}" && cp -R dist "${site}/paperlens" && python3 -m http.server 5197 --bind 127.0.0.1 -d "${site}"`,

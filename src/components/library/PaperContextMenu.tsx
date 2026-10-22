@@ -6,9 +6,11 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import { useAnnotationStore } from "@/app/stores/annotation";
 import { useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
-import { removePaperFromDomains } from "@/services/paperService";
+import { flattenTree } from "@/services/domainTree";
+import { addPaperToDomain, removePaperFromDomains } from "@/services/paperService";
+import { IconCheck, IconChevronRight } from "./icons";
 import { useLibraryData } from "./libraryData";
-import { menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
+import { cx, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
 
 /** 当前选中的领域（用于"从当前领域移除"） */
 export interface CurrentDomain {
@@ -24,7 +26,7 @@ interface Props {
 }
 
 export function PaperContextMenu({ currentDomain, children }: Props) {
-  const { paperById } = useLibraryData();
+  const { paperById, tree } = useLibraryData();
   const [targetId, setTargetId] = useState<string | null>(null);
   const paper = targetId ? paperById.get(targetId) : undefined;
   const inCurrent = !!paper && !!currentDomain && paper.domainIds.some((id) => currentDomain.subtreeIds.includes(id));
@@ -73,6 +75,40 @@ export function PaperContextMenu({ currentDomain, children }: Props) {
             <ContextMenu.Item className={menuItem} onSelect={() => useAnnotationStore.getState().openReplaceDialog(paper.id)}>
               {t.library.paperMenu.replacePdf}
             </ContextMenu.Item>
+            {/* 添加到领域：保留原来的领域（拖到领域上是移动） */}
+            <ContextMenu.Sub>
+              <ContextMenu.SubTrigger className={cx(menuItem, "justify-between data-[state=open]:bg-neutral-100")} data-add-to-domain>
+                {t.library.paperMenu.addToDomain}
+                <IconChevronRight width={13} height={13} className="text-neutral-400" />
+              </ContextMenu.SubTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.SubContent className={cx(menuContent, "max-h-[60vh] min-w-[160px] max-w-[280px] overflow-y-auto")} sideOffset={4}>
+                  {tree.length === 0 && (
+                    <ContextMenu.Item className={menuItem} disabled>
+                      {t.library.paperMenu.noDomains}
+                    </ContextMenu.Item>
+                  )}
+                  {flattenTree(tree).map(({ domain, depth }) => {
+                    const has = paper.domainIds.includes(domain.id);
+                    return (
+                      <ContextMenu.Item
+                        key={domain.id}
+                        className={cx(menuItem, "data-[disabled]:text-neutral-400")}
+                        disabled={has}
+                        onSelect={() => void addPaperToDomain(paper.id, domain.id)}
+                        data-domain-id={domain.id}
+                      >
+                        <span className="flex min-w-0 flex-1 items-center gap-2" style={{ paddingLeft: depth * 12 }}>
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: domain.color }} />
+                          <span className="truncate">{domain.name}</span>
+                        </span>
+                        {has && <IconCheck width={13} height={13} className="shrink-0 text-neutral-500" />}
+                      </ContextMenu.Item>
+                    );
+                  })}
+                </ContextMenu.SubContent>
+              </ContextMenu.Portal>
+            </ContextMenu.Sub>
             {currentDomain && (
               <ContextMenu.Item
                 className={menuItem}

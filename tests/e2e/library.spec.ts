@@ -100,6 +100,48 @@ test("import a PDF, file it into a domain, filter by domain", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
+test("拖到领域上是移动（可撤销）；右键「添加到领域」保留原领域", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await page.getByTestId("import-input").setInputFiles({ name: "move.pdf", mimeType: "application/pdf", buffer: await makePdf("Move Me", "Carol") });
+  const row = paperRows(sidebar).first();
+  await expect(row).toBeVisible();
+  await createDomain(sidebar, "甲");
+  await createDomain(sidebar, "乙");
+  const names = () =>
+    page.evaluate(async () => {
+      const { db } = (window as any).__paperlens;
+      const [p] = await db.papers.toArray();
+      const all = await db.domains.toArray();
+      return p.domainIds.map((id: string) => all.find((d: any) => d.id === id)?.name);
+    });
+
+  // 全部论文 → 甲
+  await row.dragTo(domainRow(sidebar, "甲"));
+  await expect.poll(names).toEqual(["甲"]);
+  // 在「甲」里拖到「乙」：移出甲
+  await domainRow(sidebar, "甲").click();
+  await paperRows(sidebar).first().dragTo(domainRow(sidebar, "乙"));
+  await expect.poll(names).toEqual(["乙"]);
+  await expect(paperRows(sidebar)).toHaveCount(0); // 已不在「甲」里
+  // 每次移动都有一条可撤销的提示
+  const toast = page.locator('[data-annotation-toast="info"]', { hasText: "已移到「乙」" });
+  await expect(toast).toBeVisible();
+  await toast.getByRole("button", { name: "撤销" }).click();
+  await expect.poll(names).toEqual(["甲"]);
+  await expect(paperRows(sidebar)).toHaveCount(1);
+
+  // 右键 → 添加到领域 → 乙：甲保留；已在的领域打勾、不能再选
+  await paperRows(sidebar).first().click({ button: "right" });
+  await page.locator("[data-add-to-domain]").click();
+  const sub = page.locator('[role="menu"]').last();
+  await expect(sub.locator("[data-domain-id]", { hasText: "甲" })).toHaveAttribute("data-disabled", "");
+  await sub.locator("[data-domain-id]", { hasText: "乙" }).click();
+  await expect.poll(names).toEqual(["甲", "乙"]);
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");

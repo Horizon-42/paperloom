@@ -4,10 +4,11 @@ import { memo, useEffect, useMemo, useRef, useState, type ComponentType, type Dr
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
+import { useAnnotationStore } from "@/app/stores/annotation";
 import { useLibraryStore } from "@/app/stores/library";
 import { DOMAIN_COLORS, createDomain, moveDomain, renameDomain, setDomainColor } from "@/services/domainService";
-import { computeDomainMove, flattenTree, type DomainDrop, type DomainNode, type DropPosition } from "@/services/domainTree";
-import { addPaperToDomain } from "@/services/paperService";
+import { computeDomainMove, flattenTree, getSubtreeIds, type DomainDrop, type DomainNode, type DropPosition } from "@/services/domainTree";
+import { movePaperToDomain, restorePaperDomains } from "@/services/paperService";
 import type { Domain } from "@/types/models";
 import { DOMAIN_MIME, PAPER_MIME, hasType } from "./dnd";
 import { IconCheck, IconChevronRight, IconInbox, IconLibrary, IconMore, IconPlus } from "./icons";
@@ -94,7 +95,7 @@ export function DomainTree() {
   const onRowDragOver = (e: DragEvent, node: DomainNode) => {
     if (hasType(e, PAPER_MIME)) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
+      e.dataTransfer.dropEffect = "move";
       setHintIfChanged({ targetId: node.domain.id, position: "inside" });
       scheduleExpand(node);
       return;
@@ -121,7 +122,7 @@ export function DomainTree() {
     if (hasType(e, PAPER_MIME)) {
       e.preventDefault();
       const paperId = e.dataTransfer.getData(PAPER_MIME);
-      if (paperId) void addPaperToDomain(paperId, id).then(() => setFlashId(id));
+      if (paperId) void dropPaper(paperId, node.domain);
     } else if (hasType(e, DOMAIN_MIME)) {
       const r = resolveDomainDrop(e, node);
       const dragId = useLibraryStore.getState().draggingDomainId;
@@ -132,6 +133,22 @@ export function DomainTree() {
       });
     }
     setHint(null);
+  };
+
+  /**
+   * 论文拖到领域上 = 移动：从当前浏览的领域（含子领域）移出；在「全部论文」「未分类」里拖时移出它所在的所有领域。
+   * 要保留原领域、再加一个，用论文右键菜单的「添加到领域」
+   */
+  const dropPaper = async (paperId: string, target: Domain) => {
+    const sel = useLibraryStore.getState().selection;
+    if (sel.kind === "domain" && sel.id === target.id) return;
+    const from = sel.kind === "domain" ? getSubtreeIds(domains, sel.id) : "all";
+    const before = await movePaperToDomain(paperId, target.id, from);
+    if (!before) return;
+    setFlashId(target.id);
+    useAnnotationStore.getState().showToast(t.library.movePaper.moved(target.name), {
+      undo: () => restorePaperDomains(paperId, before),
+    });
   };
 
   // 行组件用 memo；处理函数通过 ref 取最新闭包，保持引用稳定，论文写入时只有计数变化的行重新渲染

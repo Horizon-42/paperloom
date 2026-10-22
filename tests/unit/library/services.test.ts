@@ -5,6 +5,8 @@ import { db } from "@/db/schema";
 import type { Annotation, Domain, Paper, Term } from "@/types/models";
 import {
   addPaperToDomain,
+  movePaperToDomain,
+  restorePaperDomains,
   deletePaper,
   importPdf,
   importPdfs,
@@ -133,6 +135,28 @@ describe("paper editing", () => {
     expect((await db.papers.get(out.paper.id))!.domainIds).toEqual([d1.id, d2.id]);
     await removePaperFromDomains(out.paper.id, [d1.id]);
     expect((await db.papers.get(out.paper.id))!.domainIds).toEqual([d2.id]);
+  });
+
+  it("moves a paper: out of the given domains (or all of them), into the target; undo restores", async () => {
+    const [a, b, c] = [await createDomain({ name: "A" }), await createDomain({ name: "B" }), await createDomain({ name: "C" })];
+    const out = await importPdf(fakePdf("m.pdf"), { readInfo: fakeReader(), domainId: a.id });
+    if (out.status !== "added") throw new Error();
+    const id = out.paper.id;
+    await addPaperToDomain(id, c.id);
+    const domainsOf = async () => (await db.papers.get(id))!.domainIds;
+    // 从 A 移到 B：C 保留
+    expect(await movePaperToDomain(id, b.id, [a.id])).toEqual([a.id, c.id]);
+    expect(await domainsOf()).toEqual([c.id, b.id]);
+    // 已经在目标里、也没有要移出的：没有变化
+    expect(await movePaperToDomain(id, b.id, [a.id])).toBeNull();
+    expect(await movePaperToDomain(id, "missing", "all")).toBeNull();
+    // 从全部论文里拖："all" 移出所有领域
+    expect(await movePaperToDomain(id, a.id, "all")).toEqual([c.id, b.id]);
+    expect(await domainsOf()).toEqual([a.id]);
+    // 撤销：恢复原来的领域，期间删掉的领域跳过
+    await db.domains.delete(c.id);
+    await restorePaperDomains(id, [c.id, b.id]);
+    expect(await domainsOf()).toEqual([b.id]);
   });
 });
 

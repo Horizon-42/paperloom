@@ -103,7 +103,13 @@ const library: Messages["library"] = {
     tags: "Tags…",
     replacePdf: "Replace PDF file…",
     removeFromDomain: (name) => `Remove from ${q(name)}`,
+    addToDomain: "Add to field",
+    noDomains: "No fields yet",
     deletePaper: "Delete paper…",
+  },
+
+  movePaper: {
+    moved: (name) => `Moved to ${q(name)}`,
   },
 
   editPaper: {

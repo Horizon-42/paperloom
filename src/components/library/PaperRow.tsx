@@ -59,7 +59,8 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
       onDragStart={(e) => {
         e.dataTransfer.setData(PAPER_MIME, paper.id);
         e.dataTransfer.setData("text/plain", paper.title);
-        e.dataTransfer.effectAllowed = "copy";
+        // 拖到领域上是移动，拖到画布上是放一张卡片（复制）
+        e.dataTransfer.effectAllowed = "copyMove";
       }}
       onClick={open}
       onKeyDown={(e) => {

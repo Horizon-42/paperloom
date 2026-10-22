@@ -101,7 +101,15 @@ export default {
     tags: "标签…",
     replacePdf: "替换 PDF 文件…",
     removeFromDomain: (name: string) => `从「${name}」移除`,
+    /** 子菜单：保留已有领域，再加入一个 */
+    addToDomain: "添加到领域",
+    noDomains: "还没有领域",
     deletePaper: "删除论文…",
+  },
+
+  /** 把论文拖到领域上（移动） */
+  movePaper: {
+    moved: (name: string) => `已移到「${name}」`,
   },
 
   editPaper: {

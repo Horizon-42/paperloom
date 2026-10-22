@@ -378,6 +378,33 @@ export async function addPaperToDomain(paperId: string, domainId: string): Promi
   });
 }
 
+/**
+ * 把论文移到领域（拖放）：先移出 from 中的领域（"all" = 移出所有领域），再加入目标领域。
+ * 返回移动前的 domainIds（供撤销）；目标领域不存在或没有变化时返回 null
+ */
+export async function movePaperToDomain(paperId: string, domainId: string, from: readonly string[] | "all"): Promise<string[] | null> {
+  return db.transaction("rw", db.papers, db.domains, async () => {
+    const p = await getPaper(paperId);
+    if (!p || !(await getDomain(domainId))) return null;
+    const drop = new Set(from === "all" ? p.domainIds : from);
+    const next = p.domainIds.filter((id) => !drop.has(id) && id !== domainId);
+    next.push(domainId);
+    if (next.length === p.domainIds.length && next.every((id) => p.domainIds.includes(id))) return null;
+    await updatePaper(paperId, { domainIds: next });
+    return p.domainIds;
+  });
+}
+
+/** 撤销移动：恢复原来的领域（期间被删除的领域跳过） */
+export async function restorePaperDomains(paperId: string, domainIds: readonly string[]): Promise<void> {
+  await db.transaction("rw", db.papers, db.domains, async () => {
+    const p = await getPaper(paperId);
+    if (!p) return;
+    const exist = new Set((await db.domains.bulkGet([...domainIds])).filter((d) => !!d).map((d) => d!.id));
+    await updatePaper(paperId, { domainIds: domainIds.filter((id) => exist.has(id)) });
+  });
+}
+
 /** 从论文的 domainIds 中移除给定领域 */
 export async function removePaperFromDomains(paperId: string, domainIds: string[]): Promise<void> {
   const drop = new Set(domainIds);

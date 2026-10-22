@@ -16,7 +16,7 @@ const ctx: TaskContext = { db, api: createStorageApi() };
 scope.onmessage = (ev) => {
   const { id, name, arg, dbName } = ev.data;
   if (dbName !== db.name) {
-    scope.postMessage({ id, ok: false, error: { name: WRONG_DB_ERROR, message: `存储 Worker 打开的数据库（${db.name}）与页面（${dbName}）不一致` } });
+    scope.postMessage({ id, ok: false, error: { name: WRONG_DB_ERROR, message: `storage worker opened database ${db.name}, but the page uses ${dbName}` } });
     return;
   }
   const task = storageTasks[name] as (c: TaskContext, a: unknown) => Promise<unknown>;

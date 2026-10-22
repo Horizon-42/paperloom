@@ -1,26 +1,11 @@
 // 实体之间的连线（开发文档 9.3、9.5）：术语弹窗的"相关笔记"读写这里。
 // 连线全局有效、与画布无关；这里只做增删查，以及把 EntityRef 解析成可显示的标题和摘要。
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { newId } from "@/lib/id";
 import type { EntityKind, EntityRef, Link, LinkRelation } from "@/types/models";
 
 export const RELATIONS: LinkRelation[] = ["supports", "contradicts", "extends", "compares", "partOf", "custom"];
-
-export const RELATION_LABELS: Record<LinkRelation, string> = {
-  supports: "支持",
-  contradicts: "反驳",
-  extends: "扩展",
-  compares: "对比",
-  partOf: "属于",
-  custom: "自定义",
-};
-
-export const ENTITY_KIND_LABELS: Record<EntityKind, string> = {
-  annotation: "批注",
-  term: "术语",
-  paper: "论文",
-  note: "笔记",
-};
 
 export const refKey = (r: EntityRef) => `${r.kind}:${r.id}`;
 export const sameRef = (a: EntityRef, b: EntityRef) => a.kind === b.kind && a.id === b.id;
@@ -47,7 +32,7 @@ async function findSameLink(from: EntityRef, to: EntityRef, relation: LinkRelati
 /** 新建连线。不允许连到自己；完全相同的连线已存在时不重复创建，返回已有的那条（existed = true） */
 export async function addLink(input: LinkInput): Promise<{ link: Link; existed: boolean }> {
   const { from, to } = input;
-  if (sameRef(from, to)) throw new Error("不能连到自身");
+  if (sameRef(from, to)) throw new Error(t.canvas.errors.selfLink);
   const relation = cleanRelation(input.relation);
   const label = cleanLabel(input.label);
   return db.transaction("rw", db.links, async () => {
@@ -158,8 +143,8 @@ export interface EntitySummary {
 }
 
 const clip = (s: string, n = 80) => {
-  const t = s.replace(/\s+/g, " ").trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+  const c = s.replace(/\s+/g, " ").trim();
+  return c.length > n ? `${c.slice(0, n - 1)}…` : c;
 };
 
 /** 把一组 EntityRef 解析成可显示的摘要，按 refKey 索引 */
@@ -179,21 +164,21 @@ export async function resolveEntities(refs: readonly EntityRef[]): Promise<Map<s
     const r = a.rects[0];
     out.set(refKey({ kind: "annotation", id: a.id }), {
       ref: { kind: "annotation", id: a.id },
-      title: clip(a.quote.exact || "（无原文）", 60),
-      subtitle: `${paperTitle.get(a.paperId) ?? "未知论文"} · 第 ${a.page} 页`,
+      title: clip(a.quote.exact || t.canvas.entity.noQuote, 60),
+      subtitle: t.canvas.entity.source(paperTitle.get(a.paperId) ?? t.canvas.entity.unknownPaper, a.page),
       excerpt: a.note ? clip(a.note) : undefined,
       paperId: a.paperId,
       page: a.page,
       pdfPoint: r ? [r[0], r[3]] : undefined,
     });
   }
-  for (const t of terms) {
-    if (!t) continue;
-    out.set(refKey({ kind: "term", id: t.id }), {
-      ref: { kind: "term", id: t.id },
-      title: t.name,
-      subtitle: t.aliases.length ? t.aliases.join("、") : undefined,
-      excerpt: t.note ? clip(t.note) : undefined,
+  for (const term of terms) {
+    if (!term) continue;
+    out.set(refKey({ kind: "term", id: term.id }), {
+      ref: { kind: "term", id: term.id },
+      title: term.name,
+      subtitle: term.aliases.length ? t.canvas.join(term.aliases) : undefined,
+      excerpt: term.note ? clip(term.note) : undefined,
     });
   }
   for (const p of papers) {
@@ -207,11 +192,11 @@ export async function resolveEntities(refs: readonly EntityRef[]): Promise<Map<s
   }
   for (const n of notes) {
     if (!n) continue;
-    out.set(refKey({ kind: "note", id: n.id }), { ref: { kind: "note", id: n.id }, title: clip(n.text || "（空笔记）", 60) });
+    out.set(refKey({ kind: "note", id: n.id }), { ref: { kind: "note", id: n.id }, title: clip(n.text || t.canvas.entity.emptyNote, 60) });
   }
   for (const r of refs) {
     const k = refKey(r);
-    if (!out.has(k)) out.set(k, { ref: r, title: `已删除的${ENTITY_KIND_LABELS[r.kind]}`, missing: true });
+    if (!out.has(k)) out.set(k, { ref: r, title: t.canvas.entity.deleted[r.kind], missing: true });
   }
   return out;
 }

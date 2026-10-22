@@ -1,5 +1,6 @@
 // 画布的纯逻辑：收件箱筛选、拖入数据、连线 → 边、关系样式、浮动边几何。不碰数据库和 DOM。
-import { RELATION_LABELS, refKey } from "@/services/linkService";
+import { t } from "@/i18n";
+import { refKey } from "@/services/linkService";
 import type { Annotation, BoardNode, Domain, EntityKind, EntityRef, Link, LinkRelation, Note, Paper } from "@/types/models";
 import { getSubtreeIds } from "@/services/domainTree";
 
@@ -195,8 +196,10 @@ export const RELATION_STYLE: Record<LinkRelation, RelationStyle> = {
 /** 边上显示的文字：关系名；自定义关系显示自定义文字；非自定义关系带备注时附在后面 */
 export function relationText(link: Pick<Link, "relation" | "label">): string {
   const label = link.label?.trim();
-  if (link.relation === "custom") return label || RELATION_LABELS.custom;
-  return label ? `${RELATION_LABELS[link.relation]} · ${label}` : RELATION_LABELS[link.relation];
+  const names = t.canvas.relations;
+  if (link.relation === "custom") return label || names.custom;
+  const name = names[link.relation] ?? names.custom;
+  return label ? `${name} · ${label}` : name;
 }
 
 // ---------- 浮动边几何 ----------

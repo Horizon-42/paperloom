@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useAnnotationStore } from "@/app/stores/annotation";
 import { useTermUiStore } from "@/app/stores/termUi";
 import { normalizeString } from "@/engine/normalize";
+import { t } from "@/i18n";
 import { pdfRectToScreen } from "@/lib/coords";
 import { createAnnotation } from "@/services/annotationService";
 import { reportError } from "./actions";
@@ -43,7 +44,7 @@ export function SelectionToolbar() {
       // 等浏览器更新完选区（mouseup 之后、双击选词之后）
       timer = window.setTimeout(() => setPending(anchorFromSelection(window.getSelection(), gesture)), 0);
     };
-    const inToolbar = (t: EventTarget | null) => !!t && !!ref.current?.contains(t as Node);
+    const inToolbar = (target: EventTarget | null) => !!target && !!ref.current?.contains(target as Node);
     const onPointerDown = (e: PointerEvent) => {
       pointerType = e.pointerType || "mouse";
     };
@@ -134,13 +135,13 @@ export function SelectionToolbar() {
       await createAnnotation(anchor, { color });
       st().setLastColor(color);
       done();
-    }, "保存高亮失败");
+    }, t.reader.selection.saveFailed);
   const writeNote = () =>
     run(async () => {
       const a = await createAnnotation(anchor, { color: st().lastColor ?? DEFAULT_COLOR });
       done();
       st().edit({ paneId, paperId: a.paperId, id: a.id });
-    }, "保存高亮失败");
+    }, t.reader.selection.saveFailed);
   const makeTerm = () => {
     done();
     useTermUiStore.getState().openTermEditor({ initialName: normalizeString(anchor.quote.exact), source: anchor });
@@ -150,7 +151,7 @@ export function SelectionToolbar() {
     <div
       ref={ref}
       role="toolbar"
-      aria-label="选区工具栏"
+      aria-label={t.reader.selection.toolbar}
       data-annotation-toolbar
       aria-busy={busy || undefined}
       className="fixed z-50 flex items-center gap-0.5 rounded-lg border border-neutral-200 bg-white px-1 shadow-lg shadow-neutral-900/10"
@@ -163,8 +164,8 @@ export function SelectionToolbar() {
           key={c.value}
           type="button"
           className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-neutral-100"
-          aria-label={`${c.label}高亮`}
-          title={`${c.label}高亮`}
+          aria-label={t.reader.selection.highlight(c.label)}
+          title={t.reader.selection.highlight(c.label)}
           data-color={c.value}
           onClick={() => void highlight(c.value)}
         >
@@ -178,7 +179,7 @@ export function SelectionToolbar() {
         onClick={() => void writeNote()}
         data-action="note"
       >
-        <IconPen /> 写笔记
+        <IconPen /> {t.reader.selection.writeNote}
       </button>
       <button
         type="button"
@@ -186,7 +187,7 @@ export function SelectionToolbar() {
         onClick={makeTerm}
         data-action="term"
       >
-        <IconTagSmall /> 设为术语
+        <IconTagSmall /> {t.reader.selection.makeTerm}
       </button>
     </div>,
     document.body,

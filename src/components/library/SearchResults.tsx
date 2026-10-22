@@ -1,4 +1,5 @@
 // 搜索结果：按提供者分组（论文 / 批注 / 术语…），论文组复用 PaperRow
+import { t } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useLibraryData } from "./libraryData";
@@ -10,8 +11,8 @@ import { getSearchProvider, runSearch, useSearchProviders, type SearchGroup, typ
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
   useEffect(() => {
-    const t = window.setTimeout(() => setV(value), ms);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setV(value), ms);
+    return () => window.clearTimeout(timer);
   }, [value, ms]);
   return v;
 }
@@ -27,16 +28,16 @@ export function SearchResults({ query }: { query: string }) {
   const total = groups?.reduce((n, g) => n + g.total, 0) ?? 0;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col border-t border-neutral-200" aria-label="搜索结果">
+    <section className="flex min-h-0 flex-1 flex-col border-t border-neutral-200" aria-label={t.library.search.results}>
       <div className="px-4 pb-1 pt-2 text-xs font-medium text-neutral-500">
-        搜索结果
-        {groups && <span className="ml-1.5 font-normal tabular-nums text-neutral-400">{total} 项</span>}
+        {t.library.search.results}
+        {groups && <span className="ml-1.5 font-normal tabular-nums text-neutral-400">{t.library.search.resultCount(total)}</span>}
       </div>
       <PaperContextMenu currentDomain={currentDomain}>
         {(menuTargetId) => (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
             {groups && total === 0 && (
-              <p className="px-2.5 py-6 text-center text-xs text-neutral-400">没有找到与「{q}」匹配的内容</p>
+              <p className="px-2.5 py-6 text-center text-xs text-neutral-400">{t.library.search.noMatch(q)}</p>
             )}
             {groups
               ?.filter((g) => g.total > 0)
@@ -75,7 +76,7 @@ function GroupHeader({ group }: { group: SearchGroup }) {
     <div className="sticky top-0 z-[1] flex items-center gap-1.5 bg-neutral-50 px-2.5 py-1 text-[11px] font-medium tracking-wide text-neutral-400">
       {group.label}
       <span className="tabular-nums">{group.total}</span>
-      {group.total > group.hits.length && <span className="font-normal">（显示前 {group.hits.length} 项）</span>}
+      {group.total > group.hits.length && <span className="font-normal">{t.library.search.showingFirst(group.hits.length)}</span>}
     </div>
   );
 }

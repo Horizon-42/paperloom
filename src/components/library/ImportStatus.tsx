@@ -1,4 +1,5 @@
 // 侧栏底部的导入进度与结果汇总
+import { t } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useLibraryStore, type ImportJob } from "@/app/stores/library";
 import { IconX } from "./icons";
@@ -17,8 +18,8 @@ export function ImportStatus() {
   const autoHide = !!job?.finished && dups.length === 0 && failed.length === 0;
   useEffect(() => {
     if (!autoHide) return;
-    const t = window.setTimeout(() => setJob(null), 5000);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setJob(null), 5000);
+    return () => window.clearTimeout(timer);
   }, [autoHide, job, setJob]);
   useEffect(() => {
     if (!job) setShowDetails(false);
@@ -36,16 +37,16 @@ export function ImportStatus() {
             <div className="min-w-0 flex-1">
               <div className="font-medium text-neutral-700">{headline(job, added.length, dups.length)}</div>
               <div className="mt-1 flex flex-wrap gap-1.5">
-                <Chip tone="green" n={added.length} label="新增" />
-                <Chip tone="amber" n={dups.length} label="重复" />
-                <Chip tone="red" n={failed.length} label="失败" />
+                <Chip tone="green" n={added.length} text={t.library.importStatus.addedCount(added.length)} />
+                <Chip tone="amber" n={dups.length} text={t.library.importStatus.duplicateCount(dups.length)} />
+                <Chip tone="red" n={failed.length} text={t.library.importStatus.failedCount(failed.length)} />
               </div>
             </div>
             <button
               type="button"
               onClick={() => setJob(null)}
               className="rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-              aria-label="关闭导入结果"
+              aria-label={t.library.importStatus.close}
             >
               <IconX width={14} height={14} />
             </button>
@@ -53,19 +54,19 @@ export function ImportStatus() {
           {dups.length + failed.length > 0 && (
             <>
               <button type="button" onClick={() => setShowDetails((v) => !v)} className="mt-1.5 text-[11.5px] text-blue-600 hover:underline">
-                {showDetails ? "收起详情" : "查看详情"}
+                {showDetails ? t.library.importStatus.hideDetails : t.library.importStatus.showDetails}
               </button>
               {showDetails && (
                 <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
                   {failed.map((i, k) => (
                     <li key={`f${k}`} className="leading-snug">
-                      <span className="text-red-600">失败</span> <span className="break-all text-neutral-700">{i.fileName}</span>
+                      <span className="text-red-600">{t.library.importStatus.failed}</span> <span className="break-all text-neutral-700">{i.fileName}</span>
                       <span className="text-neutral-400"> — {i.error}</span>
                     </li>
                   ))}
                   {dups.map((i, k) => (
                     <li key={`d${k}`} className="leading-snug">
-                      <span className="text-amber-600">重复</span>{" "}
+                      <span className="text-amber-600">{t.library.importStatus.duplicate}</span>{" "}
                       <button
                         type="button"
                         className="break-all text-left text-neutral-700 hover:text-blue-600 hover:underline"
@@ -73,7 +74,7 @@ export function ImportStatus() {
                       >
                         {i.fileName}
                       </button>
-                      <span className="text-neutral-400"> — 已在文库中{i.title ? `：${i.title}` : ""}</span>
+                      <span className="text-neutral-400"> — {t.library.importStatus.alreadyInLibrary(i.title)}</span>
                     </li>
                   ))}
                 </ul>
@@ -89,12 +90,12 @@ export function ImportStatus() {
 function headline(job: ImportJob, added: number, dups: number): string {
   if (job.items.length === 1) {
     const i = job.items[0];
-    if (i.status === "duplicate") return `「${i.title ?? i.fileName}」已在文库中`;
-    if (i.status === "added") return "已导入 1 篇论文";
-    return "导入失败";
+    if (i.status === "duplicate") return t.library.importStatus.oneDuplicate(i.title ?? i.fileName);
+    if (i.status === "added") return t.library.importStatus.oneAdded;
+    return t.library.importStatus.oneFailed;
   }
-  if (added === 0 && dups === job.items.length) return "这些论文都已在文库中";
-  return "导入完成";
+  if (added === 0 && dups === job.items.length) return t.library.importStatus.allDuplicates;
+  return t.library.importStatus.done;
 }
 
 function Progress({ job }: { job: ImportJob }) {
@@ -103,7 +104,7 @@ function Progress({ job }: { job: ImportJob }) {
     <div>
       <div className="flex items-center justify-between gap-2 text-neutral-600">
         <span className="font-medium">
-          正在导入 {Math.min(job.done + 1, job.total)}/{job.total}
+          {t.library.importStatus.progress(Math.min(job.done + 1, job.total), job.total)}
         </span>
         <span className="tabular-nums text-neutral-400">{pct}%</span>
       </div>
@@ -115,7 +116,7 @@ function Progress({ job }: { job: ImportJob }) {
   );
 }
 
-function Chip({ tone, n, label }: { tone: "green" | "amber" | "red"; n: number; label: string }) {
+function Chip({ tone, n, text }: { tone: "green" | "amber" | "red"; n: number; text: string }) {
   const colors = {
     green: "bg-emerald-50 text-emerald-700",
     amber: "bg-amber-50 text-amber-700",
@@ -123,7 +124,7 @@ function Chip({ tone, n, label }: { tone: "green" | "amber" | "red"; n: number; 
   }[tone];
   return (
     <span className={cx("rounded px-1.5 py-0.5 text-[11.5px]", n ? colors : "bg-neutral-50 text-neutral-400")}>
-      {label} {n} 篇
+      {text}
     </span>
   );
 }

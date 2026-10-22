@@ -3,12 +3,17 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useStorageStore } from "@/app/stores/storage";
 import { btnPrimary, dialogContent, dialogOverlay, dialogTitle } from "@/components/library/ui";
+import { t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
+
+const Code = ({ children }: { children: string }) => <code className="rounded bg-neutral-100 px-1 py-0.5 text-[12px]">{children}</code>;
 
 export function MigrationNotice() {
   const phase = useStorageStore((s) => s.phase);
   const label = useStorageStore((s) => s.dataDirLabel);
   if (phase !== "needs-migration") return null;
   const block = (e: Event) => e.preventDefault();
+  const m = t.data.migration;
   return (
     <Dialog.Root open>
       <Dialog.Portal>
@@ -20,22 +25,19 @@ export function MigrationNotice() {
           onPointerDownOutside={block}
           onInteractOutside={block}
         >
-          <Dialog.Title className={dialogTitle}>数据需要迁移到项目结构：请运行 npm run migrate:projects</Dialog.Title>
+          <Dialog.Title className={dialogTitle}>{m.title}</Dialog.Title>
           <Dialog.Description asChild>
             <div className="mt-3 space-y-2 text-[13px] leading-relaxed text-neutral-600">
+              <p>{m.oldLayout(label ?? "data/")}</p>
               <p>
-                {label ?? "data/"} 还是旧版的目录结构。新版本把每个项目的数据放在 data/projects/&lt;项目&gt;/ 下，原来的数据会成为第一个项目。
+                <Trans text={m.howTo} values={{ preview: <Code>npm run migrate:projects</Code>, apply: <Code>npm run migrate:projects -- --apply</Code> }} />
               </p>
-              <p>
-                在项目目录里运行 <code className="rounded bg-neutral-100 px-1 py-0.5 text-[12px]">npm run migrate:projects</code> 预览，确认后运行{" "}
-                <code className="rounded bg-neutral-100 px-1 py-0.5 text-[12px]">npm run migrate:projects -- --apply</code>（会先完整备份 data/）。
-              </p>
-              <p>迁移完成前自动保存已暂停，不会写入 data/；本浏览器中的数据不会丢失。迁移后刷新本页即可继续。</p>
+              <p>{m.paused}</p>
             </div>
           </Dialog.Description>
           <div className="mt-4 flex justify-end">
             <button type="button" className={btnPrimary} onClick={() => location.reload()}>
-              已迁移，刷新页面
+              {m.reload}
             </button>
           </div>
         </Dialog.Content>

@@ -5,6 +5,7 @@ import { useIndexerStore } from "@/app/stores/indexer";
 import { registerSearchProvider, type SearchHit } from "@/components/library/search";
 import { db } from "@/db/schema";
 import { MATCH_VERSION, NORMALIZE_VERSION } from "@/engine/types";
+import { t } from "@/i18n";
 import { getIndexerDebug, retryFailedExtractions, scheduleIndex, whenIndexerIdle } from "@/services/indexer";
 import type { Term } from "@/types/models";
 import { compareNames, noteSnippet, termMatchesQuery } from "./model";
@@ -23,7 +24,7 @@ function rank(t: Term, raw: string, tokens: string[]): number {
 
 registerSearchProvider({
   kind: "term",
-  label: "术语",
+  label: t.term.searchLabel,
   order: 2,
   limit: 50,
   async search(q) {

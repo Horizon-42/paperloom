@@ -3,6 +3,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useIndexerStore } from "@/app/stores/indexer";
 import { listPapers } from "@/db/repo/papers";
+import { t } from "@/i18n";
 import { retryFailedExtractions } from "@/services/indexer";
 
 export function IndexerStatus() {
@@ -12,13 +13,14 @@ export function IndexerStatus() {
   const total = useIndexerStore((s) => s.total);
   const failures = useIndexerStore((s) => s.failures);
 
+  const tx = t.term.indexer;
   const label = !running
     ? null
     : phase === "extract"
-      ? `正在提取全文 ${Math.min(done + 1, total)}/${total}`
+      ? tx.extracting(Math.min(done + 1, total), total)
       : total > 0
-        ? `正在更新索引 ${done}/${total}`
-        : "正在更新索引…";
+        ? tx.updating(done, total)
+        : tx.updatingIndeterminate;
   const ratio = running && total > 0 ? Math.min(1, done / total) : 0;
 
   return (
@@ -45,11 +47,12 @@ export function IndexerStatus() {
 function FailureList({ failures }: { failures: { paperId: string; message: string; autoRetry?: boolean }[] }) {
   const papers = useLiveQuery(listPapers, []);
   const title = (id: string) => papers?.find((p) => p.id === id)?.title ?? id;
+  const tx = t.term.indexer;
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
         <button type="button" className="rounded px-1.5 py-0.5 text-amber-700 hover:bg-amber-50">
-          {failures.length} 篇论文无法提取全文
+          {tx.failedCount(failures.length)}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
@@ -59,10 +62,10 @@ function FailureList({ failures }: { failures: { paperId: string; message: strin
           className="z-50 w-80 rounded-lg border border-neutral-200 bg-white p-3 text-[12.5px] shadow-lg shadow-neutral-900/10"
         >
           <div className="mb-2 flex items-start gap-2">
-            <p className="flex-1 text-neutral-500">这些论文已跳过，术语出现位置中不包含它们：</p>
+            <p className="flex-1 text-neutral-500">{tx.failedIntro}</p>
             {failures.length > 1 && (
               <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-blue-600 hover:bg-blue-50" onClick={() => retryFailedExtractions()}>
-                全部重试
+                {tx.retryAll}
               </button>
             )}
           </div>
@@ -75,11 +78,11 @@ function FailureList({ failures }: { failures: { paperId: string; message: strin
                 </div>
                 <button
                   type="button"
-                  aria-label={`重试：${title(f.paperId)}`}
+                  aria-label={tx.retryPaper(title(f.paperId))}
                   className="shrink-0 rounded px-1.5 py-0.5 text-blue-600 hover:bg-blue-50"
                   onClick={() => retryFailedExtractions([f.paperId])}
                 >
-                  重试
+                  {t.common.retry}
                 </button>
               </li>
             ))}

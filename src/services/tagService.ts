@@ -1,5 +1,6 @@
 // 论文标签的写操作：单篇增删、整库重命名/删除。规范化规则见 lib/tags.ts。
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { getPaper, updatePaper } from "@/db/repo/papers";
 import { normalizeTag, normalizeTags, paperTags, renameInTags, tagKey } from "@/lib/tags";
 
@@ -42,7 +43,7 @@ export async function removePaperTag(paperId: string, tag: string): Promise<void
  */
 export async function renameTag(from: string, to: string): Promise<number> {
   const target = normalizeTag(to);
-  if (!target) throw new Error("标签名不能为空");
+  if (!target) throw new Error(t.library.tags.emptyName);
   return db.transaction("rw", db.papers, async () => {
     let n = 0;
     await db.papers

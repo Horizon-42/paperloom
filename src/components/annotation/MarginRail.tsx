@@ -9,6 +9,7 @@ import { usePaperCanvasPresence } from "@/components/canvas/presence";
 import type { JumpRequest } from "@/app/stores/reader";
 import type { DocLayerContext, DocPageLayout } from "@/components/viewer/overlays";
 import { listAnnotationsByPaper } from "@/db/repo/annotations";
+import { t } from "@/i18n";
 import { pdfRectToScreen, type ScreenRect } from "@/lib/coords";
 import { ensureAnchored } from "@/services/reanchorService";
 import type { Annotation } from "@/types/models";
@@ -41,7 +42,7 @@ export function MarginRail({ ctx }: { ctx: DocLayerContext }) {
   // 打开论文时先校验 fileHash：有与当前文件不一致的批注就重新锚定
   useEffect(() => {
     if (!anns) return;
-    ensureAnchored({ id: paperId, fileHash }, anns)?.catch((e: unknown) => console.error("重新锚定批注失败", e));
+    ensureAnchored({ id: paperId, fileHash }, anns)?.catch((e: unknown) => console.error("Failed to re-anchor annotations", e));
   }, [anns, paperId, fileHash]);
 
   const selectedId = useAnnotationStore((s) =>
@@ -120,8 +121,8 @@ export function MarginRail({ ctx }: { ctx: DocLayerContext }) {
             type="button"
             className="pl-marker pointer-events-auto absolute flex justify-center"
             style={{ left: marginLeft, top: e.target - 2, width: STRIP - 2, height: Math.max(8, e.rect.height) + 4 }}
-            aria-label="选中批注"
-            title={dot ? `${e.a.quote.exact.slice(0, 80)}（在画布上或有连线，点击查看）` : e.a.quote.exact.slice(0, 80)}
+            aria-label={t.reader.card.selectAnnotation}
+            title={dot ? t.reader.card.onCanvasTitle(e.a.quote.exact.slice(0, 80)) : e.a.quote.exact.slice(0, 80)}
             data-margin-marker={id}
             onMouseEnter={() => store().setHover(paneId, id)}
             onMouseLeave={() => store().setHover(paneId, null)}

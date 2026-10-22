@@ -1,6 +1,7 @@
 // 界面层共用的批注操作（卡片、列表都会用到）
 import { useAnnotationStore } from "@/app/stores/annotation";
 import { useReaderStore, type PaneId } from "@/app/stores/reader";
+import { t } from "@/i18n";
 import { deleteAnnotation, restoreAnnotation, setAnnotationNote } from "@/services/annotationService";
 import type { Annotation } from "@/types/models";
 
@@ -25,7 +26,7 @@ const errorText = (e: unknown) => (e instanceof Error && e.message ? e.message :
 export function reportError(what: string): (e: unknown) => void {
   return (e) => {
     console.error(what, e);
-    useAnnotationStore.getState().showToast(`${what}：${errorText(e)}`, { kind: "error" });
+    useAnnotationStore.getState().showToast(t.common.failedWith(what, errorText(e)), { kind: "error" });
   };
 }
 
@@ -39,9 +40,9 @@ export async function deleteWithUndo(id: string): Promise<void> {
     const st = useAnnotationStore.getState();
     if (st.selected?.id === id) st.select(null);
     if (st.editingId === id) st.stopEditing();
-    st.showToast("已删除批注", { undo: () => restoreAnnotation(snap) });
+    st.showToast(t.reader.toast.deleted, { undo: () => restoreAnnotation(snap) });
   } catch (e) {
-    reportError("删除批注失败")(e);
+    reportError(t.reader.toast.deleteFailed)(e);
   }
 }
 

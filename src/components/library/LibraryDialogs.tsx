@@ -1,4 +1,5 @@
 // 侧栏弹窗：编辑论文信息、删除论文确认、删除领域确认、管理标签
+import { htmlLang, t } from "@/i18n";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -48,7 +49,7 @@ function EditPaperDialog({ paperId, onClose }: { paperId: string; onClose: () =>
   }, [paper, onClose]);
   if (!paper) return null;
   return (
-    <Shell title="编辑论文信息" onClose={onClose} wide>
+    <Shell title={t.library.editPaper.title} onClose={onClose} wide>
       <EditPaperForm paper={paper} onClose={onClose} />
     </Shell>
   );
@@ -80,8 +81,8 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
     : options;
 
   const yearText = year.trim();
-  const yearError = yearText && !/^\d{4}$/.test(yearText) ? "年份应为四位数字" : null;
-  const titleError = !title.trim() ? "标题不能为空" : null;
+  const yearError = yearText && !/^\d{4}$/.test(yearText) ? t.library.editPaper.yearInvalid : null;
+  const titleError = !title.trim() ? t.library.editPaper.titleRequired : null;
 
   const toggle = (id: string) => setDomainIds((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
@@ -110,7 +111,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
     <form onSubmit={submit} className="space-y-3.5">
       <div>
         <label className={label} htmlFor="paper-title">
-          标题
+          {t.library.editPaper.titleLabel}
         </label>
         <textarea
           id="paper-title"
@@ -130,13 +131,13 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
       <div className="grid grid-cols-[1fr_96px] gap-3">
         <div>
           <label className={label} htmlFor="paper-authors">
-            作者 <span className="font-normal text-neutral-400">（逗号或分号分隔）</span>
+            {t.library.editPaper.authorsLabel} <span className="font-normal text-neutral-400">{t.library.editPaper.authorsHint}</span>
           </label>
-          <input id="paper-authors" value={authors} onChange={(e) => setAuthors(e.target.value)} className={input} placeholder="张三, 李四" />
+          <input id="paper-authors" value={authors} onChange={(e) => setAuthors(e.target.value)} className={input} placeholder={t.library.editPaper.authorsPlaceholder} />
         </div>
         <div>
           <label className={label} htmlFor="paper-year">
-            年份
+            {t.library.editPaper.yearLabel}
           </label>
           <input
             id="paper-year"
@@ -152,7 +153,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
 
       <div>
         <label className={label} htmlFor="paper-tags">
-          标签 <span className="font-normal text-neutral-400">（回车或逗号添加）</span>
+          {t.library.editPaper.tagsLabel} <span className="font-normal text-neutral-400">{t.library.editPaper.tagsHint}</span>
         </label>
         <TagInput
           ref={tagInput}
@@ -161,15 +162,15 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
           tags={tags}
           allTags={allTags}
           onAdd={(xs) => setTags((cur) => normalizeTags([...cur, ...xs]))}
-          onRemove={(t) => setTags((cur) => cur.filter((x) => x !== t))}
-          placeholder="如：待读、综述"
+          onRemove={(tag) => setTags((cur) => cur.filter((x) => x !== tag))}
+          placeholder={t.library.editPaper.tagsPlaceholder}
         />
       </div>
 
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <span className={cx(label, "mb-0")}>所属领域</span>
-          <span className="text-[11px] text-neutral-400">已选 {domainIds.length} 个</span>
+          <span className={cx(label, "mb-0")}>{t.library.editPaper.domainsLabel}</span>
+          <span className="text-[11px] text-neutral-400">{t.library.editPaper.selectedCount(domainIds.length)}</span>
         </div>
         {domainIds.length > 0 && (
           <div className="mb-1.5 flex flex-wrap gap-1">
@@ -180,7 +181,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
                 <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-full bg-neutral-100 py-0.5 pl-2 pr-1 text-[11.5px] text-neutral-700">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d.color }} />
                   <span className="truncate">{domainPathNames(domainById, id).join(" / ")}</span>
-                  <button type="button" onClick={() => toggle(id)} className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700" aria-label={`移除 ${d.name}`}>
+                  <button type="button" onClick={() => toggle(id)} className="rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700" aria-label={t.library.editPaper.removeDomain(d.name)}>
                     <IconX width={11} height={11} />
                   </button>
                 </span>
@@ -189,15 +190,15 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
           </div>
         )}
         {options.length === 0 ? (
-          <p className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-center text-xs text-neutral-400">还没有领域，可在侧栏中新建</p>
+          <p className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-center text-xs text-neutral-400">{t.library.editPaper.noDomains}</p>
         ) : (
           <div className="rounded-md border border-neutral-200">
             {options.length > 8 && (
               <div className="border-b border-neutral-100 p-1.5">
-                <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="筛选领域" className={cx(input, "h-7")} />
+                <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t.library.editPaper.filterDomains} className={cx(input, "h-7")} />
               </div>
             )}
-            <div className="max-h-48 overflow-y-auto p-1" role="group" aria-label="所属领域">
+            <div className="max-h-48 overflow-y-auto p-1" role="group" aria-label={t.library.editPaper.domainsLabel}>
               {shown.map(({ domain, path }) => (
                 <label key={domain.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-[13px] hover:bg-neutral-50">
                   <input
@@ -213,7 +214,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
                   </span>
                 </label>
               ))}
-              {shown.length === 0 && <p className="px-2 py-2 text-xs text-neutral-400">没有匹配的领域</p>}
+              {shown.length === 0 && <p className="px-2 py-2 text-xs text-neutral-400">{t.library.editPaper.noMatchingDomains}</p>}
             </div>
           </div>
         )}
@@ -221,13 +222,13 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
 
       <div className="flex items-center gap-2 pt-1">
         <span className="flex-1 text-[11.5px] text-neutral-400">
-          {paper.pageCount} 页 · 添加于 {new Date(paper.addedAt).toLocaleDateString("zh-CN")}
+          {t.library.editPaper.footer(paper.pageCount, new Date(paper.addedAt).toLocaleDateString(htmlLang()))}
         </span>
         <button type="button" className={btnGhost} onClick={onClose}>
-          取消
+          {t.common.cancel}
         </button>
         <button type="submit" className={btnPrimary} disabled={!!yearError || !!titleError || saving}>
-          保存
+          {t.common.save}
         </button>
       </div>
     </form>
@@ -249,7 +250,7 @@ function ConfirmFooter(props: { onCancel: () => void; onConfirm: () => Promise<v
     <div className="mt-5 flex justify-end gap-2">
       <Dialog.Close asChild>
         <button type="button" className={btnGhost} onClick={props.onCancel}>
-          取消
+          {t.common.cancel}
         </button>
       </Dialog.Close>
       <button
@@ -289,20 +290,16 @@ function DeletePaperDialog({ paperId, onClose }: { paperId: string; onClose: () 
 
   return (
     <Shell
-      title="删除论文？"
+      title={t.library.deletePaper.title}
       onClose={onClose}
       description={
         <>
-          <p className="mb-2 font-medium text-neutral-800">「{paper.title}」</p>
-          <p>
-            将同时删除这篇论文的 PDF 文件
-            {impact && impact.annotationCount > 0 ? `、${impact.annotationCount} 条批注` : "、批注"}
-            、术语出现记录，以及指向它或其批注的连线和画布节点。术语本身会保留。此操作无法撤销。
-          </p>
+          <p className="mb-2 font-medium text-neutral-800">{t.common.quote(paper.title)}</p>
+          <p>{t.library.deletePaper.body(impact ? impact.annotationCount : null)}</p>
         </>
       }
     >
-      <ConfirmFooter onCancel={onClose} onConfirm={confirm} confirmLabel="删除论文" />
+      <ConfirmFooter onCancel={onClose} onConfirm={confirm} confirmLabel={t.library.deletePaper.confirm} />
     </Shell>
   );
 }
@@ -323,25 +320,25 @@ function DeleteDomainDialog({ domainId, onClose }: { domainId: string; onClose: 
 
   return (
     <Shell
-      title={`删除领域「${impact.domain.name}」？`}
+      title={t.library.deleteDomain.title(impact.domain.name)}
       onClose={onClose}
       description={
         <ul className="list-disc space-y-1 pl-5">
-          {impact.descendantCount > 0 && <li>同时删除其下 {impact.descendantCount} 个子领域</li>}
+          {impact.descendantCount > 0 && <li>{t.library.deleteDomain.descendants(impact.descendantCount)}</li>}
           <li>
-            {impact.paperCount > 0 ? `${impact.paperCount} 篇论文将移出这些领域` : "这些领域下没有论文"}
-            <span className="text-neutral-400">（论文本身不会删除）</span>
+            {t.library.deleteDomain.papers(impact.paperCount)}
+            <span className="text-neutral-400">{t.library.deleteDomain.papersNote}</span>
           </li>
           {impact.termCount > 0 && (
             <li>
-              {impact.termCount} 个术语的作用范围将移除这些领域
-              <span className="text-neutral-400">（若范围因此变空，术语将不在任何论文中生效）</span>
+              {t.library.deleteDomain.terms(impact.termCount)}
+              <span className="text-neutral-400">{t.library.deleteDomain.termsNote}</span>
             </li>
           )}
         </ul>
       }
     >
-      <ConfirmFooter onCancel={onClose} onConfirm={confirm} confirmLabel="删除领域" />
+      <ConfirmFooter onCancel={onClose} onConfirm={confirm} confirmLabel={t.library.deleteDomain.confirm} />
     </Shell>
   );
 }

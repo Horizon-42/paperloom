@@ -5,6 +5,8 @@
 //   输入框为空时退格：第一次选中最后一个标签，再按一次才移除（按住不放的自动重复不算）。
 // 输入法组字时（中文输入）的回车、标点、退格一律交给输入法，不当作提交。
 // 两种用法：popover（标签编辑弹层，建议列表常驻在输入框下方）、form（编辑信息对话框，输入时浮出建议）。
+import { t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
 import {
   forwardRef,
   useEffect,
@@ -45,13 +47,14 @@ interface Props {
 
 type Option = { kind: "tag"; name: string; count: number } | { kind: "create"; name: string };
 
-const SEPARATOR = /[,，;；\n\r]/;
+// \uFF0C \uFF1B：全角逗号、分号
+const SEPARATOR = /[,\uFF0C;\uFF1B\n\r]/;
 const MAX_SUGGESTIONS = 50;
 /** 高亮项"自动"：有输入时高亮第一项（输入的标签论文已有时不高亮），没输入时不高亮 */
 const AUTO = -2;
 
 export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(props, ref) {
-  const { tags, allTags, onAdd, onRemove, variant, onEmptyEnter, id, label, placeholder = "添加标签…" } = props;
+  const { tags, allTags, onAdd, onRemove, variant, onEmptyEnter, id, label, placeholder = t.library.tags.input.placeholder } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   const [draft, setDraft] = useState("");
@@ -176,9 +179,9 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
         return;
       }
       case ",":
-      case "，":
+      case "\uFF0C": // 全角逗号
       case ";":
-      case "；":
+      case "\uFF1B": // 全角分号
         e.preventDefault();
         if (q) commitText(draft);
         return;
@@ -228,7 +231,7 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
     <div
       id={listId}
       role="listbox"
-      aria-label="标签建议"
+      aria-label={t.library.tags.input.suggestions}
       className={cx(
         "overflow-y-auto overscroll-contain",
         variant === "popover"
@@ -236,7 +239,7 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
           : "absolute left-0 right-0 top-full z-10 mt-1 max-h-48 rounded-md border border-neutral-200 bg-white p-1 shadow-lg shadow-neutral-900/10",
       )}
     >
-      {variant === "popover" && !q && options.length > 0 && <div className="px-2 pb-0.5 pt-1 text-[11px] text-neutral-400">已有标签</div>}
+      {variant === "popover" && !q && options.length > 0 && <div className="px-2 pb-0.5 pt-1 text-[11px] text-neutral-400">{t.library.tags.input.existing}</div>}
       {options.map((o, i) => (
         <div
           key={`${o.kind}:${o.name}`}
@@ -262,16 +265,16 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
             <>
               <IconPlus width={12} height={12} className="shrink-0 text-neutral-400" />
               <span className="min-w-0 flex-1 truncate">
-                新建标签「<span className="font-medium">{o.name}</span>」
+                <Trans text={t.library.tags.input.create} values={{ tag: <span className="font-medium">{o.name}</span> }} />
               </span>
             </>
           )}
         </div>
       ))}
-      {already && <div className="px-2 py-1 text-[12px] text-neutral-400">已经有「{q}」了</div>}
+      {already && <div className="px-2 py-1 text-[12px] text-neutral-400">{t.library.tags.input.already(q)}</div>}
       {variant === "popover" && !q && options.length === 0 && (
         <div className="px-2 py-1.5 text-[12px] leading-relaxed text-neutral-400">
-          {allTags.length ? "文库里的标签都已加上。输入新标签名后回车。" : "输入标签名后回车；用逗号分隔可一次添加多个。"}
+          {allTags.length ? t.library.tags.input.allAdded : t.library.tags.input.emptyHint}
         </div>
       )}
     </div>
@@ -342,7 +345,7 @@ export const TagInput = forwardRef<TagInputHandle, Props>(function TagInput(prop
       </div>
       {/* 读屏提示：退格选中了最后一个标签 */}
       <span className="sr-only" role="status">
-        {armedTag ? `再按退格移除标签「${armedTag}」` : ""}
+        {armedTag ? t.library.tags.input.backspaceAgain(armedTag) : ""}
       </span>
       {list}
     </div>

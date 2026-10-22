@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useCanvasStore } from "@/app/stores/canvas";
+import { t } from "@/i18n";
 import { listBoardsByRecent } from "@/services/canvasService";
 import { BoardCanvas } from "./BoardCanvas";
 import { BoardToolbar, NewBoardDialog } from "./BoardToolbar";
@@ -49,12 +50,10 @@ function NoBoards() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-neutral-50 text-center" data-canvas-empty>
       <IconCanvas width={36} height={36} className="text-neutral-300" />
-      <div className="text-[15px] font-medium text-neutral-700">还没有画布</div>
-      <p className="max-w-sm text-[13px] leading-relaxed text-neutral-500">
-        读完后在画布上整理批注：把批注、术语和论文拖进来，用带关系的连线连成网络。同一批笔记可以按不同主题整理成多块画布。
-      </p>
+      <div className="text-[15px] font-medium text-neutral-700">{t.canvas.empty.title}</div>
+      <p className="max-w-sm text-[13px] leading-relaxed text-neutral-500">{t.canvas.empty.body}</p>
       <button type="button" className={btnPrimary} onClick={() => setOpen(true)} data-create-first-board>
-        <IconPlus width={14} height={14} /> 新建画布
+        <IconPlus width={14} height={14} /> {t.canvas.empty.create}
       </button>
       {open && <NewBoardDialog boards={[]} onClose={() => setOpen(false)} />}
     </div>

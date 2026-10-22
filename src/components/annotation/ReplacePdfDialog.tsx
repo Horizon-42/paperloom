@@ -7,6 +7,7 @@ import { useAppStore } from "@/app/stores/app";
 import { getPaper } from "@/db/repo/papers";
 import { replacePaperFile, type ReplaceOutcome } from "@/services/reanchorService";
 import { IconX } from "@/components/library/icons";
+import { t } from "@/i18n";
 import { btnGhost, btnOutline, btnPrimary, cx, dialogContent, dialogOverlay, dialogTitle } from "@/components/library/ui";
 
 export function ReplacePdfDialog() {
@@ -41,10 +42,10 @@ function ReplaceDialogInner({ paperId }: { paperId: string }) {
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={dialogContent} data-replace-dialog>
           <div className="mb-3 flex items-start gap-3">
-            <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>替换 PDF 文件</Dialog.Title>
+            <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{t.reader.replace.title}</Dialog.Title>
             <Dialog.Close
               className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-              aria-label="关闭"
+              aria-label={t.common.close}
               disabled={busy}
             >
               <IconX width={16} height={16} />
@@ -52,8 +53,8 @@ function ReplaceDialogInner({ paperId }: { paperId: string }) {
           </div>
           <Dialog.Description asChild>
             <div className="text-[13px] leading-relaxed text-neutral-600">
-              {paper && <p className="mb-2 font-medium text-neutral-800">「{paper.title}」</p>}
-              <p>用新文件（例如 arXiv 的新版本）替换这篇论文的 PDF。批注会按原文重新定位；找不到原文的批注标为"未定位"，可在批注列表中查看和处理。</p>
+              {paper && <p className="mb-2 font-medium text-neutral-800">{t.common.quote(paper.title)}</p>}
+              <p>{t.reader.replace.intro}</p>
             </div>
           </Dialog.Description>
 
@@ -76,7 +77,7 @@ function ReplaceDialogInner({ paperId }: { paperId: string }) {
                   e.target.value = "";
                 }}
               />
-              {busy ? "正在替换并重新定位批注…" : "点击选择新的 PDF 文件"}
+              {busy ? t.reader.replace.busy : t.reader.replace.choose}
             </label>
           )}
 
@@ -92,11 +93,11 @@ function ReplaceDialogInner({ paperId }: { paperId: string }) {
                   useAppStore.getState().setView("annotations");
                 }}
               >
-                查看未定位批注
+                {t.reader.replace.viewOrphaned}
               </button>
             )}
             <button type="button" className={replaced ? btnPrimary : btnGhost} disabled={busy} onClick={close}>
-              {replaced ? "完成" : "取消"}
+              {replaced ? t.reader.replace.done : t.common.cancel}
             </button>
           </div>
         </Dialog.Content>
@@ -107,32 +108,32 @@ function ReplaceDialogInner({ paperId }: { paperId: string }) {
 
 function OutcomeMessage({ outcome }: { outcome: ReplaceOutcome }) {
   const box = "mt-3 rounded-md px-3 py-2 text-[13px] leading-relaxed";
+  const r = t.reader.replace;
   switch (outcome.status) {
     case "unchanged":
-      return <p className={cx(box, "bg-neutral-100 text-neutral-700")} data-replace-result="unchanged">所选文件与当前 PDF 相同，无需替换。</p>;
+      return <p className={cx(box, "bg-neutral-100 text-neutral-700")} data-replace-result="unchanged">{r.unchanged}</p>;
     case "conflict":
       return (
         <p className={cx(box, "bg-red-50 text-red-700")} data-replace-result="conflict">
-          这个文件已被另一篇论文「{outcome.other.title}」使用，不能用来替换。
+          {r.conflict(outcome.other.title)}
         </p>
       );
     case "failed":
-      return <p className={cx(box, "bg-red-50 text-red-700")} data-replace-result="failed">替换失败：{outcome.error}</p>;
+      return <p className={cx(box, "bg-red-50 text-red-700")} data-replace-result="failed">{r.failed(outcome.error)}</p>;
     case "replaced": {
       if (outcome.reanchorFailed) {
         return (
           <p className={cx(box, "bg-amber-50 text-amber-800")} data-replace-result="replaced" data-reanchor-failed>
-            已替换为新文件（{outcome.pageCount} 页）。批注暂时未能重新定位，下次打开这篇论文时会自动重试。
+            {r.replacedReanchorFailed(outcome.pageCount)}
           </p>
         );
       }
       const total = outcome.relocated + outcome.orphaned + outcome.restored;
       return (
         <p className={cx(box, "bg-green-50 text-green-800")} data-replace-result="replaced">
-          已替换为新文件（{outcome.pageCount} 页）。
           {total === 0
-            ? "这篇论文没有需要重新定位的批注。"
-            : `${outcome.relocated + outcome.restored} 条批注已重新定位${outcome.orphaned ? `，${outcome.orphaned} 条未能在新文件中找到原文，已放入"未定位"` : ""}。`}
+            ? r.replacedNothing(outcome.pageCount)
+            : r.replacedSummary(outcome.pageCount, outcome.relocated + outcome.restored, outcome.orphaned)}
         </p>
       );
     }

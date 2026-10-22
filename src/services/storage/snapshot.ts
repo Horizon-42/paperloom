@@ -1,5 +1,6 @@
 // 在 IndexedDB 与 DataTables 之间读写（可在 Worker 中运行）。
 import type { PaperLensDB } from "@/db/schema";
+import { t } from "@/i18n";
 import { STAMP_PREFIX } from "@/db/repo/occurrences";
 import { DATA_TABLE_NAMES, fingerprint, isDerivedKvKey, serializeTables, type DataCounts, type DataTables } from "./format";
 
@@ -13,7 +14,7 @@ export const DB_INSTANCE_KEY = "storage:dbInstance";
 export class LocalChangedError extends Error {
   override name = "LocalChangedError";
   constructor() {
-    super("本地数据在载入期间有新的改动，已取消载入");
+    super(t.data.format.localChanged);
   }
 }
 

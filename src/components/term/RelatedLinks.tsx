@@ -7,9 +7,7 @@ import { useReaderStore } from "@/app/stores/reader";
 import { useTermUiStore } from "@/app/stores/termUi";
 import { openOnCanvas } from "@/components/canvas/navigation";
 import {
-  ENTITY_KIND_LABELS,
   RELATIONS,
-  RELATION_LABELS,
   createLink,
   deleteLinks,
   listLinksFor,
@@ -21,6 +19,7 @@ import {
   searchEntities,
   type EntitySummary,
 } from "@/services/linkService";
+import { t } from "@/i18n";
 import type { EntityRef, LinkRelation } from "@/types/models";
 import { IconPlus, IconX, btnGhost, btnPrimary, cx, iconBtn, input, linkBtn, sectionTitle } from "./ui";
 
@@ -30,14 +29,14 @@ async function removeLink(id: string) {
   try {
     const snap = await deleteLinks([id]);
     if (!snap.length) return;
-    toast("已删除连线（所有画布和「相关笔记」中都已移除）", {
+    toast(t.term.links.deleted, {
       undo: async () => {
-        if (!(await restoreLinks(snap))) toast("无法恢复：连线的另一端已被删除，或已有相同的连线");
+        if (!(await restoreLinks(snap))) toast(t.term.links.restoreFailed);
       },
     });
   } catch (e) {
-    console.error("删除连线失败", e);
-    toast(`删除连线失败：${e instanceof Error ? e.message : String(e)}`, { kind: "error" });
+    console.error("Failed to delete link", e);
+    toast(t.common.failedWith(t.term.links.deleteFailed, e instanceof Error ? e.message : String(e)), { kind: "error" });
   }
 }
 
@@ -69,12 +68,13 @@ export function RelatedLinks({ self, editable, onOpenTerm }: { self: EntityRef; 
 
   if (!rows) return null;
   if (!rows.length && !editable) return null;
+  const tx = t.term.links;
   return (
     <section className="border-t border-neutral-100 px-3 py-2" data-term-related>
       <div className="flex items-center">
-        <div className={cx(sectionTitle, "mb-0 flex-1")}>相关笔记</div>
+        <div className={cx(sectionTitle, "mb-0 flex-1")}>{tx.title}</div>
         {editable && !adding && (
-          <button type="button" className={cx(iconBtn, "h-5 w-5")} title="添加连线" aria-label="添加连线" onClick={() => setAdding(true)}>
+          <button type="button" className={cx(iconBtn, "h-5 w-5")} title={tx.add} aria-label={tx.add} onClick={() => setAdding(true)}>
             <IconPlus width={13} height={13} />
           </button>
         )}
@@ -85,9 +85,9 @@ export function RelatedLinks({ self, editable, onOpenTerm }: { self: EntityRef; 
             <li key={link.id} className="group flex items-start gap-1.5" data-link-id={link.id}>
               <span
                 className="mt-px shrink-0 rounded bg-violet-50 px-1 text-[11px] leading-[18px] text-violet-700"
-                title={outgoing ? "本术语 → 对方" : "对方 → 本术语"}
+                title={outgoing ? tx.outgoing : tx.incoming}
               >
-                {outgoing ? "→" : "←"} {link.relation === "custom" ? link.label || RELATION_LABELS.custom : RELATION_LABELS[link.relation]}
+                {outgoing ? "→" : "←"} {link.relation === "custom" ? link.label || t.canvas.relations.custom : t.canvas.relations[link.relation]}
               </span>
               <div className="min-w-0 flex-1">
                 <button
@@ -96,7 +96,7 @@ export function RelatedLinks({ self, editable, onOpenTerm }: { self: EntityRef; 
                   onClick={() => openEntity(other, onOpenTerm)}
                   title={other.title}
                 >
-                  <span className="mr-1 text-[11px] text-neutral-400">{ENTITY_KIND_LABELS[other.ref.kind]}</span>
+                  <span className="mr-1 text-[11px] text-neutral-400">{t.canvas.entity.kinds[other.ref.kind]}</span>
                   {other.title}
                 </button>
                 {(other.subtitle || other.excerpt || (link.relation !== "custom" && link.label)) && (
@@ -109,8 +109,8 @@ export function RelatedLinks({ self, editable, onOpenTerm }: { self: EntityRef; 
                 <button
                   type="button"
                   className={cx(iconBtn, "h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100")}
-                  title="删除连线（所有画布中也会删除，可撤销）"
-                  aria-label="删除连线"
+                  title={tx.deleteTitle}
+                  aria-label={tx.delete}
                   onClick={() => void removeLink(link.id)}
                 >
                   <IconX width={12} height={12} />
@@ -120,7 +120,7 @@ export function RelatedLinks({ self, editable, onOpenTerm }: { self: EntityRef; 
           ))}
         </ul>
       )}
-      {!rows.length && !adding && <div className="text-[12px] text-neutral-400">还没有连线</div>}
+      {!rows.length && !adding && <div className="text-[12px] text-neutral-400">{tx.empty}</div>}
       {adding && <AddLinkForm self={self} onDone={() => setAdding(false)} />}
     </section>
   );
@@ -140,19 +140,19 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
       return;
     }
     let cancelled = false;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void searchEntities(q, { exclude: [self] }).then((r) => !cancelled && setResults(r));
     }, 120);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [q, self.kind, self.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
     if (!target) return;
     if (relation === "custom" && !label.trim()) {
-      setError("自定义关系需要填写文字");
+      setError(t.term.links.customRequired);
       return;
     }
     try {
@@ -163,13 +163,14 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
     }
   };
 
+  const tx = t.term.links;
   return (
     <div className="mt-1.5 flex flex-col gap-1.5 rounded-md border border-neutral-200 bg-neutral-50/60 p-2" data-link-form>
       {target ? (
         <div className="flex items-center gap-1 text-[12px]">
-          <span className="text-neutral-400">{ENTITY_KIND_LABELS[target.ref.kind]}</span>
+          <span className="text-neutral-400">{t.canvas.entity.kinds[target.ref.kind]}</span>
           <span className="min-w-0 flex-1 truncate font-medium text-neutral-800">{target.title}</span>
-          <button type="button" className={cx(iconBtn, "h-5 w-5")} aria-label="重新选择" onClick={() => setTarget(null)}>
+          <button type="button" className={cx(iconBtn, "h-5 w-5")} aria-label={tx.reselect} onClick={() => setTarget(null)}>
             <IconX width={12} height={12} />
           </button>
         </div>
@@ -177,7 +178,7 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
         <>
           <input
             className={cx(input, "h-7 text-[12px]")}
-            placeholder="搜索术语、批注、论文或笔记…"
+            placeholder={tx.searchPlaceholder}
             value={q}
             autoFocus
             onChange={(e) => setQ(e.target.value)}
@@ -200,7 +201,7 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
                     onClick={() => setTarget(r)}
                     data-link-result={refKey(r.ref)}
                   >
-                    <span className="shrink-0 text-[11px] text-neutral-400">{ENTITY_KIND_LABELS[r.ref.kind]}</span>
+                    <span className="shrink-0 text-[11px] text-neutral-400">{t.canvas.entity.kinds[r.ref.kind]}</span>
                     <span className="min-w-0 truncate text-neutral-800">{r.title}</span>
                     {r.subtitle && <span className="min-w-0 shrink truncate text-[11px] text-neutral-400">{r.subtitle}</span>}
                   </button>
@@ -208,10 +209,10 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
               ))}
             </ul>
           )}
-          {q.trim() && !results.length && <div className="px-1 text-[11px] text-neutral-400">没有匹配的条目</div>}
+          {q.trim() && !results.length && <div className="px-1 text-[11px] text-neutral-400">{tx.noResults}</div>}
         </>
       )}
-      <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="关系">
+      <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tx.relation}>
         {RELATIONS.map((r) => (
           <button
             key={r}
@@ -224,13 +225,13 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
             )}
             onClick={() => setRelation(r)}
           >
-            {RELATION_LABELS[r]}
+            {t.canvas.relations[r]}
           </button>
         ))}
       </div>
       <input
         className={cx(input, "h-7 text-[12px]")}
-        placeholder={relation === "custom" ? "关系文字（必填）" : "备注（可选）"}
+        placeholder={relation === "custom" ? tx.customLabelPlaceholder : tx.notePlaceholder}
         value={label}
         onChange={(e) => {
           setLabel(e.target.value);
@@ -243,10 +244,10 @@ function AddLinkForm({ self, onDone }: { self: EntityRef; onDone: () => void }) 
       {error && <div className="text-[11px] text-red-600">{error}</div>}
       <div className="flex justify-end gap-1">
         <button type="button" className={cx(btnGhost, "h-6 px-2 text-[12px]")} onClick={onDone}>
-          取消
+          {t.common.cancel}
         </button>
         <button type="button" className={cx(btnPrimary, "h-6 px-2 text-[12px]")} disabled={!target} onClick={() => void submit()}>
-          添加连线
+          {tx.add}
         </button>
       </div>
     </div>

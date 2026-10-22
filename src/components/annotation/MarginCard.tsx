@@ -9,6 +9,7 @@ import { MarkdownEditor } from "@/components/common/MarkdownEditor";
 import { MarkdownView } from "@/components/common/MarkdownView";
 import { AnnotationLinkBadge } from "@/components/canvas/LinkBadge";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { setAnnotationColor, setAnnotationNote } from "@/services/annotationService";
 import type { Annotation } from "@/types/models";
 import { cleanNote, deleteWithUndo, registerDraft, reportError } from "./actions";
@@ -73,25 +74,25 @@ export const MarginCard = memo(function MarginCard(props: MarginCardProps) {
     >
       <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-md" style={{ background: strongColor(ann.color, 15) }} />
       <div className="flex items-center gap-1 pl-2.5 pr-1.5 pt-1">
-        <ColorPicker color={ann.color} onPick={(c) => setAnnotationColor(id, c).catch(reportError("更改颜色失败"))} />
+        <ColorPicker color={ann.color} onPick={(c) => setAnnotationColor(id, c).catch(reportError(t.reader.card.changeColorFailed))} />
         {ann.termId && <TermBadge termId={ann.termId} />}
         <AnnotationLinkBadge annotationId={id} />
         {ann.anchorStatus === "relocated" && (
-          <span className="shrink-0 text-[10.5px] text-amber-600" title="换过 PDF 文件后按原文重新定位">
-            已重新定位
+          <span className="shrink-0 text-[10.5px] text-amber-600" title={t.reader.card.relocatedTitle}>
+            {t.reader.card.relocated}
           </span>
         )}
         <span className="flex-1" />
         {!editing && (
-          <button type="button" className={iconBtn} aria-label="编辑笔记" title="编辑笔记" onClick={startEdit}>
+          <button type="button" className={iconBtn} aria-label={t.reader.card.editNote} title={t.reader.card.editNote} onClick={startEdit}>
             <IconPen />
           </button>
         )}
         <button
           type="button"
           className={`${iconBtn} hover:!text-red-600`}
-          aria-label="删除批注"
-          title="删除批注"
+          aria-label={t.reader.card.deleteAnnotation}
+          title={t.reader.card.deleteAnnotation}
           onClick={(e) => {
             e.stopPropagation();
             void deleteWithUndo(id);
@@ -109,7 +110,7 @@ export const MarginCard = memo(function MarginCard(props: MarginCardProps) {
           </div>
         ) : (
           <button type="button" className="text-[12px] text-neutral-400 hover:text-neutral-600" onClick={startEdit}>
-            添加笔记…
+            {t.reader.card.addNote}
           </button>
         )}
       </div>
@@ -162,16 +163,16 @@ function NoteEditor({ ann }: { ann: Annotation }) {
         onChange={setDraft}
         onSubmit={() => finish(true)}
         onCancel={() => finish(false)}
-        placeholder="写笔记（支持 Markdown 和 $公式$）"
+        placeholder={t.reader.card.notePlaceholder}
         autoFocus
       />
-      <div className="mt-1 text-[10.5px] text-neutral-400">⌘Enter 保存 · Esc 取消</div>
+      <div className="mt-1 text-[10.5px] text-neutral-400">{t.reader.card.noteHint}</div>
     </div>
   );
 }
 
 function saveNote(id: string, text: string) {
-  setAnnotationNote(id, cleanNote(text)).catch(reportError("保存笔记失败"));
+  setAnnotationNote(id, cleanNote(text)).catch(reportError(t.reader.card.saveNoteFailed));
 }
 
 function ColorPicker({ color, onPick }: { color: string; onPick: (c: string) => void }) {
@@ -182,8 +183,8 @@ function ColorPicker({ color, onPick }: { color: string; onPick: (c: string) => 
         <button
           type="button"
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-neutral-100"
-          aria-label={`颜色：${colorLabel(color)}，点击更改`}
-          title="更改颜色"
+          aria-label={t.reader.card.colorTitle(colorLabel(color))}
+          title={t.reader.card.changeColor}
           onClick={(e) => e.stopPropagation()}
         >
           <span className="h-3 w-3 rounded-full border" style={{ background: color, borderColor: strongColor(color, 25) }} />
@@ -233,7 +234,7 @@ function TermBadge({ termId }: { termId: string }) {
     <button
       type="button"
       className="inline-flex min-w-0 items-center gap-0.5 rounded bg-amber-50 px-1 py-px text-[11px] text-amber-800 hover:bg-amber-100"
-      title="打开术语"
+      title={t.reader.card.openTerm}
       data-term-badge={termId}
       onClick={(e) => {
         e.stopPropagation();

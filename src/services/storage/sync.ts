@@ -16,6 +16,7 @@
 // 恢复后 PDF 按需读取（lib/pdfDocs 的后备来源），后台也逐个取回。
 import Dexie, { type ObservabilitySet } from "dexie";
 import { DATA_FORMAT_VERSION, db } from "@/db/schema";
+import { t } from "@/i18n";
 import { setMissingPdfResolver } from "@/lib/pdfDocs";
 import { currentProjectId, DEFAULT_PROJECT_ID, projectScoped } from "@/lib/project";
 import { retryFailedExtractions, scheduleIndex } from "@/services/indexer";
@@ -56,7 +57,7 @@ type ChannelMessage =
 
 function describeError(e: unknown): string {
   if (e instanceof StorageApiError) return e.message;
-  if (e instanceof TypeError) return "无法连接本地服务";
+  if (e instanceof TypeError) return t.data.errors.cannotConnect;
   return e instanceof Error ? e.message : String(e);
 }
 
@@ -86,9 +87,7 @@ export function shortDirLabel(label: string | null | undefined): string {
 }
 
 function countsText(c: Partial<DataCounts>): string {
-  const parts = [`${c.papers ?? 0} 篇论文`, `${c.terms ?? 0} 个术语`, `${c.annotations ?? 0} 条批注`];
-  if (c.boards) parts.push(`${c.boards} 块画布`);
-  return parts.join("、");
+  return t.data.sync.counts(c);
 }
 
 function waitIdle(): Promise<void> {
@@ -166,7 +165,7 @@ class Mirror {
     try {
       await this.startup();
     } catch (e) {
-      const text = `从 ${shortDirLabel(s.dataDirLabel)} 恢复失败：${describeError(e)}（刷新页面重试）`;
+      const text = t.data.sync.restoreFailed(shortDirLabel(s.dataDirLabel), describeError(e));
       this.publish({ phase: "error", error: text, notice: { tone: "error", text } });
       // 不能接着镜像：会用空数据覆盖文件夹
       this.paused = true;
@@ -524,13 +523,13 @@ class Mirror {
           error: null,
           conflict: null,
           ...(r.backup
-            ? { notice: { tone: "info" as const, text: `数据比上次保存时少了一半以上，之前的版本已备份为 backups/${r.backup}` } }
+            ? { notice: { tone: "info" as const, text: t.data.sync.shrinkBackup(r.backup) } }
             : {}),
         });
         if (import.meta.env.DEV && r.status === "saved") {
-          const t = r.timings;
+          const tm = r.timings;
           console.debug(
-            `[storage] 已保存 r${r.revision}，${(r.bytes / 1024).toFixed(0)} KB（Worker 内：读取 ${t.readMs.toFixed(0)} ms，序列化 ${t.serializeMs.toFixed(0)} ms，哈希 ${t.hashMs.toFixed(0)} ms；写入 ${t.putMs.toFixed(0)} ms）`,
+            `[storage] saved r${r.revision}, ${(r.bytes / 1024).toFixed(0)} KB (in worker: read ${tm.readMs.toFixed(0)} ms, serialize ${tm.serializeMs.toFixed(0)} ms, hash ${tm.hashMs.toFixed(0)} ms; write ${tm.putMs.toFixed(0)} ms)`,
           );
         }
         break;
@@ -564,8 +563,8 @@ class Mirror {
     this.due.library = Date.now() + delay;
     this.firstDirty.library = Date.now();
     this.failed(e);
-    console.warn("[storage] 保存失败，稍后重试", e);
-    this.publish({ phase: "error", error: `保存失败：${describeError(e)}（稍后自动重试）` });
+    console.warn("[storage] save failed, will retry", e);
+    this.publish({ phase: "error", error: t.data.sync.saveFailed(describeError(e)) });
   }
 
   private enterConflict(conflict: StorageConflict): void {
@@ -603,7 +602,7 @@ class Mirror {
    */
   private async restore(reason: RestoreReason, expect: string, recoveredFrom?: string): Promise<ReplaceResult & { revision: number }> {
     const label = shortDirLabel(this.status.dataDirLabel);
-    this.publish({ phase: "restoring", notice: { tone: "info", text: `正在从 ${label} 恢复数据…` } });
+    this.publish({ phase: "restoring", notice: { tone: "info", text: t.data.sync.restoring(label) } });
     let r: ReplaceResult & { revision: number };
     try {
       r = await this.runner.call("restoreFromService", { expect });
@@ -619,13 +618,13 @@ class Mirror {
     this.dirty.pdfs = true;
     this.due.library = Date.now();
     const detail = [...r.repairs];
-    if (r.counts.papers) detail.push("PDF 会在打开时从 data/pdfs 读取，后台也在逐个取回");
+    if (r.counts.papers) detail.push(t.data.sync.pdfsLater);
     const text =
       reason === "fast-forward"
-        ? `已载入其他窗口保存的数据：${countsText(r.counts)}`
+        ? t.data.sync.loadedFromOtherWindow(countsText(r.counts))
         : reason === "recover"
-          ? `已从备份 ${recoveredFrom} 恢复：${countsText(r.counts)}`
-          : `已从 ${label} 恢复：${countsText(r.counts)}`;
+          ? t.data.sync.restoredFromBackup(String(recoveredFrom), countsText(r.counts))
+          : t.data.sync.restoredFrom(label, countsText(r.counts));
     this.publish({ phase: "saved", conflict: null, error: null, lastSavedAt: Date.now(), notice: { tone: "success", text, detail } });
     return r;
   }
@@ -679,7 +678,7 @@ class Mirror {
       const before = await this.api.status();
       if (before?.library.exists && !before.library.error) await this.api.backup("before-overwrite");
       const s = await this.api.status();
-      if (!s) throw new Error("无法连接本地服务");
+      if (!s) throw new Error(t.data.errors.cannotConnect);
       this.status = s;
       this.folder = folderOf(s);
       const r = await this.runner.call("mirrorLibrary", {
@@ -693,7 +692,7 @@ class Mirror {
       });
       if (r.status !== "saved" && r.status !== "adopted") {
         this.handleMirrorResult(r);
-        throw new Error("文件夹在此期间又被更新，请重新选择");
+        throw new Error(t.data.sync.folderChangedAgain);
       }
       this.paused = false;
       this.handleMirrorResult(r);
@@ -732,7 +731,7 @@ class Mirror {
       this.dirty.pdfs = true;
       this.due.library = Date.now() + RETRY_DELAYS_MS[1];
       this.failed(e);
-      console.warn("[storage] 比对 PDF 失败", e);
+      console.warn("[storage] PDF diff failed", e);
       return;
     }
     // 进行中重新比对（例如取回的 PDF 写入 db.files 又触发了一次）时进度接着算；被服务拒绝过的不再上传
@@ -763,12 +762,12 @@ class Mirror {
       this.progress.upload.done++;
     } catch (e) {
       if (isPermanent(e)) {
-        console.warn(`[storage] data/pdfs 拒绝了 PDF ${item.hash.slice(0, 12)}…，不再重试`, e);
+        console.warn(`[storage] data/pdfs rejected PDF ${item.hash.slice(0, 12)}…, giving up`, e);
         this.failedUploads.set(item.hash, describeError(e));
         this.progress.upload.total--;
         this.publish({ failedPdfUploads: this.failedUploads.size });
       } else {
-        console.warn("[storage] 保存 PDF 失败，稍后重试", e);
+        console.warn("[storage] PDF upload failed, will retry", e);
         item.attempts++;
         item.retryAt = Date.now() + RETRY_DELAYS_MS[Math.min(item.attempts - 1, RETRY_DELAYS_MS.length - 1)];
         this.uploadQueue.push(item);
@@ -793,7 +792,7 @@ class Mirror {
         scheduleIndex({ paperIds: item.paperIds });
       }
     } catch (e) {
-      console.warn("[storage] 取回 PDF 失败，稍后重试", e);
+      console.warn("[storage] PDF fetch failed, will retry", e);
       this.fetchQueue.push(this.fetchQueue.shift()!);
       this.pdfRetryAt = Date.now() + RETRY_DELAYS_MS[2];
     }
@@ -812,7 +811,7 @@ class Mirror {
         await this.runner.call("writeMarkdown");
         this.publish({ markdownAt: Date.now(), markdownError: null });
       } catch (e) {
-        console.warn("[storage] 生成 Markdown 失败", e);
+        console.warn("[storage] Markdown generation failed", e);
         this.dirty.markdown = true;
         this.due.derived = Date.now() + RETRY_DELAYS_MS[3];
         this.publish({ markdownError: describeError(e) });
@@ -823,13 +822,13 @@ class Mirror {
     if (extras) {
       for (const [group, producer] of extraFileGroups()) {
         if (RESERVED_GROUPS.has(group)) {
-          console.warn(`[storage] 附加文件组名 "${group}" 已被占用，跳过`);
+          console.warn(`[storage] extra file group name "${group}" is reserved, skipped`);
           continue;
         }
         try {
           await this.api.putFiles(group, prepareExtraFiles(group, await producer()));
         } catch (e) {
-          console.warn(`[storage] 写入 data/${group}/ 失败`, e);
+          console.warn(`[storage] writing data/${group}/ failed`, e);
         }
       }
     }
@@ -888,7 +887,7 @@ async function resolveMissingPdf(hash: string): Promise<Blob | null> {
     if (!(await runner.call("backfillPdf", hash))) return null;
     return (await db.files.get(hash))?.blob ?? null;
   } catch (e) {
-    console.warn("[storage] 从 data/pdfs 读取 PDF 失败", e);
+    console.warn("[storage] reading PDF from data/pdfs failed", e);
     return null;
   }
 }
@@ -963,7 +962,7 @@ export function startStorageSync(): void {
           return new Promise<void>(() => {});
         })
         .catch((e) => {
-          console.warn("[storage] 无法获取标签页锁，由本标签页负责保存", e);
+          console.warn("[storage] can't acquire tab lock; this tab will handle saving", e);
           void becomeLeader();
         });
     } else {
@@ -1007,17 +1006,17 @@ function requestLeader(action: Extract<ChannelMessage, { type: "request" }>["act
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return new Promise((resolve, reject) => {
     // 负责的标签页可能正好关闭：超时后放弃（接手的标签页会自己检查一遍）
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       remoteRequests.delete(id);
-      reject(new Error("负责保存的标签页没有响应"));
+      reject(new Error(t.data.sync.ownerNoResponse));
     }, 120_000);
     remoteRequests.set(id, {
       resolve: () => {
-        clearTimeout(t);
+        clearTimeout(timer);
         resolve();
       },
       reject: (e) => {
-        clearTimeout(t);
+        clearTimeout(timer);
         reject(e);
       },
     });

@@ -2,6 +2,7 @@
 import { db } from "@/db/schema";
 import { getTermDisplay, putTermDisplay, type TermDisplaySettings } from "@/db/repo/terms";
 import { normalizeString } from "@/engine/normalize";
+import { t } from "@/i18n";
 import { newId } from "@/lib/id";
 import { scheduleIndex } from "@/services/indexer";
 import type { Annotation, MatchMode, SelectionAnchor, Term, TermScope } from "@/types/models";
@@ -41,7 +42,7 @@ function cleanScope(scope: TermScope | undefined): TermScope {
 /** 校验并规范化输入；名称为空时抛错 */
 export function normalizeTermInput(input: TermInput): TermInput {
   const name = cleanTermText(input.name ?? "");
-  if (!name || isBlankForm(name)) throw new Error("术语名称不能为空");
+  if (!name || isBlankForm(name)) throw new Error(t.term.errors.nameRequired);
   return {
     name,
     aliases: cleanAliases(input.aliases ?? [], name),
@@ -81,7 +82,7 @@ export async function updateTerm(id: string, patch: Partial<TermInput>): Promise
     const cur = await db.terms.get(id);
     if (!cur) return;
     const name = patch.name !== undefined ? cleanTermText(patch.name) : cur.name;
-    if (!name || isBlankForm(name)) throw new Error("术语名称不能为空");
+    if (!name || isBlankForm(name)) throw new Error(t.term.errors.nameRequired);
     if (patch.name !== undefined) changes.name = name;
     changes.aliases = cleanAliases(patch.aliases ?? cur.aliases, name);
   }

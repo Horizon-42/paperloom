@@ -1,5 +1,6 @@
 // 阅读器工具栏上的标签按钮：显示这一栏论文的前两个标签（其余折叠为 "+N"），没有标签时显示"加标签"；
 // 点击、或焦点在这一栏里时按 T，打开标签编辑弹层（弹层本身由侧栏的 TagEditorHost 渲染）。
+import { t } from "@/i18n";
 import { useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useLibraryStore } from "@/app/stores/library";
@@ -40,7 +41,7 @@ export function PaperTagsControl({ paneId, paperId }: { paneId: PaneId; paperId:
   if (!tags) return null;
   const shown = tags.slice(0, MAX_SHOWN);
   const more = tags.length - shown.length;
-  const label = tags.length ? `标签：${tags.join("、")}（T 编辑）` : "加标签（T）";
+  const label = tags.length ? t.library.tags.control.label(tags) : t.library.tags.control.add;
 
   return (
     <button
@@ -59,13 +60,13 @@ export function PaperTagsControl({ paneId, paperId }: { paneId: PaneId; paperId:
       <IconTag width={13} height={13} className="shrink-0" />
       {tags.length ? (
         <>
-          {shown.map((t) => (
-            <TagChip key={t} tag={t} style={{ maxWidth: 96 }} />
+          {shown.map((tag) => (
+            <TagChip key={tag} tag={tag} style={{ maxWidth: 96 }} />
           ))}
           {more > 0 && <span className="shrink-0 text-[10.5px] tabular-nums text-neutral-400">+{more}</span>}
         </>
       ) : (
-        <span className="whitespace-nowrap">加标签</span>
+        <span className="whitespace-nowrap">{t.library.tags.control.addShort}</span>
       )}
     </button>
   );

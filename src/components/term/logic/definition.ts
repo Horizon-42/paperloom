@@ -54,7 +54,8 @@ function candidateBefore(before: string, short: string): string {
   const n = singularShort(short).replace(/[^\p{L}\p{N}]/gu, "").length;
   const max = Math.min(n + 5, n * 2);
   // 只看最后一个句末标点之后的部分
-  const clause = before.split(/[.;:!?。；：！？]\s|\n/).pop() ?? before;
+  // 句末标点含全角的 。；：！？（写成转义，界面文案检查只认字面中文）
+  const clause = before.split(/[.;:!?\u3002\uff1b\uff1a\uff01\uff1f]\s|\n/).pop() ?? before;
   const words = clause.trim().split(/\s+/).filter(Boolean);
   return words.slice(-max).join(" ");
 }
@@ -73,11 +74,19 @@ export function findDefinitions(text: string, short: string): string[] {
   return out;
 }
 
+/**
+ * 建议的依据（界面上据此生成说明）：selection 选区本身是定义句式，before / after 前文 / 后文给出定义，
+ * page 本页其他地方的定义（text 为 "全称 (缩写)" 之类的原文）；abbreviation 后文给出缩写（text 为缩写）
+ */
+export interface DefinitionReason {
+  kind: "selection" | "before" | "after" | "page" | "abbreviation";
+  text: string;
+}
+
 export interface DefinitionSuggestion {
   name: string;
   aliases: string[];
-  /** 界面上的说明 */
-  reason: string;
+  reason: DefinitionReason;
 }
 
 /**
@@ -97,11 +106,11 @@ export function suggestFromSelection(selected: string, before = "", after = "", 
     const [, a, b] = whole;
     if (looksLikeAbbreviation(b)) {
       const long = matchLongForm(b, a);
-      if (long) return { name: long, aliases: [b], reason: `选中的文字是定义句式「${long} (${b})」` };
+      if (long) return { name: long, aliases: [b], reason: { kind: "selection", text: `${long} (${b})` } };
     }
     if (looksLikeAbbreviation(a)) {
       const long = matchLongForm(a, b);
-      if (long) return { name: long, aliases: [a], reason: `选中的文字是定义句式「${a} (${long})」` };
+      if (long) return { name: long, aliases: [a], reason: { kind: "selection", text: `${a} (${long})` } };
     }
   }
 
@@ -110,17 +119,17 @@ export function suggestFromSelection(selected: string, before = "", after = "", 
     const open = /\(\s*$/u.exec(before);
     if (open && /^\s*[),;]/u.test(after)) {
       const long = matchLongForm(sel, candidateBefore(before.slice(0, open.index), sel));
-      if (long) return { name: long, aliases: [sel], reason: `前文定义为「${long} (${sel})」` };
+      if (long) return { name: long, aliases: [sel], reason: { kind: "before", text: `${long} (${sel})` } };
     }
     // 缩写 + " (全称)"
     const paren = /^\s*\(\s*([^()]{3,80}?)\s*\)/u.exec(after);
     if (paren) {
       const long = matchLongForm(sel, paren[1]);
-      if (long) return { name: long, aliases: [sel], reason: `后文定义为「${sel} (${long})」` };
+      if (long) return { name: long, aliases: [sel], reason: { kind: "after", text: `${sel} (${long})` } };
     }
     // 页内其他地方的定义
     const defs = findDefinitions(pageText, sel);
-    if (defs.length) return { name: defs[0], aliases: [sel], reason: `本页定义为「${defs[0]} (${sel})」` };
+    if (defs.length) return { name: defs[0], aliases: [sel], reason: { kind: "page", text: `${defs[0]} (${sel})` } };
     return null;
   }
 
@@ -128,7 +137,7 @@ export function suggestFromSelection(selected: string, before = "", after = "", 
   const abbr = /^\s*\(\s*([^\s()]{2,10}?)s?\s*[),;]/u.exec(after);
   if (abbr && looksLikeAbbreviation(abbr[1])) {
     const long = matchLongForm(abbr[1], sel);
-    if (long === sel) return { name: sel, aliases: [abbr[1]], reason: `后文给出缩写「${abbr[1]}」` };
+    if (long === sel) return { name: sel, aliases: [abbr[1]], reason: { kind: "abbreviation", text: abbr[1] } };
   }
   return null;
 }

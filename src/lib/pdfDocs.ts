@@ -3,6 +3,7 @@
 // 引用计数归零后才销毁；销毁会推迟一小段时间，避免 StrictMode 的卸载-重挂载或
 // 标签在分栏、前后台之间移动时白白销毁再重新解析。
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import type { PDFDocumentProxy } from "@/lib/pdf";
 
 export interface PdfKey {
@@ -115,7 +116,7 @@ export const loadPdfFromDb: PdfLoader = async ({ paperId, fileHash }) => {
   const t0 = performance.now();
   const file = await db.files.get(fileHash);
   const blob = file?.blob ?? (missingPdfResolver ? await missingPdfResolver(fileHash) : null);
-  if (!blob) throw new Error("缺少 PDF 文件，请重新导入该文件");
+  if (!blob) throw new Error(t.reader.viewer.pdfMissing);
   const buf = await blob.arrayBuffer();
   const size = buf.byteLength; // loadPdf 会转移 buffer，之后长度为 0
   const t1 = performance.now();
@@ -126,7 +127,7 @@ export const loadPdfFromDb: PdfLoader = async ({ paperId, fileHash }) => {
   if (import.meta.env.DEV) {
     const ms = (a: number, b: number) => (b - a).toFixed(0);
     console.debug(
-      `[pdfDocs] ${paperId}: 读取 ${(size / 1048576).toFixed(1)} MB ${ms(t0, t1)} ms，加载 pdf.js ${ms(t1, t2)} ms，解析 ${ms(t2, performance.now())} ms`,
+      `[pdfDocs] ${paperId}: read ${(size / 1048576).toFixed(1)} MB ${ms(t0, t1)} ms, load pdf.js ${ms(t1, t2)} ms, parse ${ms(t2, performance.now())} ms`,
     );
   }
   return doc;

@@ -5,7 +5,7 @@
 // 匹配任务运行中来了全库请求（术语或领域树变了）就取消当前任务、合并后重跑；其他请求排队等当前任务结束。
 // 多个标签页同时打开时用 navigator.locks 选出一个标签页做索引，其余只读结果（进度经 BroadcastChannel 同步）；
 // 锁和频道按项目区分，不同项目的标签页互不影响。
-import { workerKind } from "@/i18n";
+import { t, workerKind } from "@/i18n";
 import { liveQuery } from "dexie";
 import { db } from "@/db/schema";
 import { projectScoped, workerName } from "@/lib/project";
@@ -190,7 +190,7 @@ export class IndexScheduler {
     const delays = this.deps.jobRetryDelaysMs ?? [1000, 5000, 20000];
     const attempt = this.jobFailures++;
     if (attempt >= delays.length) {
-      (this.deps.warn ?? console.warn)("[indexer] 扫描任务多次失败，放弃这次请求");
+      (this.deps.warn ?? console.warn)("[indexer] scan job failed repeatedly; giving up on this request");
       this.jobFailures = 0;
       return;
     }
@@ -251,7 +251,7 @@ export class IndexScheduler {
     try {
       res = await job.promise;
     } catch (e) {
-      (this.deps.warn ?? console.warn)("[indexer] 扫描任务失败", e);
+      (this.deps.warn ?? console.warn)("[indexer] scan job failed", e);
     } finally {
       this.current = null;
     }
@@ -271,14 +271,14 @@ export class IndexScheduler {
       if (f && f.fileHash === n.fileHash) continue;
       const key = `${n.paperId}\u0000${n.fileHash}`;
       if (n.missingFile || (this.extractedAttempts.get(key) ?? 0) >= maxAttempts) {
-        this.failed.set(n.paperId, { fileHash: n.fileHash, message: n.missingFile ? "缺少 PDF 文件" : "提取后全文仍不可用" });
+        this.failed.set(n.paperId, { fileHash: n.fileHash, message: n.missingFile ? t.term.indexer.failures.missingFile : t.term.indexer.failures.stillUnavailable });
         failuresChanged = true;
         continue;
       }
       this.extractQueue.set(n.paperId, n.fileHash);
     }
     if (failuresChanged) this.emitFailures();
-    if (res.errors.length) (this.deps.warn ?? console.warn)("[indexer] 部分论文扫描出错", res.errors);
+    if (res.errors.length) (this.deps.warn ?? console.warn)("[indexer] some papers failed to scan", res.errors);
     this.deps.onState({ lastRun: { ...res.stats, at: Date.now() } });
   }
 
@@ -313,12 +313,12 @@ export class IndexScheduler {
       if (e instanceof ExtractTimeoutError && !this.timeoutRetried.has(key)) {
         // 超时可能只是当时太忙（大文件、阅读器占着 pdf.js），稍后自动再试一次
         this.timeoutRetried.add(key);
-        this.failed.set(id, { fileHash, message: "提取全文超时，稍后自动重试", autoRetry: true });
-        const t = setTimeout(() => {
-          this.autoRetryTimers.delete(t);
+        this.failed.set(id, { fileHash, message: t.term.indexer.failures.timeoutRetrying, autoRetry: true });
+        const timer = setTimeout(() => {
+          this.autoRetryTimers.delete(timer);
           this.retryFailed([id]);
         }, this.deps.timeoutRetryDelayMs ?? 60_000);
-        this.autoRetryTimers.add(t);
+        this.autoRetryTimers.add(timer);
       } else {
         this.failed.set(id, { fileHash, message: describeExtractError(e) });
       }
@@ -329,12 +329,13 @@ export class IndexScheduler {
 }
 
 function describeExtractError(e: unknown): string {
-  if (e instanceof ExtractTimeoutError) return "提取全文超时";
+  const tx = t.term.indexer.failures;
+  if (e instanceof ExtractTimeoutError) return tx.timeout;
   const name = (e as { name?: string } | null)?.name ?? "";
-  if (name === "PasswordException") return "PDF 已加密";
-  if (name === "InvalidPDFException") return "文件已损坏或不是有效的 PDF";
+  if (name === "PasswordException") return tx.encrypted;
+  if (name === "InvalidPDFException") return tx.invalidPdf;
   const msg = e instanceof Error ? e.message : String(e);
-  return msg || "未知错误";
+  return msg || tx.unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +378,7 @@ function createMatchRunner() {
       // Worker 读不到页面 URL：项目放在 Worker 名里（lib/project.ts）
       worker = new Worker(new URL("../workers/indexer.worker.ts", import.meta.url), { type: "module", name: workerName(workerKind("paperlens-indexer")) });
     } catch (e) {
-      console.warn("[indexer] 无法创建 Worker，改在主线程扫描", e);
+      console.warn("[indexer] could not create worker; scanning on the main thread", e);
       broken = true;
       return null;
     }
@@ -390,7 +391,7 @@ function createMatchRunner() {
         return;
       }
       if (m.type === "wrong-db") {
-        console.warn("[indexer]", m.message, "，改在主线程扫描");
+        console.warn("[indexer]", m.message, "; scanning on the main thread");
         fallBack();
         return;
       }
@@ -400,7 +401,7 @@ function createMatchRunner() {
     };
     worker.onerror = (ev) => {
       ev.preventDefault();
-      console.warn("[indexer] Worker 出错，改在主线程扫描", ev.message);
+      console.warn("[indexer] worker error; scanning on the main thread", ev.message);
       fallBack();
     };
     return worker;
@@ -465,14 +466,14 @@ const EXTRACT_TIMEOUT_MS = 180_000;
 
 function extractWithTimeout(paperId: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new ExtractTimeoutError("提取全文超时")), EXTRACT_TIMEOUT_MS);
+    const timer = setTimeout(() => reject(new ExtractTimeoutError("text extraction timed out")), EXTRACT_TIMEOUT_MS);
     ensurePageTexts(paperId).then(
       (v) => {
-        clearTimeout(t);
+        clearTimeout(timer);
         resolve(v);
       },
       (e) => {
-        clearTimeout(t);
+        clearTimeout(timer);
         reject(e);
       },
     );
@@ -481,7 +482,7 @@ function extractWithTimeout(paperId: string): Promise<unknown> {
 
 /** 订阅影响扫描结果的数据变化。每个订阅的第一次结果只作基线（启动时另有一次全库自检） */
 function watchChanges(scheduler: IndexScheduler): () => void {
-  const warn = (what: string) => (e: unknown) => console.warn(`[indexer] 订阅${what}失败`, e);
+  const warn = (what: string) => (e: unknown) => console.warn(`[indexer] failed to subscribe to ${what}`, e);
 
   let paperSigs: Map<string, string> | null = null;
   const papers = liveQuery(() => db.papers.toArray()).subscribe({
@@ -497,7 +498,7 @@ function watchChanges(scheduler: IndexScheduler): () => void {
       }
       paperSigs = next;
     },
-    error: warn("论文"),
+    error: warn("papers"),
   });
 
   let termsKey: string | null = null;
@@ -507,7 +508,7 @@ function watchChanges(scheduler: IndexScheduler): () => void {
       if (termsKey !== null && k !== termsKey) scheduler.request();
       termsKey = k;
     },
-    error: warn("术语"),
+    error: warn("terms"),
   });
 
   let treeKey: string | null = null;
@@ -517,7 +518,7 @@ function watchChanges(scheduler: IndexScheduler): () => void {
       if (treeKey !== null && k !== treeKey) scheduler.request();
       treeKey = k;
     },
-    error: warn("领域"),
+    error: warn("fields"),
   });
 
   return () => {
@@ -649,7 +650,7 @@ export function startIndexer(): void {
         return new Promise<void>((resolve) => (releaseLock = resolve));
       })
       .catch((e) => {
-        console.warn("[indexer] 无法获取标签页锁，由本标签页索引", e);
+        console.warn("[indexer] could not acquire the tab lock; indexing in this tab", e);
         becomeLeader();
       });
   } else {

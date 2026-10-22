@@ -3,7 +3,8 @@ import type { GlossaryFilter, GlossarySort } from "@/app/stores/glossary";
 import { matchesAll } from "@/components/library/search";
 import { buildDomainTree, countPapersByDomain, domainPath, flattenTree, getSubtreeIds } from "@/services/domainTree";
 import type { TermStatsRecord } from "@/db/repo/occurrences";
-import type { Domain, MatchMode, Occurrence, Paper, Term } from "@/types/models";
+import { t } from "@/i18n";
+import type { Domain, Occurrence, Paper, Term } from "@/types/models";
 
 // ---------- 统计 ----------
 
@@ -161,12 +162,6 @@ export function sortTerms<T extends Term>(terms: readonly T[], sort: GlossarySor
 
 // ---------- 展示 ----------
 
-export const MATCH_MODE_LABELS: Record<MatchMode, string> = {
-  auto: "自动（全大写的别名区分大小写）",
-  caseSensitive: "区分大小写",
-  caseInsensitive: "不区分大小写",
-};
-
 export interface ScopeTag {
   id: string;
   path: string;
@@ -188,7 +183,7 @@ export function scopeSummary(t: Pick<Term, "scope">, domainById: ReadonlyMap<str
 export function aliasExcerpt(aliases: readonly string[], max = 4): string {
   if (!aliases.length) return "";
   const head = aliases.slice(0, max).join(", ");
-  return aliases.length > max ? `${head} 等 ${aliases.length} 个` : head;
+  return aliases.length > max ? t.term.glossary.list.aliasMore(head, aliases.length) : head;
 }
 
 /** [1,2,3,7,9] → "1–3, 7, 9"；超过 max 段时截断 */
@@ -210,7 +205,7 @@ export function formatShortDate(ts: number, now = Date.now()): string {
   const n = new Date(now);
   const pad = (x: number) => String(x).padStart(2, "0");
   if (d.toDateString() === n.toDateString()) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  if (d.getFullYear() === n.getFullYear()) return `${d.getMonth() + 1}月${d.getDate()}日`;
+  if (d.getFullYear() === n.getFullYear()) return t.term.glossary.list.monthDay(d);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
@@ -298,7 +293,7 @@ export function groupOccurrencesByDomain(
     list.sort((a, b) => b.count - a.count || compareNames(a.paper.title, b.paper.title));
     groups.push({
       key: k,
-      label: k ? domainPath(byId, k) : "未分类",
+      label: k ? domainPath(byId, k) : t.term.glossary.detail.unfiled,
       color: k ? byId.get(k)!.color : null,
       papers: list,
       count: list.reduce((n, p) => n + p.count, 0),

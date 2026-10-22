@@ -2,6 +2,9 @@
 //   terms/<术语名>.md   frontmatter（aliases、scope、domains、tags）+ 笔记 + "## 出现于"（[[论文]] 与出现次数）
 //   papers/<标题>.md    frontmatter（作者、年份、领域、标签）+ 每条批注（页码、引文、笔记、关联术语）
 // 文件名去掉非法字符、限制长度，重名（不区分大小写）时加 " (2)"。
+// 标题和说明文字跟随界面语言（t.data.markdown；在 Worker 里由 Worker 名带入语言），切换语言后下一次保存按新语言重写。
+// 文件名、目录名（terms/、papers/）和 frontmatter 的键与语言无关；只有标题清理后为空时的后备文件名"未命名"随语言变化。
+import { t as ui } from "@/i18n";
 import { domainPathNames } from "@/services/domainTree";
 import type { Annotation, Domain, Occurrence, Paper, Term } from "@/types/models";
 import type { DataTables } from "./format";
@@ -43,7 +46,7 @@ export function safeFileName(raw: string, maxBytes = 150): string {
   let s = raw.normalize("NFC").replace(ILLEGAL, " ").replace(/\s+/g, " ").trim();
   s = s.replace(/^[.\s]+/, ""); // 开头的点会变成隐藏文件
   s = truncateUtf8(s, maxBytes).replace(/[.\s]+$/, ""); // Windows 不允许结尾的点和空格
-  if (!s) s = "未命名";
+  if (!s) s = ui.data.markdown.untitledFile;
   if (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(s)) s += "_";
   return s;
 }
@@ -127,9 +130,11 @@ function blockquote(text: string): string {
 }
 
 function pageList(pages: number[], max = 12): string {
-  const shown = pages.slice(0, max).join("、");
-  return pages.length > max ? `${shown} 等` : shown;
+  return ui.data.markdown.pages(pages.slice(0, max), pages.length > max);
 }
+
+/** 领域路径列表："A / B；C"（英文用 "; "） */
+const domainList = (paths: string[][]) => ui.data.markdown.longList(paths.map((p) => p.join(" / ")));
 
 function compareAnnotations(a: Annotation, b: Annotation): number {
   if (a.page !== b.page) return a.page - b.page;
@@ -218,27 +223,29 @@ function termFile(m: Model, t: Term): string {
     `updated: ${day(t.updatedAt)}`,
     "---",
   ];
+  const L = ui.data.markdown;
   const body = [`# ${t.name}`, ""];
-  if (t.aliases.length) body.push(`别名：${t.aliases.join("、")}`, "");
-  if (t.scope.kind === "domains") body.push(`作用范围：${paths.length ? paths.map((p) => p.join(" / ")).join("；") : "（领域已删除）"}`, "");
-  body.push(t.note.trim() ? t.note.trim() : "_（还没有笔记）_", "");
+  if (t.aliases.length) body.push(L.field(L.aliases, L.list(t.aliases)), "");
+  if (t.scope.kind === "domains") body.push(L.field(L.scope, paths.length ? domainList(paths) : L.domainDeleted), "");
+  body.push(t.note.trim() ? t.note.trim() : L.noNote, "");
   const occ = termOccurrences(m, t);
-  body.push("## 出现于", "");
-  if (!occ.length) body.push("_（还没有在文库中找到）_");
+  body.push(`## ${L.appearsIn}`, "");
+  if (!occ.length) body.push(L.notFoundYet);
   for (const o of occ) {
     const p = m.paperById.get(o.paperId)!;
-    body.push(`- [[papers/${m.paperName.get(p.id)}|${linkText(p.title)}]] · ${o.count} 次（第 ${pageList(o.pages)} 页）`);
+    body.push(`- [[papers/${m.paperName.get(p.id)}|${linkText(p.title)}]] · ${L.occurrences(o.count, pageList(o.pages))}`);
   }
   return `${[...front, "", ...body].join("\n").trimEnd()}\n`;
 }
 
 function annotationBlock(m: Model, a: Annotation, termLink: (t: Term) => string): string[] {
+  const L = ui.data.markdown;
   const out: string[] = [];
   if (a.quote.exact.trim()) out.push(blockquote(a.quote.exact), "");
-  if (a.anchorStatus === "orphaned") out.push("_（换过 PDF 文件后未找到这段原文）_", "");
+  if (a.anchorStatus === "orphaned") out.push(L.orphaned, "");
   if (a.note.trim()) out.push(a.note.trim(), "");
   const term = a.termId ? m.termById.get(a.termId) : undefined;
-  if (term) out.push(`术语：${termLink(term)}`, "");
+  if (term) out.push(L.field(L.term, termLink(term)), "");
   return out;
 }
 
@@ -263,43 +270,34 @@ function paperFile(m: Model, p: Paper): string {
     `added: ${day(p.addedAt)}`,
     "---",
   ];
+  const L = ui.data.markdown;
   const meta: string[] = [];
-  if (p.authors.length) meta.push(`- 作者：${p.authors.join("、")}`);
-  if (p.year !== undefined) meta.push(`- 年份：${p.year}`);
-  if (paths.length) meta.push(`- 领域：${escapeInline(paths.map((x) => x.join(" / ")).join("；"))}`);
-  if (userTags.length) meta.push(`- 标签：${escapeInline(userTags.join("、"))}`);
-  if (p.pageCount) meta.push(`- 页数：${p.pageCount}`);
+  if (p.authors.length) meta.push(`- ${L.field(L.authors, L.list(p.authors))}`);
+  if (p.year !== undefined) meta.push(`- ${L.field(L.year, String(p.year))}`);
+  if (paths.length) meta.push(`- ${L.field(L.domains, escapeInline(domainList(paths)))}`);
+  if (userTags.length) meta.push(`- ${L.field(L.tags, escapeInline(L.list(userTags)))}`);
+  if (p.pageCount) meta.push(`- ${L.field(L.pageCount, String(p.pageCount))}`);
   const body = [`# ${p.title}`, ""];
   if (meta.length) body.push(...meta, "");
   const anns = m.annotationsByPaper.get(p.id) ?? [];
-  body.push(`## 批注（${anns.length}）`, "");
-  if (!anns.length) body.push("_（还没有批注）_", "");
+  body.push(`## ${L.annotations(anns.length)}`, "");
+  if (!anns.length) body.push(L.noAnnotations, "");
   let page = 0;
   const termLink = (t: Term) => `[[terms/${m.termName.get(t.id)}|${linkText(t.name)}]]`;
   for (const a of anns) {
     if (a.page !== page) {
       page = a.page;
-      body.push(`### 第 ${page} 页`, "");
+      body.push(`### ${L.page(page)}`, "");
     }
     body.push(...annotationBlock(m, a, termLink));
   }
   return `${[...front, "", ...body].join("\n").trimEnd()}\n`;
 }
 
-const README = `# Paperloom 笔记
-
-此目录由 Paperloom 自动生成，每次保存时更新：
-
-- \`terms/\`：每个术语一个文件（别名、作用范围、笔记、出现在哪些论文）
-- \`papers/\`：每篇论文一个文件（元数据和全部批注）
-
-在这里直接修改的内容会在下次保存时被覆盖，请在 Paperloom 中编辑。可以把这个目录作为 Obsidian 仓库打开。
-`;
-
 /** data/markdown/ 下的全部文件 */
 export function buildMarkdownFiles(input: MarkdownInput): MarkdownFile[] {
   const m = buildModel(input);
-  const files: MarkdownFile[] = [{ name: "README.md", content: README }];
+  const files: MarkdownFile[] = [{ name: "README.md", content: ui.data.markdown.readme }];
   for (const t of m.terms) files.push({ name: `terms/${m.termName.get(t.id)}.md`, content: termFile(m, t) });
   for (const p of m.papers) files.push({ name: `papers/${m.paperName.get(p.id)}.md`, content: paperFile(m, p) });
   return files;
@@ -308,38 +306,39 @@ export function buildMarkdownFiles(input: MarkdownInput): MarkdownFile[] {
 /** 没有本地服务时下载的单个合并文件 */
 export function buildCombinedMarkdown(input: MarkdownInput, exportedAt: number): string {
   const m = buildModel(input);
-  const out: string[] = ["# Paperloom 导出", "", `导出时间：${day(exportedAt)}；术语 ${m.terms.length} 个，论文 ${m.papers.length} 篇。`, ""];
-  out.push("## 术语", "");
-  if (!m.terms.length) out.push("_（没有术语）_", "");
+  const L = ui.data.markdown;
+  const out: string[] = [`# ${L.combinedTitle}`, "", L.combinedSummary(day(exportedAt), m.terms.length, m.papers.length), ""];
+  out.push(`## ${L.terms}`, "");
+  if (!m.terms.length) out.push(L.noTerms, "");
   for (const t of m.terms) {
     out.push(`### ${t.name}`, "");
     const facts: string[] = [];
-    if (t.aliases.length) facts.push(`别名：${t.aliases.join("、")}`);
+    if (t.aliases.length) facts.push(L.field(L.aliases, L.list(t.aliases)));
     if (t.scope.kind === "domains") {
       const paths = domainPaths(m, t.scope.domainIds);
-      facts.push(`作用范围：${paths.length ? paths.map((p) => p.join(" / ")).join("；") : "（领域已删除）"}`);
+      facts.push(L.field(L.scope, paths.length ? domainList(paths) : L.domainDeleted));
     }
     if (facts.length) out.push(facts.join(" · "), "");
     if (t.note.trim()) out.push(t.note.trim(), "");
     const occ = termOccurrences(m, t);
-    if (occ.length) out.push(`出现于：${occ.map((o) => `${m.paperById.get(o.paperId)!.title}（${o.count} 次）`).join("；")}`, "");
+    if (occ.length) out.push(L.field(L.appearsIn, L.longList(occ.map((o) => L.countIn(m.paperById.get(o.paperId)!.title, o.count)))), "");
   }
-  out.push("## 论文与批注", "");
-  if (!m.papers.length) out.push("_（没有论文）_", "");
+  out.push(`## ${L.papersAndAnnotations}`, "");
+  if (!m.papers.length) out.push(L.noPapers, "");
   for (const p of m.papers) {
     out.push(`### ${p.title}`, "");
     const facts: string[] = [];
-    if (p.authors.length) facts.push(`作者：${p.authors.join("、")}`);
-    if (p.year !== undefined) facts.push(`年份：${p.year}`);
+    if (p.authors.length) facts.push(L.field(L.authors, L.list(p.authors)));
+    if (p.year !== undefined) facts.push(L.field(L.year, String(p.year)));
     const paths = domainPaths(m, p.domainIds);
-    if (paths.length) facts.push(`领域：${escapeInline(paths.map((x) => x.join(" / ")).join("；"))}`);
-    if (p.tags?.length) facts.push(`标签：${escapeInline(p.tags.join("、"))}`);
+    if (paths.length) facts.push(L.field(L.domains, escapeInline(domainList(paths))));
+    if (p.tags?.length) facts.push(L.field(L.tags, escapeInline(L.list(p.tags))));
     if (facts.length) out.push(facts.join(" · "), "");
     let page = 0;
     for (const a of m.annotationsByPaper.get(p.id) ?? []) {
       if (a.page !== page) {
         page = a.page;
-        out.push(`#### 第 ${page} 页`, "");
+        out.push(`#### ${L.page(page)}`, "");
       }
       out.push(...annotationBlock(m, a, (t) => `**${t.name}**`));
     }

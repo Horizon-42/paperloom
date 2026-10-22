@@ -1,5 +1,6 @@
 // 论文列表共用一个右键菜单：在容器上监听 contextmenu，按 data-paper-id 找到目标论文。
 // 比每行一个 Radix ContextMenu 轻得多（列表虚拟化后行会频繁挂载/卸载）。
+import { t } from "@/i18n";
 import { useRef, useState, type ReactElement } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { useAnnotationStore } from "@/app/stores/annotation";
@@ -60,17 +61,17 @@ export function PaperContextMenu({ currentDomain, children }: Props) {
             }}
           >
             <ContextMenu.Item className={menuItem} onSelect={() => useReaderStore.getState().openPaper(paper.id)}>
-              打开
+              {t.library.paperMenu.open}
             </ContextMenu.Item>
             <ContextMenu.Item className={menuItem} onSelect={() => store().openDialog({ kind: "editPaper", paperId: paper.id })}>
-              编辑信息…
+              {t.library.paperMenu.editInfo}
             </ContextMenu.Item>
             <ContextMenu.Item className={menuItem} onSelect={() => (pendingTags.current = paper.id)}>
-              标签…
+              {t.library.paperMenu.tags}
               <span className="ml-auto pl-6 text-[11px] text-neutral-400">T</span>
             </ContextMenu.Item>
             <ContextMenu.Item className={menuItem} onSelect={() => useAnnotationStore.getState().openReplaceDialog(paper.id)}>
-              替换 PDF 文件…
+              {t.library.paperMenu.replacePdf}
             </ContextMenu.Item>
             {currentDomain && (
               <ContextMenu.Item
@@ -78,12 +79,12 @@ export function PaperContextMenu({ currentDomain, children }: Props) {
                 disabled={!inCurrent}
                 onSelect={() => void removePaperFromDomains(paper.id, currentDomain.subtreeIds)}
               >
-                <span className="truncate">从「{currentDomain.name}」移除</span>
+                <span className="truncate">{t.library.paperMenu.removeFromDomain(currentDomain.name)}</span>
               </ContextMenu.Item>
             )}
             <ContextMenu.Separator className={menuSeparator} />
             <ContextMenu.Item className={menuItemDanger} onSelect={() => store().openDialog({ kind: "deletePaper", paperId: paper.id })}>
-              删除论文…
+              {t.library.paperMenu.deletePaper}
             </ContextMenu.Item>
           </ContextMenu.Content>
         )}

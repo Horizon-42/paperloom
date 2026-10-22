@@ -45,7 +45,7 @@ describe("lib/project", () => {
     const m = await import("@/lib/project");
     m.setCurrentProjectId("proj-1");
     expect(m.currentProjectId()).toBe("proj-1");
-    expect(() => m.setCurrentProjectId("other")).toThrow(/重新加载/);
+    expect(() => m.setCurrentProjectId("other")).toThrow(/reload/);
     expect(() => m.setCurrentProjectId("Bad!")).toThrow();
   });
 
@@ -62,7 +62,7 @@ describe("lib/project", () => {
     vi.resetModules();
     vi.stubGlobal("name", "paperlens-storage");
     const m2 = await import("@/lib/project");
-    expect(() => m2.currentProjectId()).toThrow(/没有项目 id/);
+    expect(() => m2.currentProjectId()).toThrow(/No project id/);
   });
 
   it("单元测试环境（没有 ?project）下数据库仍是 paperlens", async () => {

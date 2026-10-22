@@ -6,8 +6,9 @@ import { useCanvasStore } from "@/app/stores/canvas";
 import { HIGHLIGHT_COLORS, strongColor } from "@/components/annotation/colors";
 import { jumpToAnnotation } from "@/components/annotation/actions";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { buildDomainTree, flattenTree } from "@/services/domainTree";
-import { ENTITY_KIND_LABELS, refKey, resolveEntities, searchEntities } from "@/services/linkService";
+import { refKey, resolveEntities, searchEntities } from "@/services/linkService";
 import type { Board, EntityRef } from "@/types/models";
 import type { BoardBridge } from "./context";
 import { REF_MIME, buildInbox, clip, encodeRef, placedRefKeys, plainExcerpt, resolveDomainFilter, type InboxItem } from "./model";
@@ -26,24 +27,24 @@ export function CanvasSidebar({ board, bridgeRef }: { board: Board; bridgeRef: M
   const tab = useCanvasStore((s) => s.sidebarTab);
   const setTab = useCanvasStore((s) => s.setSidebarTab);
   return (
-    <aside className="nokey flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-white" aria-label="画布素材" data-canvas-sidebar>
+    <aside className="nokey flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-white" aria-label={t.canvas.sidebar.label} data-canvas-sidebar>
       <div className="flex items-center gap-1 border-b border-neutral-100 px-2 py-2">
         <div role="tablist" className="flex flex-1 gap-0.5 rounded-lg bg-neutral-100 p-0.5">
           <TabButton active={tab === "inbox"} onClick={() => setTab("inbox")}>
-            <IconInbox width={13} height={13} /> 未整理
+            <IconInbox width={13} height={13} /> {t.canvas.sidebar.inbox}
           </TabButton>
           <TabButton active={tab === "search"} onClick={() => setTab("search")}>
-            <IconSearch width={13} height={13} /> 搜索添加
+            <IconSearch width={13} height={13} /> {t.canvas.sidebar.search}
           </TabButton>
         </div>
         <button
           type="button"
           className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-neutral-200 px-2 text-[12px] text-neutral-700 hover:bg-neutral-50"
-          title="在画布中央新建自由笔记（也可双击画布空白处）"
+          title={t.canvas.sidebar.newNoteTitle}
           onClick={() => bridgeRef.current?.newNoteAtCenter()}
           data-new-note
         >
-          <IconNotePlus width={13} height={13} /> 笔记
+          <IconNotePlus width={13} height={13} /> {t.canvas.sidebar.newNote}
         </button>
       </div>
       {tab === "inbox" ? <Inbox board={board} bridgeRef={bridgeRef} /> : <SearchPanel board={board} bridgeRef={bridgeRef} />}
@@ -107,11 +108,11 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-inbox>
       <div className="space-y-1.5 border-b border-neutral-100 px-2 py-2">
-        <div role="radiogroup" aria-label="收件箱范围" className="flex gap-0.5 rounded-md bg-neutral-100 p-0.5 text-[11.5px]">
+        <div role="radiogroup" aria-label={t.canvas.sidebar.scopeLabel} className="flex gap-0.5 rounded-md bg-neutral-100 p-0.5 text-[11.5px]">
           {(
             [
-              ["anywhere", "不在任何画布上"],
-              ["board", "不在本画布上"],
+              ["anywhere", t.canvas.sidebar.scopeAnywhere],
+              ["board", t.canvas.sidebar.scopeBoard],
             ] as const
           ).map(([v, label]) => (
             <button
@@ -131,14 +132,14 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
           className={cx(input, "h-7 pr-6 text-[12px]")}
           value={filter.domain === "board" && !boardHasDomains ? "" : (filter.domain ?? "")}
           onChange={(e) => setFilter({ domain: e.target.value || null })}
-          aria-label="按领域筛选"
+          aria-label={t.canvas.sidebar.domainFilter}
           data-inbox-domain
         >
-          <option value="">全部领域</option>
-          {boardHasDomains && <option value="board">本画布关联的领域</option>}
+          <option value="">{t.canvas.sidebar.allDomains}</option>
+          {boardHasDomains && <option value="board">{t.canvas.sidebar.boardDomains}</option>}
           {domainOptions.map((n) => (
             <option key={n.domain.id} value={n.domain.id}>
-              {"　".repeat(n.depth)}
+              {"\u3000".repeat(n.depth)}
               {n.domain.name}
             </option>
           ))}
@@ -147,17 +148,17 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
           className={cx(input, "h-7 pr-6 text-[12px]")}
           value={filter.paperId ?? ""}
           onChange={(e) => setFilter({ paperId: e.target.value || null })}
-          aria-label="按论文筛选"
+          aria-label={t.canvas.sidebar.paperFilter}
           data-inbox-paper
         >
-          <option value="">全部论文</option>
+          <option value="">{t.canvas.sidebar.allPapers}</option>
           {paperOptions.map((p) => (
             <option key={p.id} value={p.id}>
               {clip(p.title, 48)}
             </option>
           ))}
         </select>
-        <div className="flex items-center gap-0.5" role="group" aria-label="按颜色筛选">
+        <div className="flex items-center gap-0.5" role="group" aria-label={t.canvas.sidebar.colorFilter}>
           {HIGHLIGHT_COLORS.map((c) => {
             const on = filter.color === c.value;
             return (
@@ -189,20 +190,20 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
               className="inline-flex h-6 items-center gap-0.5 rounded px-1 text-[11.5px] text-neutral-500 hover:bg-neutral-100"
               onClick={() => setFilter({ paperId: null, color: null, domain: null })}
             >
-              <IconX width={12} height={12} /> 清除
+              <IconX width={12} height={12} /> {t.canvas.sidebar.clear}
             </button>
           )}
         </div>
       </div>
       <div className="flex items-center px-3 pb-1 pt-2 text-[11px] text-neutral-400">
         <span className="flex-1" data-inbox-count>
-          {items.length} 条{scope === "board" ? "不在本画布上" : "未整理"}
+          {scope === "board" ? t.canvas.sidebar.countBoard(items.length) : t.canvas.sidebar.countAnywhere(items.length)}
         </span>
-        <span>拖到画布上</span>
+        <span>{t.canvas.sidebar.dragHint}</span>
       </div>
       {hiddenNotes > 0 && (
         <div className="px-3 pb-1 text-[11px] text-amber-700" data-hidden-notes={hiddenNotes}>
-          另有 {hiddenNotes} 条自由笔记被论文/颜色筛选隐藏
+          {t.canvas.sidebar.hiddenNotes(hiddenNotes)}
         </div>
       )}
       <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2 pb-3" data-inbox-list>
@@ -212,17 +213,17 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
         {items.length > limit && (
           <li>
             <button type="button" className="w-full rounded-md py-1.5 text-[12px] text-blue-700 hover:bg-blue-50" onClick={() => setLimit((l) => l + PAGE)}>
-              再显示 {Math.min(PAGE, items.length - limit)} 条（共 {items.length} 条）
+              {t.canvas.sidebar.showMore(Math.min(PAGE, items.length - limit), items.length)}
             </button>
           </li>
         )}
         {!items.length && (
           <li className="px-2 py-6 text-center text-[12px] leading-relaxed text-neutral-400">
             {filtered
-              ? "没有符合条件的条目"
+              ? t.canvas.sidebar.noMatch
               : scope === "board"
-                ? "这块画布已包含所有批注和笔记。"
-                : "所有批注都已放到画布上。阅读时新建的批注会自动出现在这里；整理另一块画布时可切换到「不在本画布上」。"}
+                ? t.canvas.sidebar.boardHasAll
+                : t.canvas.sidebar.allPlaced}
           </li>
         )}
       </ul>
@@ -242,25 +243,25 @@ function InboxRow({ item, bridgeRef }: { item: InboxItem; bridgeRef: MutableRefO
       {"annotation" in item ? (
         <>
           <span className="absolute inset-y-0 left-0 w-1" style={{ background: strongColor(item.annotation.color, 12) }} />
-          <div className="line-clamp-2 leading-snug text-neutral-700">{clip(item.annotation.quote.exact || "（无原文）", 160)}</div>
+          <div className="line-clamp-2 leading-snug text-neutral-700">{clip(item.annotation.quote.exact || t.canvas.entity.noQuote, 160)}</div>
           {item.annotation.note.trim() && <div className="mt-0.5 truncate text-[11.5px] text-neutral-500">✎ {plainExcerpt(item.annotation.note, 80)}</div>}
           <div className="mt-0.5 truncate text-[10.5px] text-neutral-400" title={item.paperTitle}>
-            {item.paperTitle} · 第 {item.annotation.page} 页
+            {t.canvas.entity.source(item.paperTitle, item.annotation.page)}
           </div>
         </>
       ) : (
         <>
           <span className="absolute inset-y-0 left-0 w-1 bg-yellow-300" />
-          <div className="line-clamp-2 leading-snug text-neutral-700">{plainExcerpt(item.note.text, 160) || "（空笔记）"}</div>
-          <div className="mt-0.5 text-[10.5px] text-neutral-400">自由笔记 · 不在任何画布上</div>
+          <div className="line-clamp-2 leading-snug text-neutral-700">{plainExcerpt(item.note.text, 160) || t.canvas.entity.emptyNote}</div>
+          <div className="mt-0.5 text-[10.5px] text-neutral-400">{t.canvas.sidebar.freeNote}</div>
         </>
       )}
       <div className="absolute right-1 top-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100">
         <button
           type="button"
           className="inline-flex h-5 w-5 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-          title="放到画布中央"
-          aria-label="放到画布"
+          title={t.canvas.sidebar.placeCenter}
+          aria-label={t.canvas.sidebar.place}
           onClick={() => bridgeRef.current?.placeAtCenter(item.ref)}
         >
           <IconPlus width={13} height={13} />
@@ -269,8 +270,8 @@ function InboxRow({ item, bridgeRef }: { item: InboxItem; bridgeRef: MutableRefO
           <button
             type="button"
             className="inline-flex h-5 w-5 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-            title="跳到原文"
-            aria-label="跳到原文"
+            title={t.canvas.sidebar.jump}
+            aria-label={t.canvas.sidebar.jump}
             onClick={() => jumpToAnnotation(item.annotation)}
           >
             <IconJump width={12} height={12} />
@@ -290,15 +291,15 @@ function SearchPanel({ board, bridgeRef }: { board: Board; bridgeRef: MutableRef
   // 输入停顿后再查；结果是实时查询，条目在别处被修改或删除时随之更新
   const [debounced, setDebounced] = useState(q);
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q), 150);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebounced(q), 150);
+    return () => clearTimeout(timer);
   }, [q]);
   const results = useLiveQuery(async () => {
     if (!debounced.trim()) {
       // 空搜索时列出最近修改的术语，方便直接浏览、拖入
       const terms = (await db.terms.toArray()).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT_TERMS);
-      const resolved = await resolveEntities(terms.map((t) => ({ kind: "term" as const, id: t.id })));
-      return { query: "", rows: terms.map((t) => resolved.get(`term:${t.id}`)!) };
+      const resolved = await resolveEntities(terms.map((x) => ({ kind: "term" as const, id: x.id })));
+      return { query: "", rows: terms.map((x) => resolved.get(`term:${x.id}`)!) };
     }
     return { query: debounced, rows: await searchEntities(debounced, { limit: 8 }) };
   }, [debounced]);
@@ -315,25 +316,25 @@ function SearchPanel({ board, bridgeRef }: { board: Board; bridgeRef: MutableRef
         <IconSearch width={13} height={13} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
           className={cx(input, "h-7 pl-7 text-[12.5px]")}
-          placeholder="搜索术语、批注、论文、笔记…"
+          placeholder={t.canvas.sidebar.searchPlaceholder}
           value={q}
           autoFocus
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setQ("");
           }}
-          aria-label="搜索要添加的条目"
+          aria-label={t.canvas.sidebar.searchLabel}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {browsing && (
-          <div className="px-1 pt-2 text-[11.5px] leading-relaxed text-neutral-400">输入关键词，把术语、批注、整篇论文或已有笔记拖到画布上。</div>
+          <div className="px-1 pt-2 text-[11.5px] leading-relaxed text-neutral-400">{t.canvas.sidebar.searchHint}</div>
         )}
-        {browsing && results && !results.rows.length && <div className="px-2 py-4 text-center text-[12px] text-neutral-400">还没有术语</div>}
-        {!browsing && results && !results.rows.length && <div className="px-2 py-6 text-center text-[12px] text-neutral-400">没有匹配的条目</div>}
+        {browsing && results && !results.rows.length && <div className="px-2 py-4 text-center text-[12px] text-neutral-400">{t.canvas.sidebar.noTerms}</div>}
+        {!browsing && results && !results.rows.length && <div className="px-2 py-6 text-center text-[12px] text-neutral-400">{t.canvas.sidebar.noResults}</div>}
         {groups.map((g) => (
           <section key={g.kind} className="mt-2" data-search-group={g.kind}>
-            <div className="mb-1 px-1 text-[11px] font-medium text-neutral-400">{browsing ? "最近的术语" : ENTITY_KIND_LABELS[g.kind]}</div>
+            <div className="mb-1 px-1 text-[11px] font-medium text-neutral-400">{browsing ? t.canvas.sidebar.recentTerms : t.canvas.entity.kinds[g.kind]}</div>
             <ul className="space-y-1">
               {g.rows.map((r) => {
                 const here = onBoard?.has(refKey(r.ref)) ?? false;
@@ -353,17 +354,17 @@ function SearchPanel({ board, bridgeRef }: { board: Board; bridgeRef: MutableRef
                       <button
                         type="button"
                         className="absolute right-1 top-1/2 -translate-y-1/2 rounded px-1 text-[10.5px] text-blue-600 hover:bg-blue-50"
-                        title="已在这块画布上，点击定位"
+                        title={t.canvas.sidebar.locateTitle}
                         onClick={() => bridgeRef.current?.focusRef(r.ref)}
                       >
-                        定位
+                        {t.canvas.sidebar.locate}
                       </button>
                     ) : (
                       <button
                         type="button"
                         className="absolute right-1 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-                        title="放到画布中央"
-                        aria-label="放到画布"
+                        title={t.canvas.sidebar.placeCenter}
+                        aria-label={t.canvas.sidebar.place}
                         onClick={() => bridgeRef.current?.placeAtCenter(r.ref)}
                       >
                         <IconPlus width={13} height={13} />

@@ -13,6 +13,7 @@ import { MarkdownView } from "@/components/common/MarkdownView";
 import { db } from "@/db/schema";
 import { getOutdatedPaperIds, listOccurrencesForTerm } from "@/db/repo/occurrences";
 import { getTerm, getTerms } from "@/db/repo/terms";
+import { t } from "@/i18n";
 import { pdfRectToScreen } from "@/lib/coords";
 import { updateTerm } from "@/services/termService";
 import type { Domain, Term, TermScope } from "@/types/models";
@@ -139,7 +140,7 @@ function PopoverShell({ pop }: { pop: TermPopoverState }) {
           updatePositionStrategy="always"
           tabIndex={-1}
           data-term-popover={pop.mode}
-          aria-label="术语"
+          aria-label={t.term.popover.ariaLabel}
           className={cx(
             "z-40 flex max-h-[min(72vh,var(--radix-popover-content-available-height))] w-[360px] max-w-[calc(100vw-16px)] flex-col overflow-y-auto",
             "rounded-xl border border-neutral-200 bg-white text-[13px] text-neutral-700 shadow-xl shadow-neutral-900/10 outline-none",
@@ -181,10 +182,11 @@ function useDomains(): Domain[] | undefined {
 }
 
 function scopeText(scope: TermScope, domains: Domain[] | undefined): string {
-  if (scope.kind !== "domains") return "全局";
-  if (!scope.domainIds.length) return "未指定领域（不生效）";
+  const tx = t.term.popover;
+  if (scope.kind !== "domains") return tx.scopeGlobal;
+  if (!scope.domainIds.length) return tx.scopeUnset;
   const byId = new Map((domains ?? []).map((d) => [d.id, d.name]));
-  return scope.domainIds.map((id) => byId.get(id) ?? "已删除的领域").join("、");
+  return t.common.list(scope.domainIds.map((id) => byId.get(id) ?? tx.deletedDomain));
 }
 
 type NavFn = (dir: 1 | -1) => void;
@@ -194,7 +196,7 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
   const edit = mode === "edit";
   const st = useTermUiStore.getState;
   const candidates = useLiveQuery(() => getTerms(termIds), [termIds.join("|")]);
-  const term = useLiveQuery(() => getTerm(activeTermId).then((t) => t ?? null), [activeTermId]);
+  const term = useLiveQuery(() => getTerm(activeTermId).then((x) => x ?? null), [activeTermId]);
   const domains = useDomains();
   // 通过"相关笔记"切到其他术语后可以返回
   const [history, setHistory] = useState<string[]>([]);
@@ -207,7 +209,7 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
   // 术语被删除：切到剩下的候选，没有就关闭
   useEffect(() => {
     if (term !== null || !candidates) return;
-    const rest = candidates.filter((t) => t.id !== activeTermId);
+    const rest = candidates.filter((c) => c.id !== activeTermId);
     if (rest.length) st().setActiveTerm(rest[0].id);
     else st().closePopover();
   }, [term, candidates, activeTermId, st]);
@@ -222,8 +224,9 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
     if (i >= 0) goToOccurrence(anchor.paneId, anchor.paperId, activeTermId, positions.list[i], true);
   };
 
-  if (!term) return <div className="p-3 text-neutral-400">{term === null ? "术语已删除" : "加载中…"}</div>;
-  const shownCandidates = (candidates ?? []).filter((t) => termIds.includes(t.id));
+  if (!term) return <div className="p-3 text-neutral-400">{term === null ? t.term.popover.deleted : t.common.loading}</div>;
+  const shownCandidates = (candidates ?? []).filter((c) => termIds.includes(c.id));
+  const tx = t.term.popover;
 
   return (
     <div className="flex flex-col" data-term-card={term.id}>
@@ -232,8 +235,8 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
           <button
             type="button"
             className={cx(iconBtn, "mt-0.5 h-5 w-5")}
-            title="返回"
-            aria-label="返回"
+            title={tx.back}
+            aria-label={tx.back}
             onClick={() => {
               const prev = history[history.length - 1];
               setHistory((h) => h.slice(0, -1));
@@ -256,21 +259,21 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
               ))}
             </div>
           )}
-          <div className="mt-1 text-[11px] text-neutral-400">作用范围：{scopeText(term.scope, domains)}</div>
+          <div className="mt-1 text-[11px] text-neutral-400">{tx.scopeLabel(scopeText(term.scope, domains))}</div>
         </div>
         {edit && (
           <>
             <button
               type="button"
               className={cx(iconBtn, "h-6 w-6")}
-              title="编辑术语"
-              aria-label="编辑术语"
+              title={tx.edit}
+              aria-label={tx.edit}
               data-term-edit
               onClick={() => st().openTermEditor({ termId: term.id })}
             >
               <IconPencil />
             </button>
-            <button type="button" className={cx(iconBtn, "h-6 w-6")} title="关闭（Esc）" aria-label="关闭" onClick={() => st().closePopover()}>
+            <button type="button" className={cx(iconBtn, "h-6 w-6")} title={tx.closeTitle} aria-label={t.common.close} onClick={() => st().closePopover()}>
               <IconX width={14} height={14} />
             </button>
           </>
@@ -279,24 +282,24 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
 
       {shownCandidates.length > 1 && (
         <div className="mx-3 mb-2 rounded-md border border-amber-200 bg-amber-50/70 p-1" data-term-candidates>
-          <div className="px-1.5 pb-0.5 text-[11px] text-amber-700">此处同时匹配 {shownCandidates.length} 个术语</div>
-          {shownCandidates.map((t) => (
+          <div className="px-1.5 pb-0.5 text-[11px] text-amber-700">{tx.candidates(shownCandidates.length)}</div>
+          {shownCandidates.map((c) => (
             <button
-              key={t.id}
+              key={c.id}
               type="button"
-              aria-pressed={t.id === activeTermId}
-              data-candidate={t.id}
+              aria-pressed={c.id === activeTermId}
+              data-candidate={c.id}
               className={cx(
                 "flex w-full items-baseline gap-2 rounded px-1.5 py-0.5 text-left text-[12px]",
-                t.id === activeTermId ? "bg-white font-medium text-neutral-900 shadow-sm" : "text-neutral-600 hover:bg-white/70",
+                c.id === activeTermId ? "bg-white font-medium text-neutral-900 shadow-sm" : "text-neutral-600 hover:bg-white/70",
               )}
               onClick={() => {
                 setHistory([]);
-                st().setActiveTerm(t.id);
+                st().setActiveTerm(c.id);
               }}
             >
-              <span className="min-w-0 truncate">{t.name}</span>
-              <span className="ml-auto shrink-0 text-[11px] text-neutral-400">{scopeText(t.scope, domains)}</span>
+              <span className="min-w-0 truncate">{c.name}</span>
+              <span className="ml-auto shrink-0 text-[11px] text-neutral-400">{scopeText(c.scope, domains)}</span>
             </button>
           ))}
         </div>
@@ -313,30 +316,31 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
       {edit ? (
         <RelatedLinks self={{ kind: "term", id: term.id }} editable onOpenTerm={openTerm} />
       ) : (
-        <div className="border-t border-neutral-100 px-3 py-1.5 text-[11px] text-neutral-400">点击下划线查看详情、编辑笔记</div>
+        <div className="border-t border-neutral-100 px-3 py-1.5 text-[11px] text-neutral-400">{tx.hoverHint}</div>
       )}
     </div>
   );
 }
 
 function NavRow({ positions, anchor, onNav }: { positions: PositionsState; anchor: TermAnchor; onNav: (dir: 1 | -1) => void }) {
-  let label = "正在统计本文出现位置…";
+  const tx = t.term.popover;
+  let label = tx.navCounting;
   let n = 0;
-  if (positions.status === "error") label = "无法读取全文";
+  if (positions.status === "error") label = tx.navError;
   else if (positions.status === "ready") {
     n = positions.list.length;
     const i = occurrenceIndexOf(positions.list, anchor);
-    label = n === 0 ? "本文中没有其他出现" : i >= 0 ? `本文第 ${i + 1} / ${n} 处` : `本文共 ${n} 处`;
+    label = n === 0 ? tx.navNone : i >= 0 ? tx.navAt(i + 1, n) : tx.navTotal(n);
   }
   return (
     <div className="mx-3 mb-2 flex items-center gap-1 rounded-md bg-neutral-50 px-2 py-1 text-[12px] text-neutral-500" data-term-nav>
       <span className="flex-1 tabular-nums" data-term-nav-label>
         {label}
       </span>
-      <button type="button" className={cx(iconBtn, "h-5 w-5")} title="上一处（↑）" aria-label="上一处" disabled={!n} onClick={() => onNav(-1)}>
+      <button type="button" className={cx(iconBtn, "h-5 w-5")} title={tx.prevTitle} aria-label={tx.prev} disabled={!n} onClick={() => onNav(-1)}>
         <IconUp />
       </button>
-      <button type="button" className={cx(iconBtn, "h-5 w-5")} title="下一处（↓）" aria-label="下一处" disabled={!n} onClick={() => onNav(1)}>
+      <button type="button" className={cx(iconBtn, "h-5 w-5")} title={tx.nextTitle} aria-label={tx.next} disabled={!n} onClick={() => onNav(1)}>
         <IconDown />
       </button>
     </div>
@@ -390,10 +394,10 @@ function NoteSection({ term, editable }: { term: Term; editable: boolean }) {
             setDraft(term.note);
             setEditing(false);
           }}
-          placeholder="写下你对这个术语的理解（Markdown，支持 $公式$）"
+          placeholder={t.term.popover.notePlaceholder}
           autoFocus
         />
-        <div className="mt-1 text-[11px] text-neutral-400">⌘/Ctrl + Enter 保存 · Esc 取消</div>
+        <div className="mt-1 text-[11px] text-neutral-400">{t.term.popover.noteShortcuts}</div>
       </div>
     );
   }
@@ -410,7 +414,7 @@ function NoteSection({ term, editable }: { term: Term; editable: boolean }) {
       <MarkdownView
         source={term.note}
         className={cx("text-[13px] leading-relaxed", !editable && "line-clamp-6")}
-        emptyText={editable ? "点击添加笔记…" : "（还没有笔记）"}
+        emptyText={editable ? t.term.popover.addNote : t.term.noNote}
       />
     </div>
   );
@@ -426,8 +430,9 @@ function PaperOccurrences({ term, anchor, positions, compact }: { term: Term; an
   }, [term.id]);
   if (!groups) return null;
   const paperCount = new Set(groups.flatMap((g) => g.papers.map((p) => p.paperId))).size;
+  const tx = t.term.popover;
   if (compact) {
-    return paperCount ? <div className="px-3 pb-2 text-[12px] text-neutral-500">出现在 {paperCount} 篇论文中</div> : null;
+    return paperCount ? <div className="px-3 pb-2 text-[12px] text-neutral-500">{tx.appearsInPapers(paperCount)}</div> : null;
   }
 
   const open = (paperId: string, page: number) => {
@@ -441,8 +446,8 @@ function PaperOccurrences({ term, anchor, positions, compact }: { term: Term; an
   };
   return (
     <section className="border-t border-neutral-100 px-3 py-2" data-term-papers>
-      <div className={sectionTitle}>出现在{paperCount ? ` ${paperCount} 篇论文` : ""}</div>
-      {!groups.length && <div className="text-[12px] text-neutral-400">暂无记录（后台索引完成后显示）</div>}
+      <div className={sectionTitle}>{tx.appearsInTitle(paperCount)}</div>
+      {!groups.length && <div className="text-[12px] text-neutral-400">{tx.noRecords}</div>}
       <div className="flex flex-col gap-1.5">
         {groups.map((g) => (
           <div key={g.domainId ?? "-"}>
@@ -453,20 +458,20 @@ function PaperOccurrences({ term, anchor, positions, compact }: { term: Term; an
                   <button
                     type="button"
                     className={cx(linkBtn, "min-w-0 flex-1 text-[13px]")}
-                    title={`${p.title}（第 ${p.firstPage} 页起）`}
+                    title={tx.paperFromPage(p.title, p.firstPage)}
                     onClick={() => open(p.paperId, p.firstPage)}
                     data-occ-paper={p.paperId}
                   >
                     {p.title}
-                    {p.paperId === anchor.paperId && <span className="ml-1 text-[11px] text-neutral-400">（本文）</span>}
+                    {p.paperId === anchor.paperId && <span className="ml-1 text-[11px] text-neutral-400">{tx.thisPaper}</span>}
                   </button>
                   {p.outdated && (
                     <span
                       className="shrink-0 rounded bg-neutral-100 px-1 text-[10px] text-neutral-400"
-                      title="匹配规则已更新，次数和页码会在后台重新扫描后刷新"
+                      title={tx.outdatedTitle}
                       data-occ-outdated
                     >
-                      待更新
+                      {tx.outdated}
                     </span>
                   )}
                   <span className="shrink-0 text-[11px] text-neutral-400 tabular-nums">×{p.count}</span>
@@ -485,14 +490,14 @@ function SourceLink({ annotationId }: { annotationId: string }) {
     const a = await db.annotations.get(annotationId);
     if (!a) return null;
     const p = await db.papers.get(a.paperId);
-    return { a, title: p?.title ?? "未知论文" };
+    return { a, title: p?.title ?? t.term.popover.unknownPaper };
   }, [annotationId]);
   if (!info) return null;
   const { a, title } = info;
   const r = a.rects[0];
   return (
     <section className="border-t border-neutral-100 px-3 py-2" data-term-source>
-      <div className={sectionTitle}>首次定义处</div>
+      <div className={sectionTitle}>{t.term.popover.sourceTitle}</div>
       <button
         type="button"
         className={cx(linkBtn, "block max-w-full text-[13px]")}
@@ -501,7 +506,7 @@ function SourceLink({ annotationId }: { annotationId: string }) {
           useReaderStore.getState().jumpTo({ paperId: a.paperId, page: a.page, pdfPoint: r ? [r[0], r[3]] : undefined, annotationId: a.id });
         }}
       >
-        {title} · 第 {a.page} 页
+        {t.term.popover.sourceAt(title, a.page)}
       </button>
       {a.quote.exact && <div className="mt-0.5 line-clamp-2 text-[12px] text-neutral-500">“{a.quote.exact}”</div>}
     </section>

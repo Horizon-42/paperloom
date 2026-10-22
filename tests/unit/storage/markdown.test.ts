@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocaleForTest } from "@/i18n";
 import { assignFileNames, buildCombinedMarkdown, buildMarkdownFiles, safeFileName, type MarkdownInput } from "@/services/storage/markdown";
 import type { Annotation, Domain, Paper, Term } from "@/types/models";
 
@@ -122,5 +123,53 @@ describe("Markdown 文件", () => {
     expect(md).toContain("出现于：LSTM: A Search Space Odyssey（12 次）");
     expect(md).toContain("## 论文与批注");
     expect(md).toContain("术语：**Long Short-Term Memory**");
+  });
+});
+
+describe("英文界面：生成的 Markdown 跟随界面语言，文件名不变", () => {
+  afterEach(() => setLocaleForTest("zh"));
+
+  it("标题、说明、README 是英文；文件名和 frontmatter 与中文相同", () => {
+    const zhNames = buildMarkdownFiles(input).map((f) => f.name);
+    setLocaleForTest("en");
+    const files = buildMarkdownFiles(input);
+    expect(files.map((f) => f.name)).toEqual(zhNames);
+    const byName = new Map(files.map((f) => [f.name, f.content]));
+    const CJK = /[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]/;
+    const userData = ["轨迹 预测", "轨迹-预测", "一种 **循环** 神经网络。", "我的笔记"];
+    expect(byName.get("README.md")).toContain("# Paperloom notes");
+    expect(byName.get("README.md")).toContain("Obsidian vault");
+
+    const term = byName.get("terms/Long Short-Term Memory.md")!;
+    expect(term).toContain("Aliases: LSTM, LSTMs");
+    expect(term).toContain("Scope: ATM / 轨迹 预测");
+    expect(term).toContain("## Appears in");
+    expect(term).toContain("- [[papers/LSTM A Search Space Odyssey|LSTM: A Search Space Odyssey]] · 12 times (pp. 1, 3, 5)");
+    expect(term).toContain("· 3 times (p. 2)");
+    expect(byName.get("terms/C++ CLI.md")).toContain("_(No notes yet)_");
+
+    const paper = byName.get("papers/LSTM A Search Space Odyssey.md")!;
+    expect(paper).toContain("- Authors: Klaus Greff, Rupesh Srivastava");
+    expect(paper).toContain("- Year: 2017");
+    expect(paper).toContain("- Pages: 12");
+    expect(paper).toContain("## Annotations (3)");
+    expect(paper).toContain("### Page 1");
+    expect(paper).toContain("Term: [[terms/Long Short-Term Memory|Long Short-Term Memory]]");
+    expect(byName.get("papers/lstm a search space odyssey (2).md")).toContain("_(No annotations yet)_");
+    // 除了用户数据（领域名、笔记），没有中文
+    for (const [name, content] of byName) expect(CJK.test(userData.reduce((c, u) => c.split(u).join(""), content)), name).toBe(false);
+  });
+
+  it("合并文件与后备文件名", () => {
+    setLocaleForTest("en");
+    const md = buildCombinedMarkdown(input, Date.UTC(2026, 9, 21, 12));
+    expect(md).toContain("# Paperloom export");
+    expect(md).toContain("2 terms, 2 papers.");
+    expect(md).toContain("## Terms");
+    expect(md).toContain("Appears in: LSTM: A Search Space Odyssey (12 times); lstm: a search space odyssey (3 times)");
+    expect(md).toContain("## Papers & annotations");
+    expect(md).toContain("#### Page 3");
+    expect(md).toContain("Term: **Long Short-Term Memory**");
+    expect(safeFileName("  ")).toBe("Untitled");
   });
 });

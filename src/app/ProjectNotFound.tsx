@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ProjectInfo } from "@/app/stores/projects";
 import { t } from "@/i18n";
-import { isProjectId, projectUrl } from "@/lib/project";
+import { isProjectId, projectDisplayName, projectUrl } from "@/lib/project";
 
 export function ProjectNotFound(props: { requested: string; projects: ProjectInfo[]; needsMigration: boolean }) {
   const [hasLocal, setHasLocal] = useState(false);
@@ -47,7 +47,7 @@ export function ProjectNotFound(props: { requested: string; projects: ProjectInf
           {props.projects.map((p) => (
             <li key={p.id}>
               <a className="text-blue-600 hover:underline" href={projectUrl(p.id)}>
-                {t.app.notFound.open(p.name)}
+                {t.app.notFound.open(projectDisplayName(p))}
               </a>
             </li>
           ))}

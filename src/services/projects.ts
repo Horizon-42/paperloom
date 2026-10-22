@@ -11,12 +11,14 @@ import {
   isProjectId,
   LAST_PROJECT_KEY,
   openLockName,
+  projectDisplayName,
   projectKey,
   projectKeySuffix,
   projectUrl,
   setCurrentProjectId,
 } from "@/lib/project";
 import { StorageApiError } from "@/services/storage/api";
+import { localServiceErrorFromBody } from "@/services/storage/errors";
 
 const PROJECTS_API = "/__paperlens/projects";
 /** 本浏览器记下的项目列表 */
@@ -50,8 +52,8 @@ async function fail(res: Response): Promise<never> {
   } catch {
     // 不是 JSON
   }
-  const message = typeof body.message === "string" ? body.message : `本地服务返回 ${res.status}`;
-  throw new StorageApiError(res.status, typeof body.error === "string" ? body.error : "http", message, body);
+  // 按错误代码翻译；服务端原文只作兜底
+  throw new StorageApiError(res.status, typeof body.error === "string" ? body.error : "http", localServiceErrorFromBody(res.status, body), body);
 }
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -72,7 +74,7 @@ function isInfo(v: unknown): v is ProjectInfo {
 /** 读取项目列表 */
 export async function fetchProjectList(timeoutMs = 5000): Promise<ProjectListResult> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(PROJECTS_API, { headers: { "X-PaperLens": "1" }, cache: "no-store", signal: ctrl.signal });
     const isJson = (res.headers.get("content-type") ?? "").includes("application/json");
@@ -81,7 +83,7 @@ export async function fetchProjectList(timeoutMs = 5000): Promise<ProjectListRes
     const body = (await res.json().catch(() => null)) as (Partial<ProjectListResponse> & { service?: string; message?: string; error?: string }) | null;
     if (!res.ok) {
       if (res.status === 404 && body?.service !== "paperlens-storage" && !body?.error) return { kind: "none" };
-      return { kind: "error", message: body?.message ?? `本地服务返回 ${res.status}` };
+      return { kind: "error", message: localServiceErrorFromBody(res.status, body ?? {}) };
     }
     if (!body || body.service !== "paperlens-storage" || !Array.isArray(body.projects)) return { kind: "none" };
     return {
@@ -93,9 +95,9 @@ export async function fetchProjectList(timeoutMs = 5000): Promise<ProjectListRes
     };
   } catch {
     // 超时：服务在但没有响应；其他网络错误按没有服务处理
-    return ctrl.signal.aborted ? { kind: "error", message: "本地服务没有响应" } : { kind: "none" };
+    return ctrl.signal.aborted ? { kind: "error", message: t.library.projects.errors.noResponse } : { kind: "none" };
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
 }
 
@@ -143,9 +145,10 @@ export function generateProjectId(name: string, taken: Set<string>): string {
 
 export function validateProjectName(name: string): string {
   const n = name.trim();
-  if (!n) throw new Error("请输入项目名称");
-  if ([...n].length > NAME_MAX) throw new Error(`项目名称最多 ${NAME_MAX} 个字符`);
-  if (/[\u0000-\u001f\u007f]/.test(n)) throw new Error("项目名称不能包含控制字符");
+  const errors = t.library.projects.errors;
+  if (!n) throw new Error(errors.nameRequired);
+  if ([...n].length > NAME_MAX) throw new Error(errors.nameTooLong(NAME_MAX));
+  if (/[\u0000-\u001f\u007f]/.test(n)) throw new Error(errors.nameControlChars);
   return n;
 }
 
@@ -251,7 +254,7 @@ export async function bootProject(): Promise<BootResult> {
 
   // 标签页标题带项目名，多个标签页好区分
   const setTitle = () => {
-    document.title = t.common.pageTitle(currentProject(useProjectsStore.getState()).name);
+    document.title = t.common.pageTitle(projectDisplayName(currentProject(useProjectsStore.getState())));
   };
   setTitle();
   useProjectsStore.subscribe(setTitle);
@@ -304,8 +307,8 @@ export async function isProjectOpenElsewhere(id: string): Promise<boolean> {
 /** 项目列表读不了时不做只改本浏览器副本的操作（之后服务恢复时两边会对不上） */
 function assertListAvailable(): void {
   const st = useProjectsStore.getState();
-  if (st.source === "error") throw new Error(`本地服务的项目列表暂时无法读取（${st.error ?? "未知错误"}），请先解决后刷新页面`);
-  if (st.needsMigration) throw new Error("数据需要先迁移到项目结构");
+  if (st.source === "error") throw new Error(t.library.projects.errors.listUnavailable(st.error));
+  if (st.needsMigration) throw new Error(t.library.projects.errors.needsMigration);
 }
 
 export async function createProject(name: string): Promise<ProjectInfo> {
@@ -319,8 +322,8 @@ export async function createProject(name: string): Promise<ProjectInfo> {
     saveLocalList(useProjectsStore.getState().projects);
   } else {
     const list = loadLocalList();
-    const t = Date.now();
-    entry = { id: generateProjectId(n, new Set(list.map((p) => p.id))), name: n, createdAt: t, updatedAt: t, localOnly: true };
+    const now = Date.now();
+    entry = { id: generateProjectId(n, new Set(list.map((p) => p.id))), name: n, createdAt: now, updatedAt: now, localOnly: true };
     saveLocalList([...list, entry]);
     useProjectsStore.setState({ projects: loadLocalList() });
   }
@@ -333,7 +336,7 @@ export async function renameProject(id: string, name: string): Promise<ProjectIn
   assertListAvailable();
   const st = useProjectsStore.getState();
   const cur = st.projects.find((p) => p.id === id);
-  if (!cur) throw new Error("没有这个项目");
+  if (!cur) throw new Error(t.library.projects.errors.notFound);
   let entry: ProjectInfo;
   if (st.source === "server" && !cur.localOnly) {
     entry = (await call<{ project: ProjectInfo }>(`/${id}`, { method: "PATCH", body: JSON.stringify({ name: n }) })).project;
@@ -415,18 +418,19 @@ function clearProjectLocalKeys(id: string): void {
 export async function deleteProject(id: string, opts: { keepBrowserData?: boolean } = {}): Promise<DeleteResult> {
   assertListAvailable();
   const st = useProjectsStore.getState();
-  if (id === st.currentId) throw new Error("不能删除当前打开的项目");
+  const errors = t.library.projects.errors;
+  if (id === st.currentId) throw new Error(errors.deleteCurrent);
   const entry = st.projects.find((p) => p.id === id);
-  if (!entry) throw new Error("没有这个项目");
-  if (st.projects.length <= 1) throw new Error("不能删除最后一个项目");
-  if (await isProjectOpenElsewhere(id)) throw new ProjectInUseError(`「${entry.name}」正在其他标签页中打开，请先关闭那些标签页再删除`);
+  if (!entry) throw new Error(errors.notFound);
+  if (st.projects.length <= 1) throw new Error(errors.deleteLast);
+  if (await isProjectOpenElsewhere(id)) throw new ProjectInUseError(errors.openElsewhere(projectDisplayName(entry)));
   const data = await import("./projectData");
   let result: DeleteResult;
   if (st.source === "server" && !entry.localOnly) {
     if (!opts.keepBrowserData) {
       const c = await data.browserCopyState(id);
       if (c.state === "unsynced") {
-        throw new ProjectUnsyncedError(`「${entry.name}」在本浏览器中有尚未保存到文件夹的内容（${c.detail}），删除会丢失它们。请先打开它，等左下角显示"已保存"后再删除。`);
+        throw new ProjectUnsyncedError(errors.unsynced(projectDisplayName(entry), c.detail));
       }
     }
     const trashedTo = (await call<{ trashedTo: string }>(`/${id}`, { method: "DELETE" })).trashedTo || null;

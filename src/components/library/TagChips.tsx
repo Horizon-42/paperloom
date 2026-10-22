@@ -1,5 +1,6 @@
 // 标签的外观：按标签名哈希取一组柔和的颜色，以及论文行里单行显示、放不下时折叠为 "+N" 的标签行。
 // 颜色类名必须写成完整的字面量，Tailwind 才能扫描到。
+import { t } from "@/i18n";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { useLibraryStore } from "@/app/stores/library";
 import { tagColorIndex, tagKey } from "@/lib/tags";
@@ -69,8 +70,8 @@ export function RemovableTagChip({ tag, selected, onRemove, removeLabel }: { tag
           "rounded-sm p-px opacity-60 outline-none hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-400",
           selected ? "hover:bg-white/20" : "hover:bg-black/5",
         )}
-        aria-label={removeLabel ?? `移除标签「${tag}」`}
-        title={removeLabel ?? `移除标签「${tag}」`}
+        aria-label={removeLabel ?? t.library.tags.remove(tag)}
+        title={removeLabel ?? t.library.tags.remove(tag)}
       >
         <IconX width={11} height={11} />
       </button>
@@ -176,30 +177,30 @@ export function TagLine({ tags }: { tags: string[] }) {
   };
 
   return (
-    <div ref={ref} className="mt-1 flex h-4 min-w-0 items-center gap-1 overflow-hidden" role="group" aria-label="标签">
-      {tags.slice(0, shown).map((t, i) => {
-        const on = selected.has(t.toLocaleLowerCase());
-        const tone = tagTone(t);
+    <div ref={ref} className="mt-1 flex h-4 min-w-0 items-center gap-1 overflow-hidden" role="group" aria-label={t.library.tags.groupLabel}>
+      {tags.slice(0, shown).map((tag, i) => {
+        const on = selected.has(tag.toLocaleLowerCase());
+        const tone = tagTone(tag);
         return (
           <button
-            key={t}
+            key={tag}
             type="button"
             tabIndex={-1}
             draggable={false}
-            data-tag-chip={t}
+            data-tag-chip={tag}
             aria-pressed={on}
-            title={on ? `取消按「${t}」筛选` : `按「${t}」筛选`}
-            onClick={(e) => toggle(e, t)}
+            title={on ? t.library.tags.unfilter(tag) : t.library.tags.filterBy(tag)}
+            onClick={(e) => toggle(e, tag)}
             onDoubleClick={(e) => e.stopPropagation()}
             className={cx(chipBase, chipXs, "cursor-pointer", on ? tone.on : cx(tone.chip, tone.hover))}
             style={i === 0 && firstMax ? { maxWidth: firstMax } : undefined}
           >
-            <span className="truncate">{t}</span>
+            <span className="truncate">{tag}</span>
           </button>
         );
       })}
       {hidden.length > 0 && (
-        <span className="shrink-0 px-0.5 text-[10.5px] tabular-nums text-neutral-400" title={hidden.join("、")} data-tag-more>
+        <span className="shrink-0 px-0.5 text-[10.5px] tabular-nums text-neutral-400" title={t.common.list(hidden)} data-tag-more>
           +{hidden.length}
         </span>
       )}

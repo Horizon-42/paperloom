@@ -2,12 +2,15 @@
 import type { SearchProvider } from "@/components/library/search";
 import { getAnnotation, listAllAnnotations } from "@/db/repo/annotations";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { jumpToAnnotation } from "./actions";
 import { matchesFilter, plainExcerpt } from "./listModel";
 
 export const annotationSearchProvider: SearchProvider = {
   kind: "annotation",
-  label: "批注",
+  get label() {
+    return t.reader.search.group;
+  },
   order: 1,
   limit: 50,
   async search(q) {
@@ -25,7 +28,7 @@ export const annotationSearchProvider: SearchProvider = {
         paperId: a.paperId,
         page: a.page,
         title: a.quote.exact.length > 120 ? `${a.quote.exact.slice(0, 119)}…` : a.quote.exact,
-        subtitle: `${title.get(a.paperId)} · 第 ${a.page} 页${a.anchorStatus === "orphaned" ? " · 未定位" : ""}`,
+        subtitle: `${title.get(a.paperId)} · ${t.reader.page(a.page)}${a.anchorStatus === "orphaned" ? ` · ${t.reader.list.orphaned}` : ""}`,
         snippet: a.note.trim() ? plainExcerpt(a.note, 100) : undefined,
       }));
   },

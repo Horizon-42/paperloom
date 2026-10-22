@@ -1,5 +1,6 @@
 // 导出 JSON / Markdown、导入 JSON 备份（开发文档 F4.1、F4.2）。供数据对话框调用。
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { scheduleIndex } from "@/services/indexer";
 import { DataFormatError } from "./format";
 import { getServiceStatus, getStorageRunner, regenerateMarkdown } from "./sync";
@@ -78,7 +79,7 @@ export async function prepareImport(file: File): Promise<PreparedImport> {
   try {
     text = await readMaybeGzip(file);
   } catch {
-    throw new DataFormatError("无法读取文件（不是有效的 JSON 或 gzip 文件）");
+    throw new DataFormatError(t.data.format.unreadableFile);
   }
   const preview = await getStorageRunner().call("previewImport", text);
   return { fileName: file.name, text, preview };
@@ -116,7 +117,7 @@ export interface ImportOutcome {
 export class ChangedSinceBackupError extends Error {
   override name = "ChangedSinceBackupError";
   constructor() {
-    super("下载备份之后本地数据又有改动，请重新下载一份备份再导入");
+    super(t.data.format.changedSinceBackup);
   }
 }
 
@@ -140,7 +141,7 @@ export async function applyPreparedImport(p: PreparedImport, offlineBackup?: Pre
       }
     }
   } else {
-    if (!offlineBackup) throw new Error("请先下载当前数据的备份");
+    if (!offlineBackup) throw new Error(t.data.format.downloadBackupFirst);
     backup = offlineBackup.name ? { where: "download", name: offlineBackup.name } : null;
     try {
       result = await runner.call("applyImport", { text: p.text, expect: offlineBackup.fingerprint });

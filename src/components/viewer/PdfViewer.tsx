@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { acquirePdf } from "@/lib/pdfDocs";
 import type { PDFDocumentProxy, PDFPageProxy } from "@/lib/pdf";
 import { useReaderStore, type JumpRequest, type PaneId } from "@/app/stores/reader";
@@ -105,12 +106,12 @@ function DocumentViewer({
           const vp = p.getViewport({ scale: 1 });
           return { width: vp.width, height: vp.height };
         });
-        if (import.meta.env.DEV) console.debug(`[viewer] ${pages.length} 页尺寸 ${(performance.now() - t0).toFixed(0)} ms`);
+        if (import.meta.env.DEV) console.debug(`[viewer] ${pages.length} page sizes ${(performance.now() - t0).toFixed(0)} ms`);
         setLoaded({ doc, pages, dims });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        console.error("打开 PDF 失败", err);
+        console.error("Failed to open PDF", err);
         setError(err instanceof Error ? err.message : String(err));
       });
     return () => {
@@ -337,9 +338,9 @@ function DocumentViewer({
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       if (useReaderStore.getState().focusedPane !== paneId) return;
-      const t = e.target as HTMLElement | null;
-      if (t && t !== document.body && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) {
-        if (!scrollRef.current?.parentElement?.contains(t)) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target !== document.body && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) {
+        if (!scrollRef.current?.parentElement?.contains(target)) return;
       }
       if (e.key === "=" || e.key === "+") zoomStep(1);
       else if (e.key === "-" || e.key === "_") zoomStep(-1);
@@ -421,7 +422,7 @@ function DocumentViewer({
     };
   }, [layout, loaded, range, viewports, containerWidth, paneId, paperId, fileHash]);
 
-  const status = missing ? "论文不存在或已被删除" : error ? `无法打开：${error}` : null;
+  const status = missing ? t.reader.viewer.paperMissing : error ? t.reader.viewer.cannotOpen(error) : null;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-viewer-pane={paneId} data-viewer-paper={paperId}>
@@ -448,7 +449,7 @@ function DocumentViewer({
         {status ? (
           <div className="flex h-full items-center justify-center text-sm text-red-500">{status}</div>
         ) : !loaded || !layout || !fileHash ? (
-          <div className="flex h-full items-center justify-center text-sm text-neutral-400">正在打开…</div>
+          <div className="flex h-full items-center justify-center text-sm text-neutral-400">{t.reader.viewer.opening}</div>
         ) : (
           <div
             className="relative box-border"

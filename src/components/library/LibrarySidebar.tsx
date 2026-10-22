@@ -1,4 +1,5 @@
 // 文库侧栏：项目切换、导入、全局搜索、视图切换、领域树、论文列表、标签编辑弹层
+import { t } from "@/i18n";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useAppStore, type MainView } from "@/app/stores/app";
@@ -42,7 +43,7 @@ function SidebarInner() {
     <aside
       style={{ width }}
       className="relative flex h-full shrink-0 flex-col border-r border-neutral-200 bg-neutral-50 text-neutral-800"
-      aria-label="文库"
+      aria-label={t.library.sidebar.ariaLabel}
       data-testid="library-sidebar"
       data-library-sidebar
     >
@@ -61,11 +62,11 @@ function SidebarInner() {
 
 // ---------- 顶部：项目切换、导入、搜索、视图切换 ----------
 
-const VIEWS: { value: MainView; label: string; Icon: typeof IconBook }[] = [
-  { value: "reader", label: "阅读", Icon: IconBook },
-  { value: "glossary", label: "术语表", Icon: IconTag },
-  { value: "annotations", label: "批注", Icon: IconNote },
-  { value: "canvas", label: "画布", Icon: IconCanvas },
+const VIEWS: { value: MainView & keyof typeof t.library.sidebar.views; Icon: typeof IconBook }[] = [
+  { value: "reader", Icon: IconBook },
+  { value: "glossary", Icon: IconTag },
+  { value: "annotations", Icon: IconNote },
+  { value: "canvas", Icon: IconCanvas },
 ];
 
 function SidebarHeader() {
@@ -81,10 +82,10 @@ function SidebarHeader() {
           type="button"
           onClick={() => fileInput.current?.click()}
           className="inline-flex h-7 items-center gap-1 rounded-md bg-blue-600 px-2.5 text-[12.5px] font-medium text-white shadow-sm hover:bg-blue-700"
-          title="导入 PDF（也可直接拖入窗口）"
+          title={t.library.sidebar.importTitle}
         >
           <IconUpload width={14} height={14} />
-          导入
+          {t.library.sidebar.importButton}
         </button>
         <input
           ref={fileInput}
@@ -105,8 +106,8 @@ function SidebarHeader() {
 
       <SearchBox />
 
-      <div role="tablist" aria-label="主视图" className="grid grid-cols-3 gap-0.5 rounded-lg bg-neutral-200/60 p-0.5">
-        {VIEWS.map(({ value, label, Icon }) => (
+      <div role="tablist" aria-label={t.library.sidebar.viewsLabel} className="grid grid-cols-3 gap-0.5 rounded-lg bg-neutral-200/60 p-0.5">
+        {VIEWS.map(({ value, Icon }) => (
           <button
             key={value}
             type="button"
@@ -119,7 +120,7 @@ function SidebarHeader() {
             )}
           >
             <Icon width={13} height={13} />
-            {label}
+            {t.library.sidebar.views[value]}
           </button>
         ))}
       </div>
@@ -131,7 +132,7 @@ function SearchBox() {
   const query = useLibraryStore((s) => s.query);
   const setQuery = useLibraryStore((s) => s.setQuery);
   const providers = useSearchProviders();
-  const placeholder = `搜索${providers.map((p) => p.label).join("、")}（#标签）`;
+  const placeholder = t.library.search.placeholder(providers.map((p) => p.label));
 
   return (
     <div className="relative">
@@ -143,9 +144,9 @@ function SearchBox() {
         onKeyDown={(e) => {
           if (e.key === "Escape") setQuery("");
         }}
-        placeholder={providers.length === 1 ? "搜索论文标题、作者、标签" : placeholder}
-        title="搜索论文标题、作者、标签；以 # 开头只搜标签，如 #待读"
-        aria-label="全局搜索"
+        placeholder={providers.length === 1 ? t.library.search.placeholderPapers : placeholder}
+        title={t.library.search.title}
+        aria-label={t.library.search.ariaLabel}
         className="h-8 w-full rounded-md border border-neutral-200 bg-white pl-8 pr-7 text-[13px] placeholder:text-neutral-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 [&::-webkit-search-cancel-button]:hidden"
       />
       {query && (
@@ -153,7 +154,7 @@ function SearchBox() {
           type="button"
           onClick={() => setQuery("")}
           className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-          aria-label="清除搜索"
+          aria-label={t.library.search.clear}
         >
           <IconX width={13} height={13} />
         </button>
@@ -200,7 +201,7 @@ function ResizeHandle() {
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="调整侧栏宽度（双击恢复默认）"
+      aria-label={t.library.sidebar.resizeLabel}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onDoubleClick={() => setWidth(SIDEBAR_DEFAULT_WIDTH)}
@@ -263,8 +264,8 @@ function FileDropOverlay() {
     <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-blue-500/5 p-6">
       <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-blue-400 bg-white/60">
         <div className="rounded-xl bg-white px-6 py-4 text-center shadow-lg">
-          <div className="text-sm font-medium text-neutral-800">松开以导入 PDF</div>
-          {target && <div className="mt-1 text-xs text-neutral-500">将归入「{target}」</div>}
+          <div className="text-sm font-medium text-neutral-800">{t.library.sidebar.dropToImport}</div>
+          {target && <div className="mt-1 text-xs text-neutral-500">{t.library.sidebar.dropInto(target)}</div>}
         </div>
       </div>
     </div>
@@ -311,8 +312,8 @@ function useTagFilterGuard() {
     const st = useLibraryStore.getState();
     const filter = st.tagFilter;
     if (!loaded || !filter.length) return;
-    const next = filter.map((t) => findTag(tags, t)?.name ?? (isTagNameHeld(t) ? t : undefined)).filter((t): t is string => !!t);
-    if (next.length !== filter.length || next.some((t, i) => t !== filter[i])) st.setTagFilter(next);
+    const next = filter.map((f) => findTag(tags, f)?.name ?? (isTagNameHeld(f) ? f : undefined)).filter((f): f is string => !!f);
+    if (next.length !== filter.length || next.some((f, i) => f !== filter[i])) st.setTagFilter(next);
   }, [loaded, tags]);
 }
 

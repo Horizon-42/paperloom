@@ -1,15 +1,27 @@
 // 预设高亮色。黄色与 termService.TERM_SOURCE_COLOR 相同，术语出处批注与普通高亮外观一致
+import { t } from "@/i18n";
+
 export interface HighlightColor {
   value: string;
-  label: string;
+  /** 界面上显示的颜色名（读取时取当前语言） */
+  readonly label: string;
 }
 
+type ColorName = keyof typeof t.reader.colors;
+
+const color = (value: string, name: ColorName): HighlightColor => ({
+  value,
+  get label() {
+    return t.reader.colors[name];
+  },
+});
+
 export const HIGHLIGHT_COLORS: HighlightColor[] = [
-  { value: "#fde68a", label: "黄色" },
-  { value: "#bbf7d0", label: "绿色" },
-  { value: "#bfdbfe", label: "蓝色" },
-  { value: "#fbcfe8", label: "粉色" },
-  { value: "#ddd6fe", label: "紫色" },
+  color("#fde68a", "yellow"),
+  color("#bbf7d0", "green"),
+  color("#bfdbfe", "blue"),
+  color("#fbcfe8", "pink"),
+  color("#ddd6fe", "purple"),
 ];
 
 export const DEFAULT_COLOR = HIGHLIGHT_COLORS[0].value;

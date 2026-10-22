@@ -36,7 +36,7 @@ export function useOccurrenceStats(throttleMs = 500): Map<string, TermStats> | u
         const next = await loadStats();
         if (!disposed) setStats(next);
       } catch (e) {
-        console.warn("[glossary] 读取出现统计失败", e);
+        console.warn("[glossary] failed to load occurrence stats", e);
       } finally {
         running = false;
         if (dirty && !disposed) {

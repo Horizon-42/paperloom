@@ -1,4 +1,5 @@
 // 侧栏对话框的外壳：标题、关闭按钮、说明文字
+import { t } from "@/i18n";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { IconX } from "./icons";
@@ -29,7 +30,7 @@ export function Shell(props: ShellProps) {
         >
           <div className="mb-3 flex items-start gap-3">
             <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{props.title}</Dialog.Title>
-            <Dialog.Close className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label="关闭">
+            <Dialog.Close className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label={t.common.close}>
               <IconX width={16} height={16} />
             </Dialog.Close>
           </div>

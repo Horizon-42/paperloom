@@ -24,7 +24,7 @@ export const CanvasActionsContext = createContext<CanvasActions | null>(null);
 
 export function useCanvasActions(): CanvasActions {
   const v = useContext(CanvasActionsContext);
-  if (!v) throw new Error("CanvasActionsContext 未提供");
+  if (!v) throw new Error("CanvasActionsContext is not provided");
   return v;
 }
 

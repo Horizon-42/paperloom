@@ -30,6 +30,7 @@ import { jumpToAnnotation, reportError } from "@/components/annotation/actions";
 import { PAPER_MIME, hasType } from "@/components/library/dnd";
 import { compareInPaper } from "@/components/annotation/listModel";
 import { listAnnotationsByPaper } from "@/db/repo/annotations";
+import { t } from "@/i18n";
 import {
   DEFAULT_NODE_SIZE,
   addNodeToBoard,
@@ -70,11 +71,11 @@ const MINIMAP_COLORS: Record<string, string> = { term: "#fcd34d", paper: "#93c5f
 
 function nodeTitle(n: CanvasFlowNode | undefined): string {
   const v = n?.data.view;
-  if (!v) return "已删除的条目";
-  if (v.kind === "annotation") return clip(v.annotation.quote.exact || "（无原文）", 40);
+  if (!v) return t.canvas.entity.deletedItem;
+  if (v.kind === "annotation") return clip(v.annotation.quote.exact || t.canvas.entity.noQuote, 40);
   if (v.kind === "term") return v.term.name;
   if (v.kind === "paper") return clip(v.paper.title, 40);
-  return plainExcerpt(v.note.text, 40) || "（空笔记）";
+  return plainExcerpt(v.note.text, 40) || t.canvas.entity.emptyNote;
 }
 
 const centerOf = (n: InternalNode<CanvasFlowNode>) => ({
@@ -172,12 +173,12 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
         const res = await addNodeToBoard(boardId, ref, pos);
         if (res.existed) {
           focusNode(res.node.id);
-          useAnnotationStore.getState().showToast("已在这块画布上，已定位到该节点");
+          useAnnotationStore.getState().showToast(t.canvas.board.alreadyHere);
         } else {
           useCanvasStore.getState().flashNode(res.node.id);
         }
       } catch (e) {
-        reportError("放到画布失败")(e);
+        reportError(t.canvas.board.placeFailed)(e);
       }
     },
     [boardId, focusNode],
@@ -191,7 +192,7 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
         st.setEditingNode(node.id);
         st.flashNode(node.id);
       } catch (e) {
-        reportError("新建笔记失败")(e);
+        reportError(t.canvas.board.newNoteFailed)(e);
       }
     },
     [boardId],
@@ -229,12 +230,12 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       if (placing.current.has(focus.seq)) return;
       placing.current.add(focus.seq);
       addNodeToBoard(boardId, focus.ref, centerPos(focus.ref.kind)).catch((e: unknown) => {
-        reportError("放到画布失败")(e);
+        reportError(t.canvas.board.placeFailed)(e);
         st.clearFocus(focus.seq);
       });
       return;
     }
-    useAnnotationStore.getState().showToast("这块画布上没有该条目");
+    useAnnotationStore.getState().showToast(t.canvas.board.notHere);
     st.clearFocus(focus.seq);
   }, [ready, focus, content, boardId, focusNode, centerPos]);
 
@@ -251,7 +252,7 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
         .map((n) => ({ id: n.id, x: n.position.x, y: n.position.y }));
       if (!moves.length) return;
       for (const m of moves) pending.current.set(m.id, { ...pending.current.get(m.id), x: m.x, y: m.y });
-      moveBoardNodes(boardId, moves).catch(reportError("保存位置失败"));
+      moveBoardNodes(boardId, moves).catch(reportError(t.canvas.board.savePositionFailed));
     },
     [boardId],
   );
@@ -264,11 +265,11 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       if (!removed.length) return;
       useAnnotationStore
         .getState()
-        .showToast(removed.length === 1 ? "已移出画布（条目和连线都保留）" : `已移出 ${removed.length} 个节点（条目和连线都保留）`, {
+        .showToast(t.canvas.board.removed(removed.length), {
           undo: () => restoreBoardNodes(removed),
         });
     } catch (e) {
-      reportError("移出画布失败")(e);
+      reportError(t.canvas.board.removeFailed)(e);
     }
   }, []);
 
@@ -282,7 +283,7 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       let y = g.y;
       const { h } = DEFAULT_NODE_SIZE[kind];
       const taken = contentRef.current.nodes;
-      for (let i = 0; i < 20 && taken.some((t) => t.x < x + 200 && t.x + t.w > x && t.y < y + h && t.y + t.h > y); i++) y += h + 24;
+      for (let i = 0; i < 20 && taken.some((o) => o.x < x + 200 && o.x + o.w > x && o.y < y + h && o.y + o.h > y); i++) y += h + 24;
       return { x, y };
     },
     [rf],
@@ -295,8 +296,8 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
         const here = new Set(contentRef.current.nodes.map((n) => refKey(n.ref)));
         const all = (await listAnnotationsByPaper(paperId)).sort(compareInPaper);
         const todo = all.filter((a) => !here.has(`annotation:${a.id}`));
-        if (!all.length) return toast("这篇论文还没有批注");
-        if (!todo.length) return toast("这篇论文的批注都已在这块画布上");
+        if (!all.length) return toast(t.canvas.board.paperNoAnnotations);
+        if (!todo.length) return toast(t.canvas.board.paperAllPlaced);
         const n = rf.getNode(nodeId);
         const origin = n ? { x: n.position.x, y: n.position.y + (n.height ?? 0) + 60 } : centerPos("annotation");
         const pos = gridLayout(origin, todo.length, DEFAULT_NODE_SIZE.annotation);
@@ -304,9 +305,9 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
           boardId,
           todo.map((a, i) => ({ ref: { kind: "annotation" as const, id: a.id }, ...pos[i] })),
         );
-        toast(`已放入 ${added.length} 条批注`, { undo: () => removeNodesFromBoard(added.map((x) => x.id)).then(() => undefined) });
+        toast(t.canvas.board.annotationsAdded(added.length), { undo: () => removeNodesFromBoard(added.map((x) => x.id)).then(() => undefined) });
       } catch (e) {
-        reportError("放入批注失败")(e);
+        reportError(t.canvas.board.addAnnotationsFailed)(e);
       }
     },
     [rf, boardId, centerPos],
@@ -321,7 +322,7 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       addPaperAnnotations: (nodeId, paperId) => void addPaperAnnotations(nodeId, paperId),
       resizeNode: (id, g) => {
         pending.current.set(id, g);
-        resizeBoardNode(boardId, id, g).catch(reportError("保存大小失败"));
+        resizeBoardNode(boardId, id, g).catch(reportError(t.canvas.board.saveSizeFailed));
       },
       deleteNote: (noteId) => {
         void listLinksFor({ kind: "note", id: noteId }).then((ls) => setConfirm({ kind: "note", noteId, links: ls.length }));
@@ -346,9 +347,9 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
   const doDeleteNote = async (noteId: string) => {
     try {
       const snap = await deleteNote(noteId);
-      if (snap) useAnnotationStore.getState().showToast("已删除笔记", { undo: () => restoreNote(snap) });
+      if (snap) useAnnotationStore.getState().showToast(t.canvas.board.noteDeleted, { undo: () => restoreNote(snap) });
     } catch (e) {
-      reportError("删除笔记失败")(e);
+      reportError(t.canvas.board.deleteNoteFailed)(e);
     }
   };
 
@@ -357,14 +358,14 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
     try {
       const snap = await deleteLinks(ids);
       if (!snap.length) return;
-      toast(snap.length === 1 ? "已删除连线（所有画布中都已移除）" : `已删除 ${snap.length} 条连线（所有画布中都已移除）`, {
+      toast(t.canvas.board.linksDeleted(snap.length), {
         undo: async () => {
           const n = await restoreLinks(snap);
-          if (n < snap.length) toast(n ? `恢复了 ${n} 条，其余连线的一端已被删除` : "无法恢复：连线的一端已被删除");
+          if (n < snap.length) toast(t.canvas.board.linksRestored(n));
         },
       });
     } catch (e) {
-      reportError("删除连线失败")(e);
+      reportError(t.canvas.board.deleteLinksFailed)(e);
     }
   };
 
@@ -381,10 +382,10 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
     (c: Connection) => {
       if (!c.source || !c.target || c.source === c.target) return;
       const s = rf.getInternalNode(c.source);
-      const t = rf.getInternalNode(c.target);
-      if (!s || !t) return;
+      const tg = rf.getInternalNode(c.target);
+      if (!s || !tg) return;
       const a = centerOf(s);
-      const b = centerOf(t);
+      const b = centerOf(tg);
       setPendingLink({ source: c.source, target: c.target, at: rf.flowToScreenPosition({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) });
     },
     [rf],
@@ -402,9 +403,9 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       .then(({ link, existed }) => {
         if (!existed) return;
         selectEdge(link.id);
-        useAnnotationStore.getState().showToast("这条连线已存在，已选中它");
+        useAnnotationStore.getState().showToast(t.canvas.board.linkExists);
       })
-      .catch(reportError("新建连线失败"));
+      .catch(reportError(t.canvas.board.createLinkFailed));
   };
 
   const editingLink = edgeEditor ? content.links.find((l) => l.id === edgeEditor.linkId) : undefined;
@@ -534,11 +535,11 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
         {content.nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="max-w-sm text-center text-[13px] leading-relaxed text-neutral-400">
-              从左侧把批注、术语或论文拖到这里，
+              {t.canvas.board.emptyHint.drag}
               <br />
-              或双击空白处新建一条笔记。
+              {t.canvas.board.emptyHint.newNote}
               <br />
-              从节点边缘的圆点拖到另一个节点即可连线。
+              {t.canvas.board.emptyHint.connect}
             </div>
           </div>
         )}
@@ -567,9 +568,9 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
               .then((r) => {
                 if (!r?.merged) return;
                 selectEdge(r.id);
-                useAnnotationStore.getState().showToast("与已有的连线完全相同，已合并为一条");
+                useAnnotationStore.getState().showToast(t.canvas.board.linkMerged);
               })
-              .catch(reportError("修改连线失败"));
+              .catch(reportError(t.canvas.board.updateLinkFailed));
           }}
           onDelete={() => {
             setEdgeEditor(null);
@@ -580,15 +581,10 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       )}
       {confirm?.kind === "note" && (
         <ConfirmDialog
-          title="删除这条笔记？"
+          title={t.canvas.board.deleteNoteTitle}
           testId="delete-note"
-          body={
-            <>
-              笔记内容会被删除，所有画布上的这张卡片{confirm.links ? `和它的 ${confirm.links} 条连线` : ""}也会一起删除。
-              {" "}只想从这块画布上拿掉的话，请用「移出画布」。
-            </>
-          }
-          confirmText="删除笔记"
+          body={t.canvas.board.deleteNoteBody(confirm.links)}
+          confirmText={t.canvas.board.deleteNoteConfirm}
           danger
           onConfirm={() => void doDeleteNote(confirm.noteId)}
           onClose={() => setConfirm(null)}
@@ -596,10 +592,10 @@ function BoardFlow({ board, content, bridgeRef }: { board: Board; content: Board
       )}
       {confirm?.kind === "links" && (
         <ConfirmDialog
-          title={confirm.linkIds.length === 1 ? "删除这条连线？" : `删除 ${confirm.linkIds.length} 条连线？`}
+          title={t.canvas.board.deleteLinksTitle(confirm.linkIds.length)}
           testId="delete-links"
-          body="连线是全局的：删除后会从所有画布和术语弹窗的「相关笔记」中一起消失。两端的条目不受影响。"
-          confirmText="删除连线"
+          body={t.canvas.board.deleteLinksBody}
+          confirmText={t.canvas.board.deleteLinksConfirm}
           danger
           onConfirm={() => void doDeleteLinks(confirm.linkIds)}
           onClose={() => setConfirm(null)}

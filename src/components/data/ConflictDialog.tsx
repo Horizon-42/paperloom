@@ -4,6 +4,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useStorageStore } from "@/app/stores/storage";
 import { btnGhost, btnOutline, btnPrimary, cx, dialogContent, dialogOverlay, dialogTitle } from "@/components/library/ui";
 import { resolveStorageConflict, shortDirLabel, type ConflictChoice } from "@/services/storage/sync";
+import { t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
 import { IconX } from "./icons";
 
 export function ConflictDialog() {
@@ -33,34 +35,36 @@ export function ConflictDialog() {
 
   if (!conflict) return null;
   const kind = conflict.kind;
+  const m = t.data.conflict;
   const TITLES: Record<typeof kind, string> = {
-    revision: "文件夹中的数据已被另一个窗口更新",
-    "local-empty": "本浏览器中的数据已被清空",
-    "newer-format": `${dir} 中的数据来自更新版本的 Paperloom`,
-    "db-reset": "本地数据库已被重置",
-    unreadable: `${dir}library.json 无法读取`,
+    revision: m.title.revision,
+    "local-empty": m.title.localEmpty,
+    "newer-format": m.title.newerFormat(dir),
+    "db-reset": m.title.dbReset,
+    unreadable: m.title.unreadable(dir),
   };
   // 每种情况下两个按钮的文字（第一个为主要操作）；null 表示不显示
   const primary: [ConflictChoice, string] | null =
     kind === "newer-format"
       ? null
       : kind === "unreadable"
-        ? ["recover-backup", "从最近的可读备份恢复"]
+        ? ["recover-backup", m.recoverBackup]
         : kind === "revision"
-          ? ["load-folder", "载入文件夹的数据（替换本浏览器中的数据）"]
-          : ["load-folder", `从 ${dir} 恢复（替换本浏览器中的数据）`];
+          ? ["load-folder", m.loadFolder]
+          : ["load-folder", m.restoreFrom(dir)];
   const secondary: [ConflictChoice, string] | null =
     kind === "newer-format"
       ? null
       : kind === "local-empty"
-        ? ["overwrite-folder", `清空 ${dir} 中的数据`]
+        ? ["overwrite-folder", m.clearFolder(dir)]
         : kind === "db-reset"
-          ? ["overwrite-folder", `把当前数据写入 ${dir}（会先备份）`]
+          ? ["overwrite-folder", m.writeCurrent(dir)]
           : kind === "unreadable"
-            ? ["overwrite-folder", "用本浏览器的数据覆盖（损坏的文件会先备份）"]
-            : ["overwrite-folder", "用本浏览器的数据覆盖文件夹"];
-  const busyText = (c: ConflictChoice) => (c === "overwrite-folder" ? "正在保存…" : "正在载入…");
+            ? ["overwrite-folder", m.overwriteDamaged]
+            : ["overwrite-folder", m.overwriteFolder];
+  const busyText = (c: ConflictChoice) => (c === "overwrite-folder" ? m.saving : m.loading);
   const title = TITLES[kind];
+  const withDir = (text: string) => <Trans text={text} values={{ dir }} />;
 
   return (
     <Dialog.Root open={show} onOpenChange={(o) => !busy && setOpen(o)}>
@@ -71,7 +75,7 @@ export function ConflictDialog() {
             <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{title}</Dialog.Title>
             <Dialog.Close
               className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-              aria-label="关闭"
+              aria-label={t.common.close}
               disabled={!!busy}
             >
               <IconX width={16} height={16} />
@@ -81,37 +85,27 @@ export function ConflictDialog() {
             <div className="space-y-2 text-[13px] leading-relaxed text-neutral-600">
               {kind === "revision" && (
                 <>
-                  <p>
-                    另一个窗口（例如用另一个地址或端口打开的 Paperloom）向 {dir} 保存了数据，而本浏览器中也有尚未保存的改动。
-                    自动保存已暂停，请选择保留哪一份。
-                  </p>
-                  <p className="text-[12px] text-neutral-500">被替换的那一份会先备份到 {dir}backups/。</p>
+                  <p>{withDir(m.revisionBody)}</p>
+                  <p className="text-[12px] text-neutral-500">{withDir(m.backupNote)}</p>
                 </>
               )}
               {kind === "local-empty" && (
                 <>
-                  <p>本浏览器中已经没有任何论文、批注和术语（可能清除了浏览器数据），但 {dir} 中还保存着数据。</p>
-                  <p className="text-[12px] text-neutral-500">如果是有意删除了全部内容，可以选择清空文件夹中的数据（会先备份到 {dir}backups/）。</p>
+                  <p>{withDir(m.localEmptyBody)}</p>
+                  <p className="text-[12px] text-neutral-500">{withDir(m.localEmptyNote)}</p>
                 </>
               )}
-              {kind === "newer-format" && (
-                <p>请先更新 Paperloom 再打开。在此之前不会向 {dir} 写入任何内容，本浏览器中的改动仍然保存在浏览器里。</p>
-              )}
+              {kind === "newer-format" && <p>{withDir(m.newerFormatBody)}</p>}
               {kind === "db-reset" && (
                 <>
-                  <p>
-                    本浏览器的数据库被清空后重新建立了（例如清除了浏览器数据），现在里面只有之后新建的内容。为免用这点数据覆盖 {dir}
-                    中的完整文件库，自动保存已暂停。
-                  </p>
-                  <p className="text-[12px] text-neutral-500">两种选择都会先把将被替换的那一份备份到 {dir}backups/。</p>
+                  <p>{withDir(m.dbResetBody)}</p>
+                  <p className="text-[12px] text-neutral-500">{withDir(m.dbResetNote)}</p>
                 </>
               )}
               {kind === "unreadable" && (
                 <>
-                  <p>{dir}library.json 无法解析（可能被其他程序改坏了）。自动保存已暂停，不会用本浏览器的数据直接覆盖它。</p>
-                  <p className="text-[12px] text-neutral-500">
-                    可以用 {dir}backups/ 中最近一个可读的版本替换它（本浏览器的数据会先备份），或者用本浏览器的数据覆盖（损坏的文件会先另存）。
-                  </p>
+                  <p>{withDir(m.unreadableBody)}</p>
+                  <p className="text-[12px] text-neutral-500">{withDir(m.unreadableNote)}</p>
                 </>
               )}
             </div>
@@ -129,7 +123,7 @@ export function ConflictDialog() {
               </button>
             )}
             <button type="button" className={btnGhost} onClick={() => setOpen(false)} disabled={!!busy}>
-              {kind === "newer-format" ? "知道了" : "稍后决定"}
+              {kind === "newer-format" ? m.gotIt : m.later}
             </button>
           </div>
         </Dialog.Content>

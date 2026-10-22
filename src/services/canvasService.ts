@@ -15,6 +15,7 @@ import {
   updateBoardNode,
   type BoardNodeGeometry,
 } from "@/db/repo/boards";
+import { t } from "@/i18n";
 import { newId } from "@/lib/id";
 import type { Annotation, Board, BoardNode, EntityKind, EntityRef, Link, Note, Paper, Term } from "@/types/models";
 
@@ -27,7 +28,10 @@ export const DEFAULT_NODE_SIZE: Record<EntityKind, { w: number; h: number }> = {
 };
 export const MIN_NODE_SIZE = { w: 140, h: 56 };
 
-export const DEFAULT_BOARD_NAME = "未命名画布";
+/** 新建画布的默认名（当前界面语言）。生成后存进数据库就是数据，不随语言切换变化 */
+export function defaultBoardName(): string {
+  return t.canvas.defaultBoardName;
+}
 
 export function cleanBoardName(name: string): string {
   return name.replace(/\s+/g, " ").trim().slice(0, 120);
@@ -61,7 +65,7 @@ export function orphanNotesOfBoard(boardId: string, nodes: readonly BoardNode[],
 export async function createBoard(name: string, domainIds: string[] = [], now = Date.now()): Promise<Board> {
   const board: Board = {
     id: newId(),
-    name: cleanBoardName(name) || DEFAULT_BOARD_NAME,
+    name: cleanBoardName(name) || defaultBoardName(),
     domainIds: [...new Set(domainIds)],
     createdAt: now,
     updatedAt: now,
@@ -72,7 +76,7 @@ export async function createBoard(name: string, domainIds: string[] = [], now = 
 
 export async function renameBoard(id: string, name: string): Promise<void> {
   const clean = cleanBoardName(name);
-  if (!clean) throw new Error("画布名称不能为空");
+  if (!clean) throw new Error(t.canvas.errors.emptyBoardName);
   await updateBoard(id, { name: clean, updatedAt: Date.now() });
 }
 
@@ -157,10 +161,10 @@ export async function addNodeToBoard(
 ): Promise<PlaceResult> {
   const tables = [db.boards, db.boardNodes, db.annotations, db.terms, db.papers, db.notes];
   return db.transaction("rw", tables, async () => {
-    if (!(await getBoard(boardId))) throw new Error("画布不存在");
+    if (!(await getBoard(boardId))) throw new Error(t.canvas.errors.boardMissing);
     const existing = findNodeForRef(await listNodesForRef(ref), boardId, ref);
     if (existing) return { node: existing, existed: true };
-    if (!(await entityExists(ref))) throw new Error("条目已被删除");
+    if (!(await entityExists(ref))) throw new Error(t.canvas.errors.entityDeleted);
     const node: BoardNode = { id: newId(), boardId, ref: { kind: ref.kind, id: ref.id }, x: pos.x, y: pos.y, w: size.w, h: size.h };
     await addBoardNode(node);
     await touchBoard(boardId);
@@ -172,7 +176,7 @@ export async function addNodeToBoard(
 export async function addNodesToBoard(boardId: string, items: { ref: EntityRef; x: number; y: number }[]): Promise<BoardNode[]> {
   const tables = [db.boards, db.boardNodes, db.annotations, db.terms, db.papers, db.notes];
   return db.transaction("rw", tables, async () => {
-    if (!(await getBoard(boardId))) throw new Error("画布不存在");
+    if (!(await getBoard(boardId))) throw new Error(t.canvas.errors.boardMissing);
     const here = await listBoardNodes(boardId);
     const added: BoardNode[] = [];
     for (const { ref, x, y } of items) {
@@ -200,7 +204,7 @@ export async function entityDeleteImpact(ref: EntityRef): Promise<{ links: numbe
 /** 在画布上新建一条自由笔记 */
 export async function createNoteOnBoard(boardId: string, pos: { x: number; y: number }, text = ""): Promise<{ note: Note; node: BoardNode }> {
   return db.transaction("rw", [db.boards, db.boardNodes, db.notes], async () => {
-    if (!(await getBoard(boardId))) throw new Error("画布不存在");
+    if (!(await getBoard(boardId))) throw new Error(t.canvas.errors.boardMissing);
     const now = Date.now();
     const note: Note = { id: newId(), text, createdAt: now, updatedAt: now };
     await db.notes.add(note);

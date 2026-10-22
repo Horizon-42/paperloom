@@ -10,9 +10,10 @@ import { useTermUiStore } from "@/app/stores/termUi";
 import { cleanNote, jumpToAnnotation, reportError } from "@/components/annotation/actions";
 import { strongColor } from "@/components/annotation/colors";
 import { MarkdownEditor } from "@/components/common/MarkdownEditor";
+import { t } from "@/i18n";
 import { setAnnotationNote } from "@/services/annotationService";
 import { MIN_NODE_SIZE } from "@/services/canvasService";
-import { ENTITY_KIND_LABELS, refKey, resolveEntities, sameRef } from "@/services/linkService";
+import { refKey, resolveEntities, sameRef } from "@/services/linkService";
 import { setNoteText } from "@/services/noteService";
 import { useCanvasActions } from "./context";
 import type { EntityRef } from "@/types/models";
@@ -85,8 +86,8 @@ function ExternalLinks({ nodeId, self, count }: { nodeId: string; self: EntityRe
         <button
           type="button"
           className="nodrag nopan absolute -bottom-2.5 right-2 z-10 inline-flex h-5 items-center gap-0.5 rounded-full border border-violet-200 bg-white px-1.5 text-[10.5px] text-violet-700 shadow-sm hover:bg-violet-50"
-          title={`还有 ${count} 条连线的另一端不在这块画布上`}
-          aria-label={`还有 ${count} 条连线不在本画布上`}
+          title={t.canvas.node.externalTitle(count)}
+          aria-label={t.canvas.node.externalLabel(count)}
           data-external-links={count}
           onClick={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
@@ -117,7 +118,7 @@ function ExternalList({ nodeId, self }: { nodeId: string; self: EntityRef }) {
   const resolved = useLiveQuery(() => resolveEntities(list.map((x) => x.other)), [key]);
   return (
     <>
-      <div className="px-1 pb-1 text-[11px] text-neutral-400">另一端不在这块画布上的连线</div>
+      <div className="px-1 pb-1 text-[11px] text-neutral-400">{t.canvas.node.externalHeading}</div>
       <ul className="max-h-64 space-y-0.5 overflow-y-auto">
         {list.map(({ link, other }) => {
           const r = resolved?.get(refKey(other));
@@ -127,12 +128,12 @@ function ExternalList({ nodeId, self }: { nodeId: string; self: EntityRef }) {
               <span className="shrink-0 rounded bg-violet-50 px-1 text-[10.5px] text-violet-700">
                 {outgoing ? "→" : "←"} {relationText(link)}
               </span>
-              <span className="shrink-0 text-[10.5px] text-neutral-400">{ENTITY_KIND_LABELS[other.kind]}</span>
+              <span className="shrink-0 text-[10.5px] text-neutral-400">{t.canvas.entity.kinds[other.kind]}</span>
               <span className="min-w-0 flex-1 truncate text-neutral-700" title={r?.title}>
                 {r?.title ?? "…"}
               </span>
               {r && !r.missing && (
-                <button type="button" className={nodeBtn} title="放到这块画布上" aria-label="放到画布" onClick={() => actions.placeNear(nodeId, other)}>
+                <button type="button" className={nodeBtn} title={t.canvas.node.placeHere} aria-label={t.canvas.node.place} onClick={() => actions.placeNear(nodeId, other)}>
                   <IconPlus width={12} height={12} />
                 </button>
               )}
@@ -174,7 +175,7 @@ function NodeButton({ label, onClick, danger, children }: { label: string; onCli
 function RemoveButton({ id }: { id: string }) {
   const actions = useCanvasActions();
   return (
-    <NodeButton label="移出画布" onClick={() => actions.removeNodes([id])}>
+    <NodeButton label={t.canvas.node.remove} onClick={() => actions.removeNodes([id])}>
       <IconX width={13} height={13} />
     </NodeButton>
   );
@@ -230,7 +231,7 @@ function NodeEditor({ initial, placeholder, onSave }: { initial: string; placeho
       }}
     >
       <MarkdownEditor value={draft} onChange={setDraft} onSubmit={() => finish(true)} onCancel={() => finish(false)} placeholder={placeholder} autoFocus />
-      <div className="mt-0.5 text-[10px] text-neutral-400">⌘Enter 保存 · Esc 取消</div>
+      <div className="mt-0.5 text-[10px] text-neutral-400">{t.canvas.node.editorHint}</div>
     </div>
   );
 }
@@ -252,31 +253,31 @@ export const AnnotationNode = memo(function AnnotationNode(props: Props) {
       <Header
         label={
           <>
-            {a.termId ? "批注 · 术语出处" : "批注"}
+            {a.termId ? t.canvas.node.termSource : t.canvas.entity.kinds.annotation}
             {a.anchorStatus === "orphaned" && (
-              <span className="ml-1 rounded bg-amber-50 px-1 text-amber-700" title="换过 PDF 文件后找不到原文，跳转只能到原来的页" data-orphaned>
-                未定位
+              <span className="ml-1 rounded bg-amber-50 px-1 text-amber-700" title={t.canvas.node.orphanedTitle} data-orphaned>
+                {t.canvas.node.orphaned}
               </span>
             )}
           </>
         }
       >
         {!editing && (
-          <NodeButton label="编辑笔记" onClick={() => startEdit(id)}>
+          <NodeButton label={t.canvas.node.editNote} onClick={() => startEdit(id)}>
             <IconPen width={13} height={13} />
           </NodeButton>
         )}
-        <NodeButton label="跳到原文" onClick={() => jumpToAnnotation(a)}>
+        <NodeButton label={t.canvas.node.jump} onClick={() => jumpToAnnotation(a)}>
           <IconJump width={13} height={13} />
         </NodeButton>
         <RemoveButton id={id} />
       </Header>
       <Body selected={selected}>
         <div className="mb-1 border-l-2 pl-2 text-[12px] italic leading-snug text-neutral-600" style={{ borderColor: strongColor(a.color, 20) }} data-quote>
-          {clip(a.quote.exact || "（无原文）", low ? 120 : 600)}
+          {clip(a.quote.exact || t.canvas.entity.noQuote, low ? 120 : 600)}
         </div>
         {editing ? (
-          <NodeEditor initial={a.note} placeholder="写笔记（支持 Markdown 和 $公式$）" onSave={(t) => setAnnotationNote(a.id, cleanNote(t)).catch(reportError("保存笔记失败"))} />
+          <NodeEditor initial={a.note} placeholder={t.canvas.node.annotationPlaceholder} onSave={(text) => setAnnotationNote(a.id, cleanNote(text)).catch(reportError(t.canvas.node.saveNoteFailed))} />
         ) : a.note.trim() ? (
           <div data-note>
             <NodeMarkdown source={a.note} lowDetail={low} />
@@ -284,13 +285,13 @@ export const AnnotationNode = memo(function AnnotationNode(props: Props) {
         ) : (
           !low && (
             <button type="button" className="nodrag text-[12px] text-neutral-400 hover:text-neutral-600" onClick={() => startEdit(id)} onDoubleClick={(e) => e.stopPropagation()}>
-              添加笔记…
+              {t.canvas.node.addNote}
             </button>
           )
         )}
       </Body>
       <div className="shrink-0 truncate px-3 pb-1.5 pt-0.5 text-[10.5px] text-neutral-400" title={view.paperTitle} data-source>
-        {view.paperTitle ?? "未知论文"} · 第 {a.page} 页
+        {t.canvas.entity.source(view.paperTitle ?? t.canvas.entity.unknownPaper, a.page)}
       </div>
     </Frame>
   );
@@ -300,24 +301,24 @@ export const AnnotationNode = memo(function AnnotationNode(props: Props) {
 
 export const TermNode = memo(function TermNode(props: Props) {
   const { id, selected } = props;
-  const t = (props.data.view as ViewOf<"term">).term;
+  const term = (props.data.view as ViewOf<"term">).term;
   const low = useLowDetail();
   return (
     <Frame props={props} tone="term">
-      <Header label="术语">
-        <NodeButton label="编辑术语" onClick={() => useTermUiStore.getState().openTermEditor({ termId: t.id })}>
+      <Header label={t.canvas.entity.kinds.term}>
+        <NodeButton label={t.canvas.node.editTerm} onClick={() => useTermUiStore.getState().openTermEditor({ termId: term.id })}>
           <IconPen width={13} height={13} />
         </NodeButton>
         <RemoveButton id={id} />
       </Header>
       <div className="shrink-0 px-3">
-        <div className="truncate text-[14px] font-semibold leading-tight text-neutral-900" title={t.name} data-term-name>
-          {t.name}
+        <div className="truncate text-[14px] font-semibold leading-tight text-neutral-900" title={term.name} data-term-name>
+          {term.name}
         </div>
-        {t.aliases.length > 0 && <div className="truncate text-[11px] text-neutral-500">{t.aliases.join("、")}</div>}
+        {term.aliases.length > 0 && <div className="truncate text-[11px] text-neutral-500">{t.canvas.join(term.aliases)}</div>}
       </div>
       <Body selected={selected} className="pb-2 pt-1">
-        {t.note.trim() ? <NodeMarkdown source={t.note} lowDetail={low} /> : !low && <div className="text-[12px] text-neutral-300">暂无笔记</div>}
+        {term.note.trim() ? <NodeMarkdown source={term.note} lowDetail={low} /> : !low && <div className="text-[12px] text-neutral-300">{t.canvas.node.noNote}</div>}
       </Body>
     </Frame>
   );
@@ -329,15 +330,15 @@ export const PaperNode = memo(function PaperNode(props: Props) {
   const { id } = props;
   const actions = useCanvasActions();
   const p = (props.data.view as ViewOf<"paper">).paper;
-  const meta = [p.authors.slice(0, 3).join(", ") + (p.authors.length > 3 ? " 等" : ""), p.year].filter(Boolean).join(" · ");
+  const meta = [p.authors.slice(0, 3).join(", ") + (p.authors.length > 3 ? t.canvas.entity.etAl : ""), p.year].filter(Boolean).join(" · ");
   return (
     <Frame props={props} tone="paper">
       <div className="pointer-events-none absolute inset-y-0 left-0 w-1 rounded-l-lg bg-blue-400" />
-      <Header label="论文">
-        <NodeButton label="放入这篇论文的全部批注" onClick={() => actions.addPaperAnnotations(id, p.id)}>
+      <Header label={t.canvas.entity.kinds.paper}>
+        <NodeButton label={t.canvas.node.addPaperAnnotations} onClick={() => actions.addPaperAnnotations(id, p.id)}>
           <IconPlus width={13} height={13} />
         </NodeButton>
-        <NodeButton label="打开论文" onClick={() => useReaderStore.getState().openPaper(p.id)}>
+        <NodeButton label={t.canvas.node.openPaper} onClick={() => useReaderStore.getState().openPaper(p.id)}>
           <IconJump width={13} height={13} />
         </NodeButton>
         <RemoveButton id={id} />
@@ -362,20 +363,20 @@ export const NoteNode = memo(function NoteNode(props: Props) {
   const actions = useCanvasActions();
   return (
     <Frame props={props} tone="note">
-      <Header label="笔记">
+      <Header label={t.canvas.entity.kinds.note}>
         {!editing && (
-          <NodeButton label="编辑笔记" onClick={() => startEdit(id)}>
+          <NodeButton label={t.canvas.node.editNote} onClick={() => startEdit(id)}>
             <IconPen width={13} height={13} />
           </NodeButton>
         )}
-        <NodeButton label="删除笔记" danger onClick={() => actions.deleteNote(n.id)}>
+        <NodeButton label={t.canvas.node.deleteNote} danger onClick={() => actions.deleteNote(n.id)}>
           <IconTrash width={13} height={13} />
         </NodeButton>
         <RemoveButton id={id} />
       </Header>
       <Body selected={selected} className="pb-2">
         {editing ? (
-          <NodeEditor initial={n.text} placeholder="写点什么（支持 Markdown 和 $公式$）" onSave={(t) => setNoteText(n.id, cleanNote(t)).catch(reportError("保存笔记失败"))} />
+          <NodeEditor initial={n.text} placeholder={t.canvas.node.notePlaceholder} onSave={(text) => setNoteText(n.id, cleanNote(text)).catch(reportError(t.canvas.node.saveNoteFailed))} />
         ) : n.text.trim() ? (
           <div data-note>
             <NodeMarkdown source={n.text} lowDetail={low} />
@@ -383,7 +384,7 @@ export const NoteNode = memo(function NoteNode(props: Props) {
         ) : (
           !low && (
             <button type="button" className="nodrag text-[12px] text-neutral-400 hover:text-neutral-600" onClick={() => startEdit(id)} onDoubleClick={(e) => e.stopPropagation()}>
-              写点什么…
+              {t.canvas.node.writeSomething}
             </button>
           )
         )}
@@ -399,7 +400,7 @@ export const MissingNode = memo(function MissingNode(props: Props) {
   return (
     <Frame props={props} tone="missing">
       <div className="flex h-full items-center gap-2 px-3 text-[12px] text-neutral-400" data-missing>
-        <span className="min-w-0 flex-1 truncate">已删除的{ENTITY_KIND_LABELS[props.data.ref.kind]}</span>
+        <span className="min-w-0 flex-1 truncate">{t.canvas.entity.deleted[props.data.ref.kind]}</span>
         <button
           type="button"
           className="nodrag shrink-0 rounded px-1.5 py-0.5 text-[11.5px] text-neutral-500 hover:bg-neutral-200/70"
@@ -408,7 +409,7 @@ export const MissingNode = memo(function MissingNode(props: Props) {
             actions.removeNodes([props.id]);
           }}
         >
-          移出画布
+          {t.canvas.node.remove}
         </button>
       </div>
     </Frame>

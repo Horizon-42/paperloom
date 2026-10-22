@@ -2,10 +2,20 @@
 // 当前项目在页面启动时确定一次（main.tsx → services/projects.ts 的 bootProject），切换项目就是带 ?project=<id> 重新加载页面，
 // 所以各模块可以在加载时读取 currentProjectId()，运行中不会变。
 // Worker 读不到页面的 URL：创建 Worker 时把项目放进 Worker 名（workerName），Worker 里的 currentProjectId() 从 self.name 解析。
+import { t } from "@/i18n";
 
 export const DEFAULT_PROJECT_ID = "default";
-export const DEFAULT_PROJECT_NAME = "我的项目";
+/** 默认项目存进登记表的名字（"我的项目"，必须与 server/projects.ts 一致）。这是数据不是界面文字，显示时用 projectDisplayName */
+export const DEFAULT_PROJECT_NAME = "我的项目"; // i18n-ignore: 数据里的默认项目名（服务端登记表也用它），显示时经 projectDisplayName 翻译
 export const PROJECT_ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+/**
+ * 显示用的项目名（页面标题、项目切换器、项目管理等所有显示项目名的地方都用它）：
+ * 默认项目还叫原始的默认名时显示当前语言的默认名，重命名过的显示真实名字。不改登记表里存的值。
+ */
+export function projectDisplayName(p: { id: string; name: string }): string {
+  return p.id === DEFAULT_PROJECT_ID && p.name === DEFAULT_PROJECT_NAME ? t.library.projects.defaultName : p.name;
+}
+
 /** 本浏览器上次打开的项目（所有项目共用一个键） */
 export const LAST_PROJECT_KEY = "paperlens.lastProject";
 
@@ -40,8 +50,8 @@ let current: string | null = null;
 
 /** 页面启动时调用一次（在加载任何用到数据库的模块之前） */
 export function setCurrentProjectId(id: string): void {
-  if (!isProjectId(id)) throw new Error(`无效的项目 id：${id}`);
-  if (current !== null && current !== id) throw new Error(`当前项目已确定为 ${current}，不能再改为 ${id}（切换项目需要重新加载页面）`);
+  if (!isProjectId(id)) throw new Error(`Invalid project id: ${id}`);
+  if (current !== null && current !== id) throw new Error(`Current project is already ${current}, can't change it to ${id} (switching projects requires a page reload)`);
   current = id;
 }
 
@@ -51,7 +61,7 @@ export function currentProjectId(): string {
     const name = (globalThis as { name?: string }).name;
     const id = projectIdFromWorkerName(name);
     // 不能悄悄退回 default：那会把另一个项目的数据写进 default 的数据库
-    if (!id) throw new Error(`Worker 名 "${name ?? ""}" 中没有项目 id`);
+    if (!id) throw new Error(`No project id in worker name "${name ?? ""}"`);
     current = id;
     return id;
   }

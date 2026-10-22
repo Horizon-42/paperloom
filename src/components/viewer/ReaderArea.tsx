@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { useReaderStore, type Pane } from "@/app/stores/reader";
 import { MAX_BACKGROUND_DOCS, useViewerStore } from "@/app/stores/viewer";
 import { acquirePdf } from "@/lib/pdfDocs";
@@ -49,7 +50,7 @@ export function ReaderArea() {
         return fileHash ? <DocRetainer key={id} paperId={id} fileHash={fileHash} /> : null;
       })}
       {empty && !split ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">从左侧选择一篇论文</div>
+        <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">{t.reader.area.empty}</div>
       ) : (
         panes.map((pane, i) => (
           <PaneSlot
@@ -95,7 +96,7 @@ function PaneSlot({
           <PdfViewer key={pane.activePaperId} paneId={pane.id} paperId={pane.activePaperId} />
         ) : (
           <div className="flex flex-1 items-center justify-center bg-neutral-100 text-sm text-neutral-400">
-            {focused ? "在左侧点击论文，在此分栏打开" : "点击此处后，从左侧选择论文在此分栏打开"}
+            {focused ? t.reader.area.paneEmptyFocused : t.reader.area.paneEmptyUnfocused}
           </div>
         )}
         {split && focused && <div className="pointer-events-none absolute inset-0 z-20 ring-1 ring-blue-400/40 ring-inset" />}
@@ -112,7 +113,7 @@ function Divider({ containerRef }: { containerRef: RefObject<HTMLDivElement | nu
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="拖动调整分栏宽度"
+      aria-label={t.reader.area.resizePanes}
       className="group relative z-30 w-1.5 shrink-0 cursor-col-resize bg-neutral-200 hover:bg-blue-300 active:bg-blue-400"
       data-split-divider
       onDoubleClick={() => setRatio(0.5)}

@@ -5,6 +5,7 @@
 //   - search(query)：返回命中列表；内部用 Dexie 查询时，侧栏的 useLiveQuery 会自动随数据变化刷新
 //   - activate(hit)：点击结果时做什么（如 jumpTo 到批注位置、打开术语弹窗）
 // 论文分组由本模块提供（搜标题、作者和标签，"#xx" 只搜标签），侧栏用 PaperRow 展示以保留右键菜单和拖拽。
+import { t } from "@/i18n";
 import { useSyncExternalStore } from "react";
 import { listPapers } from "@/db/repo/papers";
 import { useReaderStore } from "@/app/stores/reader";
@@ -56,7 +57,7 @@ export function parseQuery(raw: string): SearchQuery {
 /** 所有 token 都出现在 haystack 中（不区分大小写） */
 export function matchesAll(haystack: string, tokens: string[]): boolean {
   const h = haystack.toLowerCase();
-  return tokens.every((t) => h.includes(t));
+  return tokens.every((tok) => h.includes(tok));
 }
 
 /**
@@ -67,20 +68,23 @@ export function paperMatches(paper: Pick<Paper, "title" | "authors" | "tags">, t
   const tags = paper.tags ?? [];
   const plain: string[] = [];
   const tagTokens: string[] = [];
-  for (const t of tokens) {
-    if (/^[#＃]/.test(t)) {
-      const rest = t.replace(/^[#＃]+/, "");
+  for (const tok of tokens) {
+    // \uFF03：全角 #
+    if (/^[#\uFF03]/.test(tok)) {
+      const rest = tok.replace(/^[#\uFF03]+/, "");
       if (rest) tagTokens.push(rest);
-    } else plain.push(t);
+    } else plain.push(tok);
   }
   if (!plain.length && !tagTokens.length) return false;
-  if (!tagTokens.every((t) => tags.some((x) => x.toLowerCase().includes(t)))) return false;
+  if (!tagTokens.every((tok) => tags.some((x) => x.toLowerCase().includes(tok)))) return false;
   return matchesAll(`${paper.title}\n${paper.authors.join("\n")}\n${tags.join("\n")}`, plain);
 }
 
 export const paperSearchProvider: SearchProvider = {
   kind: "paper",
-  label: "论文",
+  get label() {
+    return t.library.search.paperGroup;
+  },
   order: 0,
   limit: 200,
   async search(q) {

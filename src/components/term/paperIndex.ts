@@ -45,7 +45,7 @@ export function useTermPositions(paperId: string, termId: string, enabled = true
     getPaperOccurrenceIndex(paperId).then(
       (idx) => !cancelled && setState({ key, pt, value: { status: "ready", list: idx.get(termId) ?? [] } }),
       (err: unknown) => {
-        console.warn("术语导航：读取全文失败", err);
+        console.warn("[term] navigation: failed to read full text", err);
         if (!cancelled) setState({ key, pt, value: { status: "error" } });
       },
     );

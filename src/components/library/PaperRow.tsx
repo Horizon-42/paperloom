@@ -1,6 +1,7 @@
 // 论文列表中的一项：单击打开，可拖到领域上。右键菜单由外层 PaperContextMenu 统一提供。
 // 行高由 paperRowHeight 给出（有标签的行多一行标签），供虚拟列表使用；标题最多两行。
 // 加标签：作者行末尾的按钮（悬停/聚焦/当前论文时显示），或在行上按 T。
+import { t } from "@/i18n";
 import { memo } from "react";
 import { useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
@@ -87,10 +88,10 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
         {paper.title}
       </div>
       <div className="mt-1 flex items-center gap-2 text-[11.5px] leading-4 text-neutral-500">
-        <span className={cx("min-w-0 flex-1 truncate", !authors && "text-neutral-300")}>{authors || "作者未知"}</span>
+        <span className={cx("min-w-0 flex-1 truncate", !authors && "text-neutral-300")}>{authors || t.library.paperRow.unknownAuthors}</span>
         {paper.year !== undefined && <span className="shrink-0 tabular-nums">{paper.year}</span>}
         {domains.length > 0 && (
-          <span className="flex shrink-0 items-center gap-0.5" aria-label={`领域：${domains.map((d) => d.name).join("、")}`}>
+          <span className="flex shrink-0 items-center gap-0.5" aria-label={t.library.paperRow.domains(domains.map((d) => d.name))}>
             {domains.slice(0, MAX_DOTS).map((d) => (
               <span key={d.id} title={domainPath(domainById, d.id)} className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
             ))}
@@ -103,8 +104,8 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
           tabIndex={-1}
           draggable={false}
           data-tag-trigger={paper.id}
-          aria-label="编辑标签（T）"
-          title="编辑标签（T）"
+          aria-label={t.library.paperRow.editTags}
+          title={t.library.paperRow.editTags}
           onClick={(e) => {
             e.stopPropagation(); // 不打开论文
             toggleRowTagEditor(paper.id);

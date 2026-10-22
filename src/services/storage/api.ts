@@ -1,5 +1,6 @@
 // 本地存储服务（server/storageHandler.ts）的客户端：当前项目的 /__paperlens/p/<id>/storage/...。主线程和 Worker 都用它。
 import { projectApiBase } from "@/lib/project";
+import { localServiceErrorFromBody } from "./errors";
 import type { ExtraFile } from "./extraFiles";
 
 export interface LibraryStatus {
@@ -103,8 +104,8 @@ export function createStorageApi(base = projectApiBase(), fetchImpl: FetchLike =
     } catch {
       // 不是 JSON
     }
-    const message = typeof body.message === "string" ? body.message : `本地服务返回 ${res.status}`;
-    throw new StorageApiError(res.status, typeof body.error === "string" ? body.error : "http", message, body);
+    // 按错误代码翻译（服务端原文留在 data.message）
+    throw new StorageApiError(res.status, typeof body.error === "string" ? body.error : "http", localServiceErrorFromBody(res.status, body), body);
   }
 
   async function json<T>(path: string, init?: RequestInit): Promise<T> {

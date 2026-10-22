@@ -1,5 +1,7 @@
 // 管理标签：文库里所有标签及论文数；改名（改成已有的标签时合并为一个）、删除（只从论文上去掉标签，论文保留）。
 // 改名、删除后同步更新侧栏的标签筛选。
+import { t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
 import { useRef, useState } from "react";
 import { useLibraryStore } from "@/app/stores/library";
 import { findTag, normalizeTag, renameInTags, tagKey, type TagInfo } from "@/lib/tags";
@@ -31,7 +33,7 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
 
   const rename = async (from: string, draft: string) => {
     const target = normalizeTag(draft);
-    if (!target) return setError("标签名不能为空");
+    if (!target) return setError(t.library.tags.emptyName);
     if (target === from) return finish("");
     const existing = findTag(tags, target);
     const merge = !!existing && tagKey(existing.name) !== tagKey(from);
@@ -47,7 +49,7 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
     if (nextFilter) st.setTagFilter(nextFilter);
     try {
       const n = await renameTag(from, to);
-      finish(merge ? `已把「${from}」合并到「${to}」（${n} 篇论文）` : `已把「${from}」改名为「${to}」（${n} 篇论文）`);
+      finish(merge ? t.library.tags.manage.merged(from, to, n) : t.library.tags.manage.renamed(from, to, n));
     } catch (e) {
       if (nextFilter) st.setTagFilter(prevFilter);
       setError(e instanceof Error ? e.message : String(e));
@@ -62,10 +64,10 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     const st = useLibraryStore.getState();
     const prevFilter = st.tagFilter;
-    st.setTagFilter(prevFilter.filter((t) => tagKey(t) !== tagKey(tag)));
+    st.setTagFilter(prevFilter.filter((f) => tagKey(f) !== tagKey(tag)));
     try {
       const n = await deleteTag(tag);
-      finish(`已从 ${n} 篇论文上删除标签「${tag}」`);
+      finish(t.library.tags.manage.deleted(tag, n));
     } catch (e) {
       st.setTagFilter(prevFilter);
       setError(e instanceof Error ? e.message : String(e));
@@ -76,10 +78,10 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Shell
-      title="管理标签"
+      title={t.library.tags.manage.title}
       onClose={onClose}
       wide
-      description={tags.length ? `共 ${tags.length} 个标签。改成已有的标签名会合并为一个；删除只从论文上去掉标签，论文本身保留。` : undefined}
+      description={tags.length ? t.library.tags.manage.summary(tags.length) : undefined}
       onEscapeKeyDown={(e) => {
         // 正在改名或确认删除：Esc 只取消这一步
         if (mode) {
@@ -91,25 +93,25 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
     >
       {tags.length === 0 ? (
         <p className="rounded-md border border-dashed border-neutral-200 px-3 py-4 text-center text-xs leading-relaxed text-neutral-400">
-          还没有标签。在论文上按 T，或右键选择「标签…」添加。
+          {t.library.tags.noTags}
         </p>
       ) : (
-        <ul ref={listRef} tabIndex={-1} className="-mx-1 mt-3 max-h-[min(56vh,420px)] overflow-y-auto outline-none" aria-label="所有标签">
-          {tags.map((t) => (
+        <ul ref={listRef} tabIndex={-1} className="-mx-1 mt-3 max-h-[min(56vh,420px)] overflow-y-auto outline-none" aria-label={t.library.tags.manage.listLabel}>
+          {tags.map((info) => (
             <TagItem
-              key={t.name}
-              tag={t}
+              key={info.name}
+              tag={info}
               all={tags}
-              mode={mode?.tag === t.name ? mode : null}
+              mode={mode?.tag === info.name ? mode : null}
               busy={busy}
-              error={mode?.tag === t.name ? error : null}
+              error={mode?.tag === info.name ? error : null}
               onMode={(m) => {
                 setMode(m);
                 setError(null);
                 setNotice(null);
               }}
-              onRename={(draft) => void rename(t.name, draft)}
-              onDelete={() => void remove(t.name)}
+              onRename={(draft) => void rename(info.name, draft)}
+              onDelete={() => void remove(info.name)}
             />
           ))}
         </ul>
@@ -119,7 +121,7 @@ export function ManageTagsDialog({ onClose }: { onClose: () => void }) {
           {notice}
         </p>
         <button type="button" className={btnGhost} onClick={onClose}>
-          完成
+          {t.library.tags.manage.done}
         </button>
       </div>
     </Shell>
@@ -153,24 +155,24 @@ function TagItem(props: {
         >
           <input
             autoFocus
-            aria-label={`「${tag.name}」的新名称`}
+            aria-label={t.library.tags.manage.newNameLabel(tag.name)}
             value={mode.draft}
             onChange={(e) => onMode({ ...mode, draft: e.target.value })}
             onFocus={(e) => e.currentTarget.select()}
             className={cx(input, "h-7 flex-1")}
           />
           <button type="submit" className={cx(btnPrimary, "h-7 px-2.5")} disabled={busy || !target}>
-            {merge ? "合并" : "保存"}
+            {merge ? t.library.tags.manage.merge : t.common.save}
           </button>
           <button type="button" className={cx(btnGhost, "h-7 px-2")} onClick={() => onMode(null)}>
-            取消
+            {t.common.cancel}
           </button>
         </form>
         {error ? (
           <p className="mt-1.5 text-xs text-red-600">{error}</p>
         ) : merge ? (
           <p className="mt-1.5 text-xs text-amber-700">
-            已有标签「{existing.name}」（{existing.count} 篇论文），保存后两者合并为一个。
+            {t.library.tags.manage.mergeHint(existing.name, existing.count)}
           </p>
         ) : null}
       </li>
@@ -181,14 +183,14 @@ function TagItem(props: {
     return (
       <li className="flex items-center gap-2 rounded-md bg-red-50/60 px-2 py-1.5" data-manage-tag={tag.name}>
         <span className="min-w-0 flex-1 text-[13px] text-neutral-700">
-          从 {tag.count} 篇论文上删除「<span className="font-medium">{tag.name}</span>」？
-          <span className="text-neutral-400">论文本身保留。</span>
+          <Trans text={t.library.tags.manage.deleteConfirm(tag.count)} values={{ tag: <span className="font-medium">{tag.name}</span> }} />
+          <span className="text-neutral-400">{t.library.tags.manage.keepPapers}</span>
         </span>
         <button type="button" className={cx(btnGhost, "h-7 px-2")} onClick={() => onMode(null)} autoFocus>
-          取消
+          {t.common.cancel}
         </button>
         <button type="button" className={cx(btnDanger, "h-7 px-2.5")} disabled={busy} onClick={onDelete}>
-          删除
+          {t.common.delete}
         </button>
       </li>
     );
@@ -198,17 +200,17 @@ function TagItem(props: {
     <li className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-neutral-50" data-manage-tag={tag.name}>
       <TagChip tag={tag.name} size="sm" style={{ flexShrink: 1, minWidth: 0 }} />
       <span className="flex-1" />
-      <span className="shrink-0 text-[12px] tabular-nums text-neutral-400">{tag.count} 篇</span>
-      <button type="button" className={smallBtn} onClick={() => onMode({ kind: "rename", tag: tag.name, draft: tag.name })} aria-label={`重命名「${tag.name}」`}>
-        重命名
+      <span className="shrink-0 text-[12px] tabular-nums text-neutral-400">{t.library.tags.manage.count(tag.count)}</span>
+      <button type="button" className={smallBtn} onClick={() => onMode({ kind: "rename", tag: tag.name, draft: tag.name })} aria-label={t.library.tags.manage.renameLabel(tag.name)}>
+        {t.common.rename}
       </button>
       <button
         type="button"
         className={cx(smallBtn, "hover:bg-red-50 hover:text-red-600")}
         onClick={() => onMode({ kind: "delete", tag: tag.name })}
-        aria-label={`删除「${tag.name}」`}
+        aria-label={t.library.tags.manage.deleteLabel(tag.name)}
       >
-        删除
+        {t.common.delete}
       </button>
     </li>
   );

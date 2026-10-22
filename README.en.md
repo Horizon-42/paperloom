@@ -8,7 +8,7 @@ A local-first paper reader that runs in your browser. Read PDFs, highlight and a
 
 Your papers and notes stay on your own computer. Nothing is uploaded to any server.
 
-> The interface is currently Chinese only.
+> The interface is available in English and Chinese. It follows your browser language by default; switch with the globe button at the top left.
 
 **Try it online: <https://horizon-42.github.io/paperloom/>** (nothing to install; data stays in your browser)
 

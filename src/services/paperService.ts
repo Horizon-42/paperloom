@@ -1,5 +1,6 @@
 // 论文领域服务：导入（去重、元数据推断）、编辑、归类、级联删除
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { getDomain } from "@/db/repo/domains";
 import { getFile, putFile } from "@/db/repo/files";
 import { addPaper, getPaper, getPaperByHash, updatePaper, type PaperChanges } from "@/db/repo/papers";
@@ -25,7 +26,8 @@ export type PdfInfoReader = (data: ArrayBuffer) => Promise<PdfInfo>;
 
 const FILE_EXT_RE = /\.(pdf|docx?|tex|dvi|ps|eps|fm|cdr|indd|rtf|odt|pptx?|xlsx?|qxd|pub|wpd|txt|md)$/i;
 const OFFICE_PREFIX_RE = /^microsoft\s+(word|powerpoint|excel)\s*-/i;
-const PLACEHOLDER_RE =
+// PDF 元数据里常见的占位标题
+const PLACEHOLDER_RE = // i18n-ignore: 识别规则（含中文的"无标题"），不是界面文字
   /^(untitled|untitled[\s-]*\d+|无标题|document\s*\d*|title|template|.*\btemplate|table of contents|executive summary|powerpoint presentation|presentation\d*|slide\s*\d+|main|manuscript|article|paper|draft|cover|abstract|doi|pdf)$/i;
 
 /** 元数据标题是否明显无意义（空、纯数字、Word 转换名、文件名、模板占位符等） */
@@ -58,8 +60,8 @@ export function cleanTitle(raw: string): string {
 /** 文件名 → 标题：去扩展名、下划线转空格 */
 export function titleFromFileName(fileName: string): string {
   const base = fileName.replace(/^.*[\\/]/, "").replace(/\.[^.]+$/, "");
-  const t = base.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
-  return t || fileName || "未命名论文";
+  const title = base.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
+  return title || fileName || t.library.importErrors.untitled;
 }
 
 export function deriveTitle(info: Pick<PdfInfo, "title" | "xmpTitle">, fileName: string): string {
@@ -123,8 +125,9 @@ export function parseMetadataAuthors(raw: string | undefined): string[] {
   const s = (raw ?? "").replace(/\s+/g, " ").trim();
   if (!s) return [];
   let parts: string[];
-  if (/[;；]/.test(s)) {
-    parts = s.split(/[;；]/);
+  // \uFF1B：全角分号；\uFF0C：全角逗号；\u3001：顿号
+  if (/[;\uFF1B]/.test(s)) {
+    parts = s.split(/[;\uFF1B]/);
   } else {
     const byAnd = s.split(/\s+and\s+|\s*&\s*/i);
     if (byAnd.length >= 2 && byAnd.every((p) => (p.match(/,/g) ?? []).length === 1)) {
@@ -134,7 +137,7 @@ export function parseMetadataAuthors(raw: string | undefined): string[] {
       // 单个 "Holleman, E.C." / "Price, Craig"（只对西文姓名翻转，"张三, 李四" 按两人处理）
       parts = [flipLastFirst(s)];
     } else {
-      parts = s.split(/\s*[,，、]\s*(?:and\s+)?|\s+and\s+|\s*&\s*/i);
+      parts = s.split(/\s*[,\uFF0C\u3001]\s*(?:and\s+)?|\s+and\s+|\s*&\s*/i);
     }
   }
   return dedupe(parts.map((p) => p.trim()).filter((p) => p && !isJunkAuthor(p)));
@@ -144,7 +147,7 @@ export function parseMetadataAuthors(raw: string | undefined): string[] {
 export function parseAuthorsInput(raw: string): string[] {
   return dedupe(
     raw
-      .split(/[,;，；、\n]/)
+      .split(/[,;\uFF0C\uFF1B\u3001\n]/) // 含全角逗号、分号和顿号
       .map((a) => a.replace(/\s+/g, " ").trim())
       .filter(Boolean),
   );
@@ -229,11 +232,12 @@ class ImportError extends Error {}
 function describeError(e: unknown): string {
   if (e instanceof ImportError) return e.message;
   const name = (e as { name?: string } | null)?.name ?? "";
-  if (name === "PasswordException") return "PDF 已加密，暂不支持";
-  if (name === "InvalidPDFException") return "文件已损坏或不是有效的 PDF";
-  if (name === "NotReadableError" || name === "NotFoundError") return "无法读取文件";
+  const errors = t.library.importErrors;
+  if (name === "PasswordException") return errors.encrypted;
+  if (name === "InvalidPDFException") return errors.corrupt;
+  if (name === "NotReadableError" || name === "NotFoundError") return errors.unreadable;
   const msg = e instanceof Error ? e.message : String(e);
-  return msg || "未知错误";
+  return msg || errors.unknown;
 }
 
 /** 导入一个文件。不抛异常：失败时返回 status "failed" */
@@ -244,9 +248,9 @@ export async function importPdf(source: ImportSource, opts: ImportOptions = {}):
     try {
       data = await source.arrayBuffer();
     } catch {
-      throw new ImportError("无法读取文件");
+      throw new ImportError(t.library.importErrors.unreadable);
     }
-    if (!hasPdfMagic(data)) throw new ImportError("不是 PDF 文件");
+    if (!hasPdfMagic(data)) throw new ImportError(t.library.importErrors.notPdf);
 
     const hash = await sha256Hex(data);
     const existing = await getPaperByHash(hash);
@@ -257,7 +261,7 @@ export async function importPdf(source: ImportSource, opts: ImportOptions = {}):
     }
 
     const info = await (opts.readInfo ?? readPdfInfo)(data);
-    if (!Number.isFinite(info.pageCount) || info.pageCount < 1) throw new ImportError("PDF 没有页面");
+    if (!Number.isFinite(info.pageCount) || info.pageCount < 1) throw new ImportError(t.library.importErrors.noPages);
 
     const domainIds: string[] = [];
     if (opts.domainId && (await getDomain(opts.domainId))) domainIds.push(opts.domainId);

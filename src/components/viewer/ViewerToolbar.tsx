@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { PaneId } from "@/app/stores/reader";
+import { t } from "@/i18n";
 import type { ZoomMode } from "./layout";
 import { PaperTagsControl } from "@/components/library/PaperTagsControl";
 import { TermDisplayMenu } from "@/components/term/TermDisplayMenu";
@@ -23,15 +24,15 @@ export function ViewerToolbar({ paneId, paperId, currentPage, pageCount, zoom, z
     <div className="flex h-9 shrink-0 items-center gap-1 border-b border-neutral-200 bg-white px-2 text-xs text-neutral-600 select-none">
       <PageInput current={currentPage} count={pageCount} onCommit={onPage} />
       <div className="mx-2 h-4 w-px bg-neutral-200" />
-      <ToolButton label="缩小（Ctrl/⌘ -）" onClick={onZoomOut} disabled={!zoom}>
+      <ToolButton label={t.reader.toolbar.zoomOut} onClick={onZoomOut} disabled={!zoom}>
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 8h10" />
         </svg>
       </ToolButton>
-      <span className="w-12 text-center tabular-nums" data-zoom-label aria-label="缩放比例">
+      <span className="w-12 text-center tabular-nums" data-zoom-label aria-label={t.reader.toolbar.zoomLevel}>
         {zoom ? `${Math.round(zoom * 100)}%` : "—"}
       </span>
-      <ToolButton label="放大（Ctrl/⌘ +）" onClick={onZoomIn} disabled={!zoom}>
+      <ToolButton label={t.reader.toolbar.zoomIn} onClick={onZoomIn} disabled={!zoom}>
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 8h10M8 3v10" />
         </svg>
@@ -45,7 +46,7 @@ export function ViewerToolbar({ paneId, paperId, currentPage, pageCount, zoom, z
           zoomMode === "page-width" ? "bg-neutral-100 text-neutral-900" : ""
         }`}
       >
-        适合宽度
+        {t.reader.toolbar.fitWidth}
       </button>
       {/* 靠右：这篇论文的标签、术语下划线开关 */}
       <div className="ml-auto flex min-w-0 items-center gap-1">
@@ -94,7 +95,7 @@ function PageInput({ current, count, onCommit }: { current: number; count: numbe
   return (
     <label className="flex items-center gap-1">
       <input
-        aria-label="页码"
+        aria-label={t.reader.toolbar.pageNumber}
         className="h-6 w-10 rounded border border-neutral-200 px-1 text-center tabular-nums outline-none focus:border-blue-400"
         value={draft ?? (count ? String(current) : "")}
         inputMode="numeric"

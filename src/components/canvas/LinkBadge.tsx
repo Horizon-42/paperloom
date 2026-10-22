@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCanvasStore } from "@/app/stores/canvas";
 import { reportError } from "@/components/annotation/actions";
+import { t } from "@/i18n";
 import { boardsContaining, createBoard, listBoardsByRecent } from "@/services/canvasService";
 import { listLinksFor } from "@/services/linkService";
 import type { EntityRef } from "@/types/models";
@@ -26,7 +27,8 @@ export function AnnotationLinkBadge({ annotationId }: { annotationId: string }) 
   if (!info || (!info.links && !info.placed.length)) return null;
 
   const ref: EntityRef = { kind: "annotation", id: annotationId };
-  const label = [info.placed.length ? `在 ${info.placed.length} 块画布上` : "未放到画布上", info.links ? `${info.links} 条连线` : "没有连线"].join(" · ");
+  const tb = t.canvas.badge;
+  const label = tb.summary([info.placed.length ? tb.onBoards(info.placed.length) : tb.notPlaced, info.links ? tb.links(info.links) : tb.noLinks]);
   const stop = (e: { stopPropagation(): void }) => e.stopPropagation();
   const focus = (boardId: string, place = false) => useCanvasStore.getState().focusEntity(boardId, ref, { place });
   const content = (
@@ -52,8 +54,8 @@ export function AnnotationLinkBadge({ annotationId }: { annotationId: string }) 
       <button
         type="button"
         className={badge}
-        title={`${label} · 点击在画布「${b.name}」中查看`}
-        aria-label={`${label}，在画布中查看`}
+        title={tb.viewInTitle(label, b.name)}
+        aria-label={tb.viewInLabel(label)}
         data-canvas-badge
         onClick={(e) => {
           e.stopPropagation();
@@ -68,7 +70,7 @@ export function AnnotationLinkBadge({ annotationId }: { annotationId: string }) 
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button type="button" className={badge} title={label} aria-label={`${label}，选择画布`} data-canvas-badge onClick={stop}>
+        <button type="button" className={badge} title={label} aria-label={tb.pickLabel(label)} data-canvas-badge onClick={stop}>
           {content}
         </button>
       </DropdownMenu.Trigger>
@@ -76,7 +78,7 @@ export function AnnotationLinkBadge({ annotationId }: { annotationId: string }) 
         <DropdownMenu.Content className={cx(menuContent, "max-h-[50vh] w-60 overflow-y-auto")} align="start" sideOffset={4} onClick={stop}>
           {info.placed.length > 0 ? (
             <>
-              <DropdownMenu.Label className="px-2 py-1 text-[11px] text-neutral-400">在画布中查看（最近修改的在前）</DropdownMenu.Label>
+              <DropdownMenu.Label className="px-2 py-1 text-[11px] text-neutral-400">{tb.viewHeading}</DropdownMenu.Label>
               {info.placed.map((b) => (
                 <DropdownMenu.Item key={b.id} className={menuItem} onSelect={() => focus(b.id)} data-badge-board={b.id}>
                   <span className="truncate">{b.name}</span>
@@ -86,7 +88,7 @@ export function AnnotationLinkBadge({ annotationId }: { annotationId: string }) 
           ) : (
             <>
               <DropdownMenu.Label className="px-2 py-1 text-[11px] leading-snug text-neutral-400">
-                有 {info.links} 条连线，但这条批注还没放到画布上。放到：
+                {tb.notPlacedHeading(info.links)}
               </DropdownMenu.Label>
               <PlaceTargets onPick={(id) => focus(id, true)} />
             </>
@@ -113,11 +115,11 @@ function PlaceTargets({ onPick }: { onPick: (boardId: string) => void }) {
         onSelect={() => {
           createBoard(nextBoardName(boards ?? []))
             .then((b) => onPick(b.id))
-            .catch(reportError("新建画布失败"));
+            .catch(reportError(t.canvas.badge.createFailed));
         }}
         data-badge-new-board
       >
-        <IconPlus width={13} height={13} /> 新建画布并放入
+        <IconPlus width={13} height={13} /> {t.canvas.badge.createAndPlace}
       </DropdownMenu.Item>
     </>
   );

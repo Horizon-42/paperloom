@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import * as Dialog from "@radix-ui/react-dialog";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTermUiStore, type TermEditorRequest } from "@/app/stores/termUi";
+import { t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
 import { MarkdownEditor } from "@/components/common/MarkdownEditor";
 import { db } from "@/db/schema";
 import { getTerm, listTerms } from "@/db/repo/terms";
@@ -29,7 +31,7 @@ export function TermEditorDialog() {
 }
 
 function EditorLoader({ req, onClose }: { req: TermEditorRequest; onClose: () => void }) {
-  const term = useLiveQuery(() => (req.termId ? getTerm(req.termId).then((t) => t ?? null) : Promise.resolve(null)), [req.termId]);
+  const term = useLiveQuery(() => (req.termId ? getTerm(req.termId).then((x) => x ?? null) : Promise.resolve(null)), [req.termId]);
   // 编辑中的术语在别处被删除
   useEffect(() => {
     if (req.termId && term === null) onClose();
@@ -38,11 +40,14 @@ function EditorLoader({ req, onClose }: { req: TermEditorRequest; onClose: () =>
   return <EditorDialog req={req} term={term ?? null} onClose={onClose} />;
 }
 
-const MODES: { value: MatchMode; label: string; hint: string }[] = [
-  { value: "auto", label: "自动", hint: "全大写的形式（如 ATM、LSTM）区分大小写，其余不区分。可避免把普通单词 atm 当成缩写" },
-  { value: "caseSensitive", label: "区分大小写", hint: "所有形式都必须大小写完全一致" },
-  { value: "caseInsensitive", label: "不区分大小写", hint: "所有形式都忽略大小写" },
-];
+const MODES: readonly MatchMode[] = ["auto", "caseSensitive", "caseInsensitive"];
+
+/** 别名输入的分隔符：英文和全角的逗号、分号（全角字符写成转义，界面文案检查只认字面中文） */
+const ALIAS_SEPARATORS = /[,\uff0c;\uff1b]/;
+const FULLWIDTH_COMMA = "\uff0c";
+
+/** 表面形式加引号后连成一句 */
+const quotedForms = (forms: readonly string[]) => t.common.list(forms.map((f) => `“${f}”`));
 
 /** 选区前后更长的上下文：选区所在页已渲染时从页面全文里取，否则只有 quote 的前后 32 字 */
 function selectionContext(req: TermEditorRequest): { before: string; after: string; pageText: string } {
@@ -91,7 +96,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
   );
   const forms = useMemo(() => surfaceForms(draft), [draft]);
   const index = useMemo(() => buildFormIndex(allTerms ?? []), [allTerms]);
-  const termsById = useMemo(() => new Map((allTerms ?? []).map((t) => [t.id, t])), [allTerms]);
+  const termsById = useMemo(() => new Map((allTerms ?? []).map((x) => [x.id, x])), [allTerms]);
   const parentMap = domainParent.size ? domainParent : rt.domainParent;
   const closures = useMemo(() => paperDomainClosures(paperDomains ?? [], parentMap), [paperDomains, parentMap]);
   const conflicts = useMemo(
@@ -112,13 +117,13 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
   const showAbbrev = !term && !showDefinition && !dismissed.has("abbr") && looksLikeAbbreviation(nameNow) && !effAliases.includes(nameNow);
 
   const addAlias = (raw: string) => {
-    const parts = raw.split(/[,，;；]/).map(cleanTermText).filter(Boolean);
+    const parts = raw.split(ALIAS_SEPARATORS).map(cleanTermText).filter(Boolean);
     if (!parts.length) return;
     setAliases((xs) => cleanAliases([...xs, ...parts], cleanTermText(name)));
     setAliasDraft("");
   };
   const onAliasKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if ((e.key === "Enter" || e.key === "," || e.key === "，") && !e.nativeEvent.isComposing) {
+    if ((e.key === "Enter" || e.key === "," || e.key === FULLWIDTH_COMMA) && !e.nativeEvent.isComposing) {
       if (!aliasDraft.trim()) return;
       e.preventDefault();
       addAlias(aliasDraft);
@@ -138,7 +143,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
     if (saving) return;
     const clean = cleanTermText(name);
     if (!clean) {
-      setError("请填写术语名称");
+      setError(t.term.editor.nameMissing);
       nameRef.current?.focus();
       return;
     }
@@ -171,6 +176,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
   const knownIds = new Set((domains ?? []).map((d) => d.id));
   const missingIds = selectedIds.filter((id) => domains && !knownIds.has(id));
 
+  const tx = t.term.editor;
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
@@ -191,31 +197,31 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
           }}
         >
           <div className="flex items-start gap-3 px-5 pt-5 pb-3">
-            <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{term ? "编辑术语" : "新建术语"}</Dialog.Title>
-            <Dialog.Close className="-mt-0.5 -mr-1 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label="关闭">
+            <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{term ? tx.titleEdit : tx.titleNew}</Dialog.Title>
+            <Dialog.Close className="-mt-0.5 -mr-1 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label={t.common.close}>
               <IconX width={16} height={16} />
             </Dialog.Close>
           </div>
-          <Dialog.Description className="sr-only">填写术语名称、别名、匹配方式、作用范围和笔记</Dialog.Description>
+          <Dialog.Description className="sr-only">{tx.description}</Dialog.Description>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4">
             {showDefinition && definition && (
               <Suggestion
                 onDismiss={() => setDismissed((s) => new Set(s).add("def"))}
-                action="采用"
+                action={tx.apply}
                 onAction={() => {
                   setName(definition.name);
                   setAliases((xs) => cleanAliases([...xs, ...definition.aliases], definition.name));
                 }}
                 data="definition"
               >
-                {definition.reason}：名称「{definition.name}」，别名「{definition.aliases.join("、")}」
+                {tx.definitionSuggestion(tx.definitionReason[definition.reason.kind](definition.reason.text), definition.name, t.common.list(definition.aliases))}
               </Suggestion>
             )}
             {showAbbrev && (
               <Suggestion
                 onDismiss={() => setDismissed((s) => new Set(s).add("abbr"))}
-                action="移到别名"
+                action={tx.moveToAlias}
                 onAction={() => {
                   setAliases((xs) => [nameNow, ...xs.filter((x) => x !== nameNow)]);
                   setName("");
@@ -223,17 +229,17 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                 }}
                 data="abbreviation"
               >
-                「{nameNow}」看起来是缩写。可以把它移到别名，名称填写全称。
+                {tx.abbreviationHint(nameNow)}
               </Suggestion>
             )}
 
-            <Field label="名称" htmlFor="term-name">
+            <Field label={tx.name} htmlFor="term-name">
               <input
                 id="term-name"
                 ref={nameRef}
                 className={input}
                 value={name}
-                placeholder="规范名，如 Long Short-Term Memory"
+                placeholder={tx.namePlaceholder}
                 onChange={(e) => {
                   setName(e.target.value);
                   setError(null);
@@ -242,7 +248,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
               />
             </Field>
 
-            <Field label="别名" hint="回车或逗号添加；缩写、全称、其他写法">
+            <Field label={tx.aliases} hint={tx.aliasesHint}>
               <div
                 className="flex min-h-8 flex-wrap items-center gap-1 rounded-md border border-neutral-200 bg-white px-1.5 py-1 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
                 onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus()}
@@ -253,7 +259,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                     <button
                       type="button"
                       className="-mr-0.5 rounded text-blue-400 hover:text-blue-700"
-                      aria-label={`删除别名 ${a}`}
+                      aria-label={tx.removeAlias(a)}
                       onClick={() => setAliases((xs) => xs.filter((x) => x !== a))}
                     >
                       <IconX width={11} height={11} />
@@ -267,43 +273,43 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                   onChange={(e) => setAliasDraft(e.target.value)}
                   onKeyDown={onAliasKey}
                   onBlur={() => aliasDraft.trim() && addAlias(aliasDraft)}
-                  aria-label="添加别名"
+                  aria-label={tx.addAlias}
                   data-term-field="alias"
                 />
               </div>
             </Field>
 
-            <Field label="匹配方式">
-              <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="匹配方式">
+            <Field label={tx.matchMode}>
+              <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={tx.matchMode}>
                 {MODES.map((m) => (
                   <button
-                    key={m.value}
+                    key={m}
                     type="button"
                     role="radio"
-                    aria-checked={matchMode === m.value}
+                    aria-checked={matchMode === m}
                     className={cx(
                       "rounded-md border px-2.5 py-1 text-[12px]",
-                      matchMode === m.value ? "border-blue-300 bg-blue-50 text-blue-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50",
+                      matchMode === m ? "border-blue-300 bg-blue-50 text-blue-800" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50",
                     )}
-                    onClick={() => setMatchMode(m.value)}
-                    data-match-mode={m.value}
+                    onClick={() => setMatchMode(m)}
+                    data-match-mode={m}
                   >
-                    {m.label}
+                    {t.term.matchModes[m].label}
                   </button>
                 ))}
               </div>
-              <p className="mt-1 text-[12px] text-neutral-500">{MODES.find((m) => m.value === matchMode)!.hint}</p>
+              <p className="mt-1 text-[12px] text-neutral-500">{t.term.matchModes[matchMode].hint}</p>
             </Field>
 
             <div className="rounded-md bg-neutral-50 px-3 py-2" data-term-forms>
-              <div className="mb-1 text-[11px] text-neutral-400">将匹配以下形式（含自动派生的复数和连字符写法）</div>
+              <div className="mb-1 text-[11px] text-neutral-400">{tx.formsTitle}</div>
               {forms.length ? (
                 <div className="flex flex-wrap gap-1">
                   {forms.map((f) => (
                     <span
                       key={`${f.caseSensitive}:${f.form}`}
                       className={cx(chip, "bg-white ring-1 ring-neutral-200")}
-                      title={f.caseSensitive ? "区分大小写" : "不区分大小写"}
+                      title={f.caseSensitive ? t.term.matchModes.caseSensitive.label : t.term.matchModes.caseInsensitive.label}
                       data-form={f.form}
                     >
                       {f.form}
@@ -312,54 +318,45 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                   ))}
                 </div>
               ) : (
-                <div className="text-[12px] text-neutral-400">填写名称后显示</div>
+                <div className="text-[12px] text-neutral-400">{tx.formsEmpty}</div>
               )}
             </div>
 
             {weak.length > 0 && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800" role="status" data-term-weak-forms>
                 {weak.some((w) => w.reason === "noAlnum") && (
-                  <div>
-                    {weak
-                      .filter((w) => w.reason === "noAlnum")
-                      .map((w) => `“${w.form}”`)
-                      .join("、")}{" "}
-                    不含字母或数字，会命中大量符号。
-                  </div>
+                  <div>{tx.weakNoAlnum(quotedForms(weak.filter((w) => w.reason === "noAlnum").map((w) => w.form)))}</div>
                 )}
                 {weak.some((w) => w.reason === "short") && (
-                  <div>
-                    {weak
-                      .filter((w) => w.reason === "short")
-                      .map((w) => `“${w.form}”`)
-                      .join("、")}{" "}
-                    只有一个字母或数字，可能命中大量无关文字（如冠词 a）。
-                  </div>
+                  <div>{tx.weakShort(quotedForms(weak.filter((w) => w.reason === "short").map((w) => w.form)))}</div>
                 )}
-                <div className="mt-0.5 text-amber-700/80">仍可保存；建议删掉这些别名，或改用更长的写法。</div>
+                <div className="mt-0.5 text-amber-700/80">{tx.weakAdvice}</div>
               </div>
             )}
 
             {conflicts.length > 0 && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800" role="status" data-term-conflicts>
-                <div className="font-medium">与已有术语冲突（仍可保存）</div>
+                <div className="font-medium">{tx.conflictsTitle}</div>
                 <ul className="mt-1 flex flex-col gap-0.5">
                   {conflicts.map((c) => {
                     const other = termsById.get(c.termId);
                     return (
                       <li key={c.termId} data-conflict={c.termId} data-conflict-via={c.via}>
-                        「{other?.name}」也匹配 {c.forms.map((f) => `“${f}”`).join("、")}，
-                        {c.via === "paper" ? `限定的领域不同，但有 ${c.sharedPapers ?? 0} 篇论文同时属于两边的领域` : "且作用范围重叠"}
+                        {tx.conflict(
+                          other?.name ?? "",
+                          quotedForms(c.forms),
+                          c.via === "paper" ? tx.conflictViaPaper(c.sharedPapers ?? 0) : tx.conflictOverlap,
+                        )}
                       </li>
                     );
                   })}
                 </ul>
-                <div className="mt-1 text-amber-700/80">在两者都生效的论文里，点击下划线会列出全部候选。可以给其中一个限定领域来区分。</div>
+                <div className="mt-1 text-amber-700/80">{tx.conflictAdvice}</div>
               </div>
             )}
 
-            <Field label="作用范围">
-              <div className="flex gap-1" role="radiogroup" aria-label="作用范围">
+            <Field label={tx.scope}>
+              <div className="flex gap-1" role="radiogroup" aria-label={tx.scope}>
                 {(["global", "domains"] as const).map((k) => (
                   <button
                     key={k}
@@ -373,7 +370,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                     onClick={() => setScope(k === "global" ? { kind: "global" } : { kind: "domains", domainIds: selectedIds })}
                     data-scope-kind={k}
                   >
-                    {k === "global" ? "全局" : "仅限指定领域"}
+                    {k === "global" ? tx.scopeGlobal : tx.scopeDomains}
                   </button>
                 ))}
               </div>
@@ -401,20 +398,18 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                       ))}
                     </ul>
                   ) : (
-                    <div className="text-[12px] text-neutral-400">还没有领域，请先在左侧建立领域</div>
+                    <div className="text-[12px] text-neutral-400">{tx.noDomains}</div>
                   )}
                   <p className="mt-1 text-[12px] text-neutral-500">
-                    {selectedIds.length
-                      ? "只在属于这些领域（含子领域）的论文中标注。"
-                      : "未选择领域时，这个术语不会在任何论文中标注。"}
-                    {missingIds.length > 0 && ` 另有 ${missingIds.length} 个已删除的领域。`}
+                    {selectedIds.length ? tx.scopeSelectedHint : tx.scopeEmptyHint}
+                    {missingIds.length > 0 && ` ${tx.missingDomains(missingIds.length)}`}
                   </p>
                 </div>
               )}
             </Field>
 
-            <Field label="笔记">
-              <MarkdownEditor value={note} onChange={setNote} onSubmit={() => void save()} placeholder="Markdown，支持 $公式$" />
+            <Field label={tx.note}>
+              <MarkdownEditor value={note} onChange={setNote} onSubmit={() => void save()} placeholder={tx.notePlaceholder} />
             </Field>
 
             {error && (
@@ -429,26 +424,26 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
               (confirmDelete ? (
                 <div className="flex min-w-0 flex-1 items-center gap-2" data-term-delete-confirm>
                   <span className="min-w-0 flex-1 text-[12px] leading-snug text-red-700">
-                    删除「{term.name}」？出处批注会保留；<EntityDeleteImpact entity={{ kind: "term", id: term.id }} />
+                    <Trans text={tx.deleteConfirm} values={{ name: term.name, impact: <EntityDeleteImpact entity={{ kind: "term", id: term.id }} /> }} />
                   </span>
                   <button type="button" className={btnDanger} disabled={saving} onClick={() => void remove()}>
-                    确认删除
+                    {tx.confirmDelete}
                   </button>
                   <button type="button" className={btnGhost} onClick={() => setConfirmDelete(false)}>
-                    取消
+                    {t.common.cancel}
                   </button>
                 </div>
               ) : (
                 <button type="button" className={cx(btnGhost, "text-red-600 hover:bg-red-50")} onClick={() => setConfirmDelete(true)}>
-                  删除术语
+                  {tx.deleteTerm}
                 </button>
               ))}
             {!confirmDelete && (
               <>
-                <span className="flex-1 text-[11px] text-neutral-400">⌘/Ctrl + Enter 保存</span>
-                <Dialog.Close className={btnOutline}>取消</Dialog.Close>
+                <span className="flex-1 text-[11px] text-neutral-400">{tx.saveShortcut}</span>
+                <Dialog.Close className={btnOutline}>{t.common.cancel}</Dialog.Close>
                 <button type="button" className={btnPrimary} disabled={saving} onClick={() => void save()} data-term-save>
-                  {term ? "保存" : req.source ? "创建并标注出处" : "创建"}
+                  {term ? t.common.save : req.source ? tx.createWithSource : tx.create}
                 </button>
               </>
             )}
@@ -492,7 +487,7 @@ function Suggestion({
       <button type="button" className="shrink-0 rounded bg-blue-600 px-2 py-0.5 text-[12px] font-medium text-white hover:bg-blue-700" onClick={onAction}>
         {action}
       </button>
-      <button type="button" className="shrink-0 rounded p-0.5 text-blue-400 hover:text-blue-700" aria-label="忽略建议" onClick={onDismiss}>
+      <button type="button" className="shrink-0 rounded p-0.5 text-blue-400 hover:text-blue-700" aria-label={t.term.editor.dismissSuggestion} onClick={onDismiss}>
         <IconX width={12} height={12} />
       </button>
     </div>

@@ -702,12 +702,12 @@ const tenTerms = (page: Page) =>
 
 test("评审 T1（第 4 项）：快进载入期间本地有新改动时放弃载入、转为冲突，改动不丢", async ({ browser }) => {
   wipeData();
-  const ctxA = await browser.newContext();
+  const ctxA = await browser.newContext({ locale: "zh-CN" });
   const a = await ctxA.newPage();
   await boot(a, `${ORIGIN}/`);
   await putTerm(a, "t1", "初始");
   await flush(a);
-  const ctxB = await browser.newContext();
+  const ctxB = await browser.newContext({ locale: "zh-CN" });
   const b = await ctxB.newPage();
   await boot(b, "http://127.0.0.1:5331/");
   await expect.poll(() => termNames(b), { timeout: 15_000 }).toEqual(["初始"]);
@@ -845,7 +845,7 @@ test("评审 T4（第 2 项）：页面开着时 IndexedDB 被清空，之后的
 
 test("评审 T7（第 2 项）：只清了 IndexedDB、启动探测较慢时先建了数据：暂停并询问，两种选择都可用", async ({ browser }) => {
   wipeData();
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ locale: "zh-CN" });
   const p = await ctx.newPage();
   await boot(p);
   await tenTerms(p);
@@ -883,7 +883,7 @@ test("评审 T7（第 2 项）：只清了 IndexedDB、启动探测较慢时先�
 
 test("评审 T5（第 6 项）：library.json 损坏 + 浏览器为空：不覆盖，提示并可从最近的可读备份恢复", async ({ browser }) => {
   wipeData();
-  const ctx1 = await browser.newContext();
+  const ctx1 = await browser.newContext({ locale: "zh-CN" });
   const p1 = await ctx1.newPage();
   await boot(p1);
   await putTerm(p1, "t1", "一");
@@ -894,7 +894,7 @@ test("评审 T5（第 6 项）：library.json 损坏 + 浏览器为空：不覆�
   const broken = '{"format":"paperlens","version":1,"revision":7,"tables":{"terms":[{"id":"t","name":"重要术语"}]';
   writeFileSync(libPath(), broken);
 
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ locale: "zh-CN" });
   const p = await ctx.newPage();
   await boot(p);
   const dialog = p.getByTestId("storage-conflict-dialog");
@@ -914,7 +914,7 @@ test("评审 T5（第 6 项）：library.json 损坏 + 浏览器为空：不覆�
 
 test("评审 T6（第 5 项）：负责保存的标签页关闭后，接手的标签页不误报冲突", async ({ browser }) => {
   wipeData();
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ locale: "zh-CN" });
   const p1 = await ctx.newPage();
   await boot(p1);
   await putTerm(p1, "x0", "基线");
@@ -934,7 +934,7 @@ test("评审 T6（第 5 项）：负责保存的标签页关闭后，接手的�
 
 test("评审 T8（第 5、12 项）：改完马上关闭页面：先提示有未保存的改动；再打开不误报冲突", async ({ browser }) => {
   wipeData();
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ locale: "zh-CN" });
   const p = await ctx.newPage();
   await boot(p);
   await putTerm(p, "a", "一");

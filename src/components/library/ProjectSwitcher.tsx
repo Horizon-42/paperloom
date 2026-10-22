@@ -1,10 +1,11 @@
 // 侧栏顶部的项目切换器：当前项目名 ▾ → 项目列表（各带"在新标签页打开"）、新建、重命名、管理/删除。
 // 切换项目 = 带 ?project=<id> 重新加载页面（先尽量把未保存的改动存进文件夹）；每个标签页一个项目，可以同时开几个。
+import { t } from "@/i18n";
 import { useState, type FormEvent, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { currentProject, useProjectsStore, type ProjectInfo } from "@/app/stores/projects";
-import { projectUrl } from "@/lib/project";
+import { projectDisplayName, projectUrl } from "@/lib/project";
 import { createProject, deleteProject, openProjectInNewTab, ProjectInUseError, ProjectUnsyncedError, renameProject, type DeleteResult } from "@/services/projects";
 import { flushStorage } from "@/services/storage/sync";
 import { IconCheck, IconChevronDown, IconExternal, IconX } from "./icons";
@@ -25,6 +26,7 @@ export function ProjectSwitcher() {
   const needsMigration = useProjectsStore((s) => s.needsMigration);
   const openDialog = useProjectsStore((s) => s.openDialog);
   const cur = currentProject({ projects, currentId });
+  const curName = projectDisplayName(cur);
   const [open, setOpen] = useState(false);
   // 迁移前、或项目列表读不了时：不新建、不改名、不删除（只改本浏览器副本会和服务端对不上）
   const locked = needsMigration || source === "error";
@@ -36,13 +38,13 @@ export function ProjectSwitcher() {
           <button
             type="button"
             className="-ml-0.5 flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 pl-1 pr-1.5 text-left hover:bg-neutral-200/60 data-[state=open]:bg-neutral-200/60"
-            title={`项目：${cur.name}（点击切换）`}
-            aria-label={`当前项目：${cur.name}，切换项目`}
+            title={t.library.projects.switcherTitle(curName)}
+            aria-label={t.library.projects.switcherAria(curName)}
             data-testid="project-switcher"
           >
             <span className="h-4 w-4 shrink-0 rounded bg-gradient-to-br from-blue-500 to-indigo-500" aria-hidden />
             <span className="truncate text-[15px] font-semibold tracking-tight text-neutral-900" data-testid="project-name">
-              {cur.name}
+              {curName}
             </span>
             <IconChevronDown width={14} height={14} className="shrink-0 text-neutral-400" />
           </button>
@@ -50,7 +52,8 @@ export function ProjectSwitcher() {
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="start" sideOffset={4} className={cx(menuContent, "w-[260px]")} data-testid="project-menu">
             <DropdownMenu.Label className="px-2 pb-1 pt-1.5 text-[11px] text-neutral-400">
-              项目{source === "local" ? "（未连接本地服务：列表只保存在本浏览器）" : source === "error" ? "（本地服务的项目列表暂时无法读取）" : ""}
+              {t.library.projects.menuHeading}
+              {source === "local" ? t.library.projects.menuLocalNote : source === "error" ? t.library.projects.menuErrorNote : ""}
             </DropdownMenu.Label>
             {projects.map((p) => (
               <DropdownMenu.Item
@@ -62,13 +65,13 @@ export function ProjectSwitcher() {
                 }}
               >
                 <span className="flex w-4 shrink-0 justify-center text-blue-600">{p.id === currentId && <IconCheck width={14} height={14} />}</span>
-                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                {p.localOnly && source === "server" && <span className="shrink-0 text-[11px] text-amber-600">仅本浏览器</span>}
+                <span className="min-w-0 flex-1 truncate">{projectDisplayName(p)}</span>
+                {p.localOnly && source === "server" && <span className="shrink-0 text-[11px] text-amber-600">{t.library.projects.browserOnly}</span>}
                 <button
                   type="button"
                   className={iconBtn}
-                  title="在新标签页打开"
-                  aria-label={`在新标签页打开「${p.name}」`}
+                  title={t.library.projects.openInNewTab}
+                  aria-label={t.library.projects.openNameInNewTab(projectDisplayName(p))}
                   data-testid="project-open-new-tab"
                   // 只拦 click：pointerdown 仍要冒泡给菜单项，否则松开鼠标时菜单项会补发一次 click（触发切换）
                   onClick={(e) => {
@@ -84,13 +87,13 @@ export function ProjectSwitcher() {
             ))}
             <DropdownMenu.Separator className={menuSeparator} />
             <DropdownMenu.Item className={menuItem} disabled={locked} onSelect={() => openDialog("create")}>
-              新建项目…
+              {t.library.projects.newProject}
             </DropdownMenu.Item>
             <DropdownMenu.Item className={menuItem} disabled={locked} onSelect={() => openDialog("rename")}>
-              重命名当前项目…
+              {t.library.projects.renameCurrent}
             </DropdownMenu.Item>
             <DropdownMenu.Item className={menuItem} disabled={locked} onSelect={() => openDialog("manage")}>
-              管理/删除项目…
+              {t.library.projects.manage}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
@@ -107,8 +110,8 @@ export function ProjectRegistryBanner() {
   if (source !== "error") return null;
   return (
     <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-[12px] leading-snug text-red-800" role="alert" data-testid="project-registry-error">
-      <div className="font-medium">本地服务的项目列表无法读取：{error}</div>
-      <div className="mt-0.5 text-red-700">现在只能使用本浏览器中的数据，项目的新建、重命名、删除已停用。请检查 data/projects.json 后刷新页面。</div>
+      <div className="font-medium">{t.library.projects.registryError(error)}</div>
+      <div className="mt-0.5 text-red-700">{t.library.projects.registryErrorHelp}</div>
     </div>
   );
 }
@@ -130,7 +133,7 @@ function Shell(props: { title: string; description?: ReactNode; onClose: () => v
         <Dialog.Content className={cx(dialogContent, props.wide && "w-[min(92vw,540px)]")} data-testid={props.testId}>
           <div className="mb-3 flex items-start gap-3">
             <Dialog.Title className={cx(dialogTitle, "min-w-0 flex-1")}>{props.title}</Dialog.Title>
-            <Dialog.Close className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label="关闭">
+            <Dialog.Close className="-mr-1 -mt-0.5 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" aria-label={t.common.close}>
               <IconX width={16} height={16} />
             </Dialog.Close>
           </div>
@@ -177,33 +180,33 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Shell
-      title="新建项目"
+      title={t.library.projects.create.title}
       testId="project-create-dialog"
       onClose={onClose}
       description={
         source === "server" ? (
-          <>每个项目的论文、批注、术语和画布完全分开，数据保存在 data/projects/ 下各自的文件夹里。</>
+          <>{t.library.projects.create.descServer}</>
         ) : (
-          <>未连接本地服务：新项目只保存在本浏览器中（之后用 npm run dev 启动时会自动建立它的文件夹）。</>
+          <>{t.library.projects.create.descLocal}</>
         )
       }
     >
       <form onSubmit={submit} className="space-y-3">
         <label className="block">
-          <span className="mb-1 block text-[12px] text-neutral-500">项目名称</span>
-          <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：RoFormer 精读" autoFocus maxLength={60} aria-label="项目名称" />
+          <span className="mb-1 block text-[12px] text-neutral-500">{t.library.projects.create.nameLabel}</span>
+          <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder={t.library.projects.create.namePlaceholder} autoFocus maxLength={60} aria-label={t.library.projects.create.nameLabel} />
         </label>
         <label className="flex items-center gap-2 text-[13px] text-neutral-600">
           <input type="checkbox" checked={newTab} onChange={(e) => setNewTab(e.target.checked)} />
-          在新标签页打开（当前标签页保持不变）
+          {t.library.projects.create.openInNewTab}
         </label>
         {error && <p className="text-[12.5px] text-red-600">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className={btnGhost} onClick={onClose}>
-            取消
+            {t.common.cancel}
           </button>
           <button type="submit" className={btnPrimary} disabled={busy || !name.trim()}>
-            {busy ? "正在创建…" : "创建并打开"}
+            {busy ? t.library.projects.create.creating : t.library.projects.create.submit}
           </button>
         </div>
       </form>
@@ -215,7 +218,9 @@ function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 
 function RenameProjectDialog({ onClose }: { onClose: () => void }) {
   const cur = useProjectsStore((s) => currentProject(s));
-  const [name, setName] = useState(cur.name);
+  // 默认项目显示本地化的名字：输入框也从显示名开始，不改动就不能保存
+  const curName = projectDisplayName(cur);
+  const [name, setName] = useState(curName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -233,17 +238,17 @@ function RenameProjectDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Shell title="重命名当前项目" testId="project-rename-dialog" onClose={onClose}>
+    <Shell title={t.library.projects.rename.title} testId="project-rename-dialog" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
-        <input className={input} value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={60} aria-label="项目名称" />
-        <p className="text-[12px] text-neutral-500">只改显示的名称，文件夹 data/projects/{cur.id}/ 不变。</p>
+        <input className={input} value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={60} aria-label={t.library.projects.create.nameLabel} />
+        <p className="text-[12px] text-neutral-500">{t.library.projects.rename.note(cur.id)}</p>
         {error && <p className="text-[12.5px] text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className={btnGhost} onClick={onClose}>
-            取消
+            {t.common.cancel}
           </button>
-          <button type="submit" className={btnPrimary} disabled={busy || !name.trim() || name.trim() === cur.name}>
-            保存
+          <button type="submit" className={btnPrimary} disabled={busy || !name.trim() || name.trim() === curName}>
+            {t.common.save}
           </button>
         </div>
       </form>
@@ -254,13 +259,14 @@ function RenameProjectDialog({ onClose }: { onClose: () => void }) {
 // ---------- 管理 / 删除 ----------
 
 function describeDelete(name: string, r: DeleteResult): string {
-  if (r.listOnly) return `已从本浏览器的项目列表中移除「${name}」（未连接本地服务：它的文件夹和本浏览器中的数据库都保留）`;
-  const parts = [r.trashedTo ? `已删除「${name}」：文件夹已移到 data/${r.trashedTo}/` : `已删除「${name}」`];
-  if (r.exportedAs) parts.push(`删除前已下载备份 ${r.exportedAs}`);
-  if (r.browserData === "kept") parts.push("本浏览器中它的数据库已保留（打开这个项目的地址可以导出）");
-  if (r.browserData === "blocked") parts.push("本浏览器中它的数据库正被占用，未能删除（不影响其他项目）");
-  if (r.browserData === "failed") parts.push("本浏览器中它的数据库未能删除（不影响其他项目）");
-  return parts.join("；");
+  const m = t.library.projects.manageDialog.result;
+  if (r.listOnly) return m.listOnly(name);
+  const parts = [r.trashedTo ? m.trashed(name, r.trashedTo) : m.deleted(name)];
+  if (r.exportedAs) parts.push(m.exported(r.exportedAs));
+  if (r.browserData === "kept") parts.push(m.kept);
+  if (r.browserData === "blocked") parts.push(m.blocked);
+  if (r.browserData === "failed") parts.push(m.failed);
+  return m.join(parts);
 }
 
 function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
@@ -278,26 +284,26 @@ function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
     setMessage(null);
     try {
       const r = await deleteProject(p.id, { keepBrowserData });
-      setMessage({ ok: true, text: describeDelete(p.name, r) });
+      setMessage({ ok: true, text: describeDelete(projectDisplayName(p), r) });
       setConfirming(null);
       setUnsynced(null);
     } catch (e) {
       if (e instanceof ProjectUnsyncedError) setUnsynced(p.id);
-      setMessage({ ok: false, text: e instanceof ProjectInUseError || e instanceof ProjectUnsyncedError ? e.message : `删除失败：${errorText(e)}` });
+      setMessage({ ok: false, text: e instanceof ProjectInUseError || e instanceof ProjectUnsyncedError ? e.message : t.library.projects.manageDialog.deleteFailed(errorText(e)) });
     } finally {
       setBusy(false);
     }
   };
 
   const confirmText = (p: ProjectInfo) => {
-    if (source === "server" && !p.localOnly)
-      return `「${p.name}」的论文、批注、术语和画布将从项目列表中移除，数据移到 data/trash/projects/，不会物理删除；确认本浏览器中的数据都已保存到文件夹后，本浏览器中它的数据库也会一并删除。`;
-    if (!p.localOnly) return `未连接本地服务：只会把「${p.name}」从本浏览器的项目列表中移除，它的文件夹和本浏览器中的数据库都保留。`;
-    return `「${p.name}」只在本浏览器中：删除前会先下载一份 JSON 备份（不含 PDF 文件），然后删除本浏览器中它的全部数据。`;
+    const name = projectDisplayName(p);
+    if (source === "server" && !p.localOnly) return t.library.projects.manageDialog.confirmServer(name);
+    if (!p.localOnly) return t.library.projects.manageDialog.confirmListOnly(name);
+    return t.library.projects.manageDialog.confirmLocal(name);
   };
 
   return (
-    <Shell title="管理项目" testId="project-manage-dialog" onClose={onClose} wide>
+    <Shell title={t.library.projects.manageDialog.title} testId="project-manage-dialog" onClose={onClose} wide>
       <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
         {projects.map((p) => {
           const isCurrent = p.id === currentId;
@@ -306,19 +312,19 @@ function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-medium text-neutral-800">
-                    {p.name}
-                    {isCurrent && <span className="ml-1.5 text-[11px] font-normal text-blue-600">当前</span>}
-                    {p.localOnly && source === "server" && <span className="ml-1.5 text-[11px] font-normal text-amber-600">仅本浏览器</span>}
+                    {projectDisplayName(p)}
+                    {isCurrent && <span className="ml-1.5 text-[11px] font-normal text-blue-600">{t.library.projects.manageDialog.current}</span>}
+                    {p.localOnly && source === "server" && <span className="ml-1.5 text-[11px] font-normal text-amber-600">{t.library.projects.browserOnly}</span>}
                   </div>
-                  <div className="truncate text-[11px] text-neutral-400">{source === "server" && !p.localOnly ? `data/projects/${p.id}/` : `本浏览器 · ${p.id}`}</div>
+                  <div className="truncate text-[11px] text-neutral-400">{source === "server" && !p.localOnly ? `data/projects/${p.id}/` : t.library.projects.manageDialog.browserLocation(p.id)}</div>
                 </div>
                 {!isCurrent && (
                   <button type="button" className={btnGhost} onClick={() => void switchToProject(p.id)}>
-                    打开
+                    {t.library.projects.manageDialog.open}
                   </button>
                 )}
-                <button type="button" className={btnGhost} onClick={() => openProjectInNewTab(p.id)} title="在新标签页打开">
-                  新标签页
+                <button type="button" className={btnGhost} onClick={() => openProjectInNewTab(p.id)} title={t.library.projects.openInNewTab}>
+                  {t.library.projects.manageDialog.newTab}
                 </button>
                 {!isCurrent && projects.length > 1 && (
                   <button
@@ -331,7 +337,7 @@ function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
                     disabled={busy}
                     data-testid="project-delete"
                   >
-                    删除…
+                    {t.library.projects.manageDialog.delete}
                   </button>
                 )}
               </div>
@@ -340,15 +346,15 @@ function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
                   <p>{confirmText(p)}</p>
                   <div className="mt-2 flex flex-wrap justify-end gap-2">
                     <button type="button" className={btnOutline} onClick={() => setConfirming(null)} disabled={busy}>
-                      取消
+                      {t.common.cancel}
                     </button>
                     {unsynced === p.id && (
                       <button type="button" className={btnOutline} onClick={() => void remove(p, true)} disabled={busy} data-testid="project-delete-keep-browser">
-                        仍然删除（保留本浏览器中的数据库）
+                        {t.library.projects.manageDialog.deleteKeepBrowser}
                       </button>
                     )}
                     <button type="button" className={btnDanger} onClick={() => void remove(p)} disabled={busy} data-testid="project-delete-confirm-button">
-                      {busy ? "正在删除…" : "删除项目"}
+                      {busy ? t.library.projects.manageDialog.deleting : t.library.projects.manageDialog.deleteProject}
                     </button>
                   </div>
                 </div>
@@ -357,7 +363,7 @@ function ManageProjectsDialog({ onClose }: { onClose: () => void }) {
           );
         })}
       </ul>
-      <p className="mt-2 text-[12px] text-neutral-500">当前打开的项目不能删除；要删除它，先切换到其他项目。</p>
+      <p className="mt-2 text-[12px] text-neutral-500">{t.library.projects.manageDialog.currentNote}</p>
       {message && (
         <p className={cx("mt-2 text-[12.5px]", message.ok ? "text-emerald-700" : "text-red-600")} role="status" data-testid="project-manage-message">
           {message.text}

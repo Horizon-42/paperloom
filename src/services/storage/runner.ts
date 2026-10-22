@@ -49,7 +49,7 @@ export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
       // Worker 读不到页面 URL：项目放在 Worker 名里（lib/project.ts）
       worker = new Worker(new URL("./storage.worker.ts", import.meta.url), { type: "module", name: workerName(workerKind("paperlens-storage")) });
     } catch (e) {
-      console.warn("[storage] 无法创建 Worker，改在主线程执行", e);
+      console.warn("[storage] can't create worker; running on the main thread", e);
       broken = true;
       return null;
     }
@@ -59,7 +59,7 @@ export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
       if (!p) return;
       if (!m.ok && m.error.name === WRONG_DB_ERROR) {
         // 不应发生：Worker 打开了别的项目的数据库。不让它碰任何数据，改在主线程执行
-        console.warn("[storage]", m.error.message, "，改在主线程执行");
+        console.warn("[storage]", m.error.message, "; running on the main thread");
         fallBack();
         return;
       }
@@ -69,7 +69,7 @@ export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
     };
     worker.onerror = (ev) => {
       ev.preventDefault();
-      console.warn("[storage] Worker 出错，改在主线程执行", ev.message);
+      console.warn("[storage] worker error; running on the main thread", ev.message);
       fallBack();
     };
     return worker;

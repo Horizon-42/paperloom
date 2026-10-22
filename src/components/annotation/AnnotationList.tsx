@@ -8,6 +8,7 @@ import { listPapers } from "@/db/repo/papers";
 import { buildDomainTree, flattenTree, getSubtreeIds } from "@/services/domainTree";
 import type { Annotation, Paper } from "@/types/models";
 import { IconSearch, IconX } from "@/components/library/icons";
+import { t } from "@/i18n";
 import { cx, input } from "@/components/library/ui";
 import { deleteWithUndo, jumpToAnnotation } from "./actions";
 import { HIGHLIGHT_COLORS, strongColor } from "./colors";
@@ -86,26 +87,26 @@ export function AnnotationList() {
     <div className="flex min-h-0 flex-1 flex-col bg-white" data-annotation-list>
       <header className="border-b border-neutral-200 px-6 pb-3 pt-4">
         <div className="mb-3 flex items-baseline gap-2">
-          <h1 className="text-lg font-semibold text-neutral-900">批注</h1>
-          {!loading && <span className="text-[13px] tabular-nums text-neutral-400">{model.total} 条</span>}
+          <h1 className="text-lg font-semibold text-neutral-900">{t.reader.list.heading}</h1>
+          {!loading && <span className="text-[13px] tabular-nums text-neutral-400">{t.reader.list.count(model.total)}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={domainId}
             onChange={(e) => setDomainId(e.target.value)}
             className={cx(input, "w-auto max-w-[240px] pr-7")}
-            aria-label="按领域筛选"
+            aria-label={t.reader.list.filterByField}
             data-filter-domain
           >
-            <option value="">全部领域</option>
+            <option value="">{t.reader.list.allFields}</option>
             {domainOptions.map((n) => (
               <option key={n.domain.id} value={n.domain.id}>
-                {"　".repeat(n.depth)}
+                {"\u3000".repeat(n.depth)}
                 {n.domain.name}
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-0.5 rounded-md border border-neutral-200 px-1 py-0.5" role="group" aria-label="按颜色筛选">
+          <div className="flex items-center gap-0.5 rounded-md border border-neutral-200 px-1 py-0.5" role="group" aria-label={t.reader.list.filterByColor}>
             {HIGHLIGHT_COLORS.map((c) => {
               const on = colors.has(c.value);
               return (
@@ -136,9 +137,9 @@ export function AnnotationList() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索原文或笔记"
+              placeholder={t.reader.list.search}
               className={cx(input, "pl-7")}
-              aria-label="搜索原文或笔记"
+              aria-label={t.reader.list.search}
               data-filter-query
             />
           </div>
@@ -152,14 +153,14 @@ export function AnnotationList() {
                 setQuery("");
               }}
             >
-              <IconX width={13} height={13} /> 清除筛选
+              <IconX width={13} height={13} /> {t.reader.list.clearFilters}
             </button>
           )}
         </div>
       </header>
       {loading ? null : rows.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">
-          {filtered ? "没有符合条件的批注" : "还没有批注。在论文中选中文字即可高亮和写笔记。"}
+          {filtered ? t.reader.list.noMatches : t.reader.list.empty}
         </div>
       ) : (
         <RowList rows={rows} paperById={paperById} />
@@ -230,9 +231,9 @@ function OrphanHeader({ count }: { count: number }) {
   return (
     <div className="flex h-full flex-col justify-end pb-1.5" data-orphan-header>
       <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-700">
-        <IconAlert /> 未定位 <span className="font-normal tabular-nums text-amber-600/80">{count}</span>
+        <IconAlert /> {t.reader.list.orphaned} <span className="font-normal tabular-nums text-amber-600/80">{count}</span>
       </div>
-      <div className="text-[11.5px] text-neutral-500">替换 PDF 文件后，这些批注的原文在新文件中找不到了。可以删除，或在原文中重新划线后删除旧批注。</div>
+      <div className="text-[11.5px] text-neutral-500">{t.reader.list.orphanedHint}</div>
     </div>
   );
 }
@@ -273,19 +274,19 @@ function ItemRow({ a, orphan, paperTitle }: { a: Annotation; orphan: boolean; pa
         </div>
         <div className="mt-0.5 truncate text-[12px] text-neutral-500">
           {orphan && paperTitle && <span className="text-neutral-400">{paperTitle} · </span>}
-          {note || <span className="text-neutral-300">无笔记</span>}
+          {note || <span className="text-neutral-300">{t.reader.list.noNote}</span>}
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end justify-between">
-        <span className="text-[11.5px] tabular-nums text-neutral-400">第 {a.page} 页</span>
+        <span className="text-[11.5px] tabular-nums text-neutral-400">{t.reader.page(a.page)}</span>
         <button
           type="button"
           className={cx(
             "inline-flex h-6 w-6 items-center justify-center rounded text-neutral-400 hover:bg-red-50 hover:text-red-600",
             !orphan && "opacity-0 focus:opacity-100 group-hover:opacity-100",
           )}
-          aria-label="删除批注"
-          title="删除批注"
+          aria-label={t.reader.card.deleteAnnotation}
+          title={t.reader.card.deleteAnnotation}
           onClick={(e) => {
             e.stopPropagation();
             void deleteWithUndo(a.id);

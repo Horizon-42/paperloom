@@ -43,12 +43,12 @@ export function prepareExtraFiles(group: string, files: ExtraFile[], warn: (msg:
   const used = new Set<string>();
   for (const f of files) {
     if (typeof f?.name !== "string" || typeof f.content !== "string") {
-      warn(`[storage] data/${group}/ 中有无效的文件，已跳过`);
+      warn(`[storage] skipped an invalid file in data/${group}/`);
       continue;
     }
     const segs = f.name.split("/").map((s) => s.replace(/[. ]+$/, ""));
     if (f.name.startsWith("/") || segs.some((s) => !s || s.startsWith(".") || BAD_CHARS.test(s)) || segs.length > 8) {
-      warn(`[storage] 文件名 "${f.name}" 不能写入 data/${group}/，已跳过`);
+      warn(`[storage] skipped file name "${f.name}": can't be written to data/${group}/`);
       continue;
     }
     let name = segs.map((s) => truncateSegment(s, MAX_SEGMENT_BYTES)).join("/");

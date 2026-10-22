@@ -3,6 +3,7 @@
 // 只在应用启动之后（或"找不到项目"页面里）按需加载：它会加载 db/schema。
 import Dexie from "dexie";
 import { PaperLensDB } from "@/db/schema";
+import { t } from "@/i18n";
 import { sha256Hex } from "@/lib/hash";
 import { dbNameFor, projectApiBase } from "@/lib/project";
 import { createStorageApi } from "@/services/storage/api";
@@ -68,14 +69,15 @@ export async function browserCopyState(id: string): Promise<BrowserCopyState> {
   if (!copy.exists || (!copy.hasData && !copy.localPdfs.length)) return { state: "none" };
   const api = createStorageApi(projectApiBase(id));
   const st = await api.status();
-  if (!st || st.needsMigration) throw new Error("无法连接本地服务，不能确认文件夹里的数据是否完整");
+  const errors = t.library.projects.errors;
+  if (!st || st.needsMigration) throw new Error(errors.cannotVerify);
   if (!st.library.contentHash || st.library.contentHash !== copy.hash) {
-    return { state: "unsynced", detail: st.library.exists ? "文件夹里的 library.json 与本浏览器的数据不一致，可能有尚未保存的改动" : "文件夹里还没有 library.json" };
+    return { state: "unsynced", detail: st.library.exists ? errors.libraryMismatch : errors.noLibrary };
   }
   const { hashes, trashed } = await api.listPdfs();
   const onServer = new Set([...hashes, ...trashed]);
   const missing = copy.localPdfs.filter((h) => !onServer.has(h));
-  if (missing.length) return { state: "unsynced", detail: `${missing.length} 个 PDF 还没有保存到文件夹` };
+  if (missing.length) return { state: "unsynced", detail: errors.pdfsMissing(missing.length) };
   return { state: "synced" };
 }
 

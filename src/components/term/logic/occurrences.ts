@@ -2,6 +2,7 @@
 import { fromNormalizedText } from "@/engine/normalize";
 import type { TermMatcher } from "@/engine/matcher";
 import type { ScopeContext } from "@/engine/types";
+import { t } from "@/i18n";
 import { buildDomainTree, domainPath, flattenTree } from "@/services/domainTree";
 import type { Domain, Occurrence, Paper } from "@/types/models";
 
@@ -107,7 +108,7 @@ export function groupOccurrences(
     .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : (order.get(a) ?? 0) - (order.get(b) ?? 0)))
     .map(([domainId, list]) => ({
       domainId,
-      label: domainId === null ? "未归类" : domainPath(byId, domainId),
+      label: domainId === null ? t.term.popover.unfiled : domainPath(byId, domainId),
       papers: list.sort((x, y) => y.count - x.count || x.title.localeCompare(y.title, "zh-CN")),
     }));
 }

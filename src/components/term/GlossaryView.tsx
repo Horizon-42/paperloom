@@ -8,6 +8,7 @@ import { btnPrimary, cx } from "@/components/library/ui";
 import type { VirtualListHandle } from "@/components/library/VirtualList";
 import { db } from "@/db/schema";
 import { listDomains } from "@/db/repo/domains";
+import { t } from "@/i18n";
 import type { Domain, Term } from "@/types/models";
 import { GlossaryFilters } from "./glossary/GlossaryFilters";
 import { IndexerStatus } from "./glossary/IndexerStatus";
@@ -46,7 +47,7 @@ export function GlossaryView() {
   const sortStats = sort.key === "occurrences" ? stats : undefined;
   const sorted = useMemo(() => sortTerms(filtered, sort, sortStats), [filtered, sort, sortStats]);
   const counts = useMemo(() => countByFilter(terms, domains), [terms, domains]);
-  const selected = useMemo(() => (selectedId ? terms.find((t) => t.id === selectedId) : undefined), [terms, selectedId]);
+  const selected = useMemo(() => (selectedId ? terms.find((x) => x.id === selectedId) : undefined), [terms, selectedId]);
 
   const listRef = useRef<VirtualListHandle>(null);
 
@@ -54,16 +55,16 @@ export function GlossaryView() {
   useEffect(() => {
     if (!reveal || !terms.length) return;
     const store = useGlossaryStore.getState();
-    if (!terms.some((t) => t.id === reveal.termId)) {
+    if (!terms.some((x) => x.id === reveal.termId)) {
       store.clearReveal();
       return;
     }
-    if (!filtered.some((t) => t.id === reveal.termId)) {
+    if (!filtered.some((x) => x.id === reveal.termId)) {
       if (filter.kind !== "all") store.setFilter({ kind: "all" });
       if (query) store.setQuery("");
       if (filter.kind !== "all" || query) return; // 等筛选更新后再定位
     }
-    const idx = sorted.findIndex((t) => t.id === reveal.termId);
+    const idx = sorted.findIndex((x) => x.id === reveal.termId);
     if (idx >= 0) {
       listRef.current?.scrollToIndex(idx);
       store.clearReveal();
@@ -73,7 +74,7 @@ export function GlossaryView() {
   const move = useCallback(
     (delta: number) => {
       if (!sorted.length) return;
-      const cur = sorted.findIndex((t) => t.id === selectedId);
+      const cur = sorted.findIndex((x) => x.id === selectedId);
       const next = cur < 0 ? (delta > 0 ? 0 : sorted.length - 1) : Math.max(0, Math.min(sorted.length - 1, cur + delta));
       useGlossaryStore.getState().select(sorted[next].id);
       listRef.current?.scrollToIndex(next);
@@ -84,13 +85,13 @@ export function GlossaryView() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-white" data-testid="glossary">
       <header className="flex h-12 shrink-0 items-center gap-4 border-b border-neutral-200 px-4">
-        <h1 className="text-[15px] font-semibold text-neutral-900">术语表</h1>
+        <h1 className="text-[15px] font-semibold text-neutral-900">{t.term.glossary.title}</h1>
         <div className="ml-auto">
           <IndexerStatus />
         </div>
         <button type="button" className={cx(btnPrimary, "h-8")} onClick={() => useTermUiStore.getState().openTermEditor({})}>
           <IconPlus width={14} height={14} />
-          新建术语
+          {t.term.glossary.newTerm}
         </button>
       </header>
       <div className="flex min-h-0 flex-1">

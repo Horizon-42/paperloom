@@ -10,7 +10,7 @@ export type Locale = "zh" | "en";
 
 /** 可选的语言；label 用该语言自己的写法，不随界面语言变化 */
 export const LOCALES: readonly { value: Locale; label: string; htmlLang: string }[] = [
-  { value: "zh", label: "中文", htmlLang: "zh-CN" },
+  { value: "zh", label: "中文", htmlLang: "zh-CN" }, // i18n-ignore: 语言名用该语言自己的写法
   { value: "en", label: "English", htmlLang: "en" },
 ];
 

@@ -7,6 +7,7 @@
 import { pdfjs, type PDFDocumentProxy, type PDFPageProxy, type PageViewport } from "@/lib/pdf";
 import { captureOperatorList, type OperatorListLike, type PageGlyphMap } from "@/lib/glyphMap";
 import { onPdfDestroyed } from "@/lib/pdfDocs";
+import { t } from "@/i18n";
 import type { RenderTask } from "pdfjs-dist";
 import type { PageTextInfo } from "./overlays";
 import { getPageText, type PageTextData } from "./pageText";
@@ -233,8 +234,8 @@ export class PageRenderer {
       (err: unknown) => {
         canvas.width = canvas.height = 0;
         if (err instanceof pdfjs.RenderingCancelledException || gen !== this.canvasGen) return;
-        console.error(`第 ${page.pageNumber} 页渲染失败`, err);
-        if (!this.destroyed) this.opts.onError("本页渲染失败");
+        console.error(`Page ${page.pageNumber} failed to render`, err);
+        if (!this.destroyed) this.opts.onError(t.reader.viewer.pageRenderFailed);
       },
     );
   }
@@ -248,7 +249,7 @@ export class PageRenderer {
         this.glyphMs = performance.now() - this.t0;
         this.emitText();
       },
-      (err: unknown) => console.warn(`第 ${page.pageNumber} 页字形映射失败，退回文本层定位`, err),
+      (err: unknown) => console.warn(`Page ${page.pageNumber}: glyph mapping failed, falling back to text-layer positioning`, err),
     );
   }
 
@@ -277,7 +278,7 @@ export class PageRenderer {
         if (act !== this.activation || this.destroyed) return;
         this.textPending = false;
         if (err instanceof pdfjs.AbortException) return;
-        console.error(`第 ${page.pageNumber} 页文本层失败`, err);
+        console.error(`Page ${page.pageNumber}: text layer failed`, err);
       });
   }
 

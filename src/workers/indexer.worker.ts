@@ -52,7 +52,7 @@ scope.onmessage = (ev) => {
   }
   if (msg.type !== "run") return;
   if (msg.dbName !== db.name) {
-    scope.postMessage({ type: "wrong-db", jobId: msg.jobId, message: `索引 Worker 打开的数据库（${db.name}）与页面（${msg.dbName}）不一致` });
+    scope.postMessage({ type: "wrong-db", jobId: msg.jobId, message: `indexer worker opened database ${db.name}, but the page uses ${msg.dbName}` });
     return;
   }
   chain = chain.then(() => run(msg.jobId, msg.req));

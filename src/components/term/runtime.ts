@@ -86,11 +86,11 @@ export function startTermRuntime() {
 
 function start() {
   if (subs) return;
-  const fail = (what: string) => (err: unknown) => console.error(`术语运行时：读取${what}失败`, err);
+  const fail = (what: string) => (err: unknown) => console.error(`[term] runtime: failed to read ${what}`, err);
   subs = [
-    liveQuery(() => db.terms.toArray()).subscribe({ next: onTerms, error: fail("术语") }),
-    liveQuery(() => db.domains.toArray()).subscribe({ next: onDomains, error: fail("领域") }),
-    liveQuery(getTermDisplay).subscribe({ next: onDisplay, error: fail("显示设置") }),
+    liveQuery(() => db.terms.toArray()).subscribe({ next: onTerms, error: fail("terms") }),
+    liveQuery(() => db.domains.toArray()).subscribe({ next: onDomains, error: fail("fields") }),
+    liveQuery(getTermDisplay).subscribe({ next: onDisplay, error: fail("display settings") }),
   ];
 }
 
@@ -146,7 +146,7 @@ function paperEntry(paperId: string): PaperScopeEntry {
         entry.key = key;
         for (const l of entry.listeners) l();
       },
-      error: (err: unknown) => console.error("术语运行时：读取论文领域失败", err),
+      error: (err: unknown) => console.error("[term] runtime: failed to read paper fields", err),
     });
     paperScopes.set(paperId, (e = entry));
   }

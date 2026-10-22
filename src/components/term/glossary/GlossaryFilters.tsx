@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import { useGlossaryStore, type GlossaryFilter } from "@/app/stores/glossary";
 import { IconChevronRight, IconSearch, IconX } from "@/components/library/icons";
 import { cx } from "@/components/library/ui";
+import { t } from "@/i18n";
 import { buildDomainTree, flattenTree } from "@/services/domainTree";
 import type { Domain } from "@/types/models";
 import type { FilterCounts } from "./model";
@@ -38,23 +39,24 @@ export function GlossaryFilters({ domains, counts, filter }: { domains: Domain[]
     );
   };
 
+  const tx = t.term.glossary.filters;
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50/70" aria-label="术语筛选">
+    <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50/70" aria-label={tx.ariaLabel}>
       <div className="p-3 pb-2">
         <SearchBox />
       </div>
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-3" aria-label="按作用范围筛选">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-3" aria-label={tx.scopeNav}>
         <div className="space-y-px">
-          {item({ kind: "all" }, "全部术语", counts.all)}
-          {item({ kind: "global" }, "全局", counts.global)}
-          {item({ kind: "unscoped" }, "无作用范围", counts.unscoped, {
-            title: "限定了领域，但领域列表为空或领域已删除，不在任何论文中生效",
+          {item({ kind: "all" }, tx.all, counts.all)}
+          {item({ kind: "global" }, tx.global, counts.global)}
+          {item({ kind: "unscoped" }, tx.unscoped, counts.unscoped, {
+            title: tx.unscopedTitle,
             muted: true,
           })}
         </div>
-        <div className="mb-1 mt-3 px-2 text-[11px] font-medium tracking-wide text-neutral-400">领域</div>
-        {rows.length === 0 && <p className="px-2 text-xs leading-relaxed text-neutral-400">还没有领域。在左侧文库中新建领域后，可以把术语限定在领域内。</p>}
-        <div className="space-y-px" role="tree" aria-label="领域">
+        <div className="mb-1 mt-3 px-2 text-[11px] font-medium tracking-wide text-neutral-400">{tx.domains}</div>
+        {rows.length === 0 && <p className="px-2 text-xs leading-relaxed text-neutral-400">{tx.noDomains}</p>}
+        <div className="space-y-px" role="tree" aria-label={tx.domains}>
           {rows.map((node) => {
             const d = node.domain;
             const f: GlossaryFilter = { kind: "domain", id: d.id };
@@ -76,7 +78,7 @@ export function GlossaryFilters({ domains, counts, filter }: { domains: Domain[]
                 <button
                   type="button"
                   tabIndex={-1}
-                  aria-label={open ? "折叠" : "展开"}
+                  aria-label={open ? tx.collapse : tx.expand}
                   onClick={() => hasKids && toggleExpanded(d.id)}
                   className={cx("flex h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-400", hasKids ? "hover:text-neutral-700" : "invisible")}
                 >
@@ -109,14 +111,14 @@ function SearchBox() {
         onKeyDown={(e) => {
           if (e.key === "Escape") setQuery("");
         }}
-        placeholder="搜索名称、别名、笔记"
-        aria-label="搜索术语"
+        placeholder={t.term.glossary.filters.searchPlaceholder}
+        aria-label={t.term.glossary.filters.searchLabel}
         className="h-8 w-full rounded-md border border-neutral-200 bg-white pl-8 pr-7 text-[13px] placeholder:text-neutral-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 [&::-webkit-search-cancel-button]:hidden"
       />
       {query && (
         <button
           type="button"
-          aria-label="清除术语搜索"
+          aria-label={t.term.glossary.filters.clearSearch}
           onClick={() => setQuery("")}
           className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
         >

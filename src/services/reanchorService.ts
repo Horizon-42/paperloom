@@ -4,6 +4,7 @@
 import { db } from "@/db/schema";
 import { getPaper, getPaperByHash } from "@/db/repo/papers";
 import { findQuote } from "@/engine/anchor";
+import { t } from "@/i18n";
 import { sha256Hex } from "@/lib/hash";
 import { scheduleIndex } from "@/services/indexer";
 import { ensurePageTexts, invalidatePageTexts } from "@/services/pageTextService";
@@ -194,11 +195,11 @@ export async function replacePaperFile(
   try {
     data = await source.arrayBuffer();
   } catch {
-    return { status: "failed", error: "无法读取文件" };
+    return { status: "failed", error: t.reader.replace.errors.unreadable };
   }
-  if (!hasPdfMagic(data)) return { status: "failed", error: "不是 PDF 文件" };
+  if (!hasPdfMagic(data)) return { status: "failed", error: t.reader.replace.errors.notPdf };
   const paper = await getPaper(paperId);
-  if (!paper) return { status: "failed", error: "论文不存在" };
+  if (!paper) return { status: "failed", error: t.reader.replace.errors.paperMissing };
 
   const hash = await sha256Hex(data);
   if (hash === paper.fileHash) return { status: "unchanged" };
@@ -210,14 +211,14 @@ export async function replacePaperFile(
     pageCount = (await (opts.readInfo ?? readPdfInfo)(data)).pageCount;
   } catch (e) {
     const name = (e as { name?: string } | null)?.name;
-    return { status: "failed", error: name === "PasswordException" ? "PDF 已加密，暂不支持" : "文件已损坏或不是有效的 PDF" };
+    return { status: "failed", error: name === "PasswordException" ? t.reader.replace.errors.encrypted : t.reader.replace.errors.corrupt };
   }
-  if (!Number.isFinite(pageCount) || pageCount < 1) return { status: "failed", error: "PDF 没有页面" };
+  if (!Number.isFinite(pageCount) || pageCount < 1) return { status: "failed", error: t.reader.replace.errors.noPages };
 
   const blob = new Blob([data], { type: "application/pdf" });
   const res = await db.transaction("rw", [db.papers, db.files, db.pageTexts, db.occurrences], async () => {
     const cur = await db.papers.get(paperId);
-    if (!cur) return { status: "failed", error: "论文不存在" } as const;
+    if (!cur) return { status: "failed", error: t.reader.replace.errors.paperMissing } as const;
     const again = await db.papers.where("fileHash").equals(hash).first();
     if (again && again.id !== paperId) return { status: "conflict", other: { id: again.id, title: again.title } } as const;
     const oldHash = cur.fileHash;
@@ -236,7 +237,7 @@ export async function replacePaperFile(
   try {
     anchored = await reanchorPaper(paperId, { retryOrphaned: true });
   } catch (e) {
-    console.error("替换 PDF 后重新锚定批注失败", e);
+    console.error("Failed to re-anchor annotations after replacing the PDF", e);
     reanchorFailed = true;
   }
   scheduleIndex({ paperIds: [paperId] });

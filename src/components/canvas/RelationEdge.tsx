@@ -1,6 +1,7 @@
 // 关系连线：端点浮动在两个节点的边框上；颜色/线型区分关系类型，中点显示关系文字，点击文字可修改或删除。
 import { memo } from "react";
 import { BaseEdge, EdgeLabelRenderer, useInternalNode, type EdgeProps, type InternalNode } from "@xyflow/react";
+import { t } from "@/i18n";
 import { useCanvasActions } from "./context";
 import type { CanvasFlowEdge, CanvasFlowNode } from "./flow";
 import { RELATION_STYLE, edgeGeometry, relationText, type Box } from "./model";
@@ -15,11 +16,11 @@ const boxOf = (n: InternalNode<CanvasFlowNode>): Box => ({
 
 export const RelationEdge = memo(function RelationEdge({ id, source, target, data, selected, markerEnd }: EdgeProps<CanvasFlowEdge>) {
   const s = useInternalNode<CanvasFlowNode>(source);
-  const t = useInternalNode<CanvasFlowNode>(target);
+  const tg = useInternalNode<CanvasFlowNode>(target);
   const low = useLowDetail();
   const actions = useCanvasActions();
-  if (!s || !t || !data) return null;
-  const g = edgeGeometry(boxOf(s), boxOf(t), data.offset);
+  if (!s || !tg || !data) return null;
+  const g = edgeGeometry(boxOf(s), boxOf(tg), data.offset);
   const style = RELATION_STYLE[data.link.relation] ?? RELATION_STYLE.custom;
   const text = relationText(data.link);
   return (
@@ -41,7 +42,7 @@ export const RelationEdge = memo(function RelationEdge({ id, source, target, dat
               color: style.color,
               borderColor: selected ? style.color : `color-mix(in srgb, ${style.color} 35%, white)`,
             }}
-            title={`${text}（点击修改或删除）`}
+            title={t.canvas.edgeTitle(text)}
             data-edge-label={id}
             data-relation={data.link.relation}
             onClick={(e) => {

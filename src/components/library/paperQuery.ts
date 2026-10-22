@@ -1,14 +1,15 @@
 // 论文列表的筛选与排序（纯函数）
+import { t } from "@/i18n";
 import type { LibrarySelection, PaperSort } from "@/app/stores/library";
 import { getSubtreeIds, isUnfiled } from "@/services/domainTree";
 import type { Domain, Paper } from "@/types/models";
 
-export const SORT_OPTIONS: { value: PaperSort; label: string }[] = [
-  { value: "added", label: "添加时间" },
-  { value: "title", label: "标题" },
-  { value: "year", label: "年份" },
-  { value: "lastOpened", label: "最近打开" },
-];
+/** 排序选项；显示名用 sortLabel */
+export const SORT_OPTIONS: readonly PaperSort[] = ["added", "title", "year", "lastOpened"];
+
+export function sortLabel(sort: PaperSort): string {
+  return t.library.paperList.sort[sort];
+}
 
 /** 选中领域时包含其所有子领域下的论文 */
 export function filterPapersBySelection(papers: Paper[], domains: Domain[], selection: LibrarySelection): Paper[] {
@@ -45,9 +46,9 @@ export function sortPapers(papers: Paper[], sort: PaperSort): Paper[] {
   }
 }
 
-/** "张三, 李四, 王五 等" */
+/** "张三, 李四, 王五 等"（英文："… et al."） */
 export function formatAuthorsShort(authors: string[], max = 3): string {
   if (!authors.length) return "";
   if (authors.length <= max) return authors.join(", ");
-  return `${authors.slice(0, max).join(", ")} 等`;
+  return t.library.paperRow.authorsEtAl(authors.slice(0, max).join(", "));
 }

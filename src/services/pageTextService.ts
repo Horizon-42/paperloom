@@ -3,6 +3,7 @@
 import { db } from "@/db/schema";
 import { normalizeItems } from "@/engine/normalize";
 import { NORMALIZE_VERSION } from "@/engine/types";
+import { t } from "@/i18n";
 import { acquirePdf } from "@/lib/pdfDocs";
 import type { PageText, Paper } from "@/types/models";
 
@@ -56,7 +57,7 @@ export async function ensurePageTexts(paperId: string): Promise<PageTextRow[]> {
     if (!now) return [];
     if (now.fileHash === paper.fileHash) return rows;
   }
-  throw new Error("论文的 PDF 在提取全文期间反复变化");
+  throw new Error(t.reader.viewer.pdfChanging);
 }
 
 async function extractAndStore(paper: Paper): Promise<PageTextRow[]> {

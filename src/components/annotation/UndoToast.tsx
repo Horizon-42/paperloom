@@ -1,6 +1,7 @@
 // 底部提示条："已删除批注 · 撤销"、保存失败等。可同时显示多条，各自计时、各自撤销
 import { useEffect } from "react";
 import { useAnnotationStore, type AnnotationToast } from "@/app/stores/annotation";
+import { t } from "@/i18n";
 
 const TOAST_MS = 6000;
 const ERROR_MS = 8000;
@@ -10,8 +11,8 @@ export function UndoToast() {
   if (!toasts.length) return null;
   return (
     <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
-      {toasts.map((t) => (
-        <ToastItem key={t.seq} toast={t} />
+      {toasts.map((toast) => (
+        <ToastItem key={toast.seq} toast={toast} />
       ))}
     </div>
   );
@@ -20,8 +21,8 @@ export function UndoToast() {
 function ToastItem({ toast }: { toast: AnnotationToast }) {
   const dismiss = useAnnotationStore((s) => s.dismissToast);
   useEffect(() => {
-    const t = setTimeout(() => dismiss(toast.seq), toast.kind === "error" ? ERROR_MS : TOAST_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => dismiss(toast.seq), toast.kind === "error" ? ERROR_MS : TOAST_MS);
+    return () => clearTimeout(timer);
   }, [toast, dismiss]);
   return (
     <div
@@ -42,16 +43,16 @@ function ToastItem({ toast }: { toast: AnnotationToast }) {
             void Promise.resolve()
               .then(undo)
               .catch((e: unknown) => {
-                console.error("撤销失败", e);
-                useAnnotationStore.getState().showToast("撤销失败", { kind: "error" });
+                console.error("Undo failed", e);
+                useAnnotationStore.getState().showToast(t.reader.toast.undoFailed, { kind: "error" });
               });
           }}
         >
-          撤销
+          {t.common.undo}
         </button>
       )}
       {toast.kind === "error" && (
-        <button type="button" className="text-white/70 hover:text-white" aria-label="关闭提示" onClick={() => dismiss(toast.seq)}>
+        <button type="button" className="text-white/70 hover:text-white" aria-label={t.reader.toast.dismiss} onClick={() => dismiss(toast.seq)}>
           ×
         </button>
       )}

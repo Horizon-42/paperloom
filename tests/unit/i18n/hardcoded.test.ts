@@ -1,6 +1,7 @@
 // @vitest-environment node
 // 界面文案只能写在 src/i18n/locales/ 里：扫描 src/ 下其余代码中的字符串和 JSX 文字，不能含中文（注释不算）。
-// 确实需要中文字符的代码（如中文标点的识别规则）在 ALLOW 里逐条登记原因。
+// 确实需要中文字符、又不是界面文字的代码（如识别中文标点的规则、数据里的固定标记），在同一行或上一行写
+// `// i18n-ignore: <原因>`；中文标点也可以写成 \uXXXX 转义并加注释。
 // 只查部分路径：I18N_SCAN=src/components/canvas,src/services/linkService.ts npx vitest run tests/unit/i18n/hardcoded.test.ts
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -14,11 +15,6 @@ const CJK = /[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]/;
 
 const SCAN = (process.env.I18N_SCAN ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
-/** 允许含中文的文件（相对仓库根目录）→ 原因 */
-const ALLOW: Record<string, string> = {
-  "src/i18n/index.ts": "语言列表里各语言用自己的写法（中文）",
-};
-
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
@@ -31,6 +27,8 @@ function files(dir: string): string[] {
 export function hardcodedCjk(path: string, text = readFileSync(path, "utf8")): { line: number; text: string }[] {
   const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const out: { line: number; text: string }[] = [];
+  const lines = text.split("\n");
+  const ignored = (line: number) => /i18n-ignore:\s*\S/.test(lines[line - 1] ?? "") || /i18n-ignore:\s*\S/.test(lines[line - 2] ?? "");
   const visit = (node: ts.Node) => {
     if (
       ts.isStringLiteral(node) ||
@@ -42,7 +40,8 @@ export function hardcodedCjk(path: string, text = readFileSync(path, "utf8")): {
       ts.isRegularExpressionLiteral(node)
     ) {
       const s = node.getText(sf);
-      if (CJK.test(s)) out.push({ line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, text: s.trim().slice(0, 60) });
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+      if (CJK.test(s) && !ignored(line)) out.push({ line, text: s.trim().slice(0, 60) });
     }
     ts.forEachChild(node, visit);
   };
@@ -54,6 +53,9 @@ describe("界面文案不写死在代码里", () => {
   it("扫描器只认字符串和 JSX 文字，不认注释", () => {
     const sample = `// 注释里的中文\nconst a = "中文"; /* 块注释 中文 */\nconst b = <p>文字</p>;\nconst c = \`x\${1}中\`;\nconst d = "english";`;
     expect(hardcodedCjk("x.tsx", sample).map((h) => h.line)).toEqual([2, 3, 4]);
+    // 写明原因的 i18n-ignore 豁免本行和下一行；没写原因的不算
+    const ignored = `const a = "中"; // i18n-ignore: 标记\n// i18n-ignore: 规则\nconst b = /中/;\nconst c = "中"; // i18n-ignore:`;
+    expect(hardcodedCjk("x.ts", ignored).map((h) => h.line)).toEqual([4]);
   });
 
   it("src/ 下除 i18n/locales/ 外没有写死的中文", () => {
@@ -61,7 +63,6 @@ describe("界面文案不写死在代码里", () => {
     let total = 0;
     for (const f of files(SRC)) {
       const rel = relative(ROOT, f).split("\\").join("/");
-      if (rel in ALLOW) continue;
       if (SCAN.length && !SCAN.some((p) => rel.startsWith(p))) continue;
       const hits = hardcodedCjk(f);
       if (!hits.length) continue;

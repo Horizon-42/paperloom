@@ -1,6 +1,7 @@
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/db/schema";
+import { t } from "@/i18n";
 import { useReaderStore, type Pane } from "@/app/stores/reader";
 
 interface Props {
@@ -53,11 +54,11 @@ export function TabBar({ pane, focused, split }: Props) {
                       className={`absolute inset-x-0 top-0 h-0.5 ${focused || !split ? "bg-blue-500" : "bg-neutral-300"}`}
                     />
                   )}
-                  <span className="min-w-0 flex-1 truncate">{title === undefined ? "…" : (title ?? "（已删除）")}</span>
+                  <span className="min-w-0 flex-1 truncate">{title === undefined ? "…" : (title ?? t.reader.tabs.deleted)}</span>
                   <button
                     type="button"
-                    aria-label="关闭标签"
-                    title="关闭（中键单击标签也可关闭）"
+                    aria-label={t.reader.tabs.closeTab}
+                    title={t.reader.tabs.closeTitle}
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700 ${
                       active ? "" : "opacity-0 group-hover:opacity-100"
                     }`}
@@ -74,12 +75,12 @@ export function TabBar({ pane, focused, split }: Props) {
               </ContextMenu.Trigger>
               <ContextMenu.Portal>
                 <ContextMenu.Content className="z-50 min-w-36 rounded-md border border-neutral-200 bg-white p-1 text-xs shadow-lg">
-                  <MenuItem onSelect={() => openInOtherPane(pane.id, paperId)}>在另一侧分栏打开</MenuItem>
-                  <MenuItem onSelect={() => closeTab(pane.id, paperId)}>关闭标签</MenuItem>
+                  <MenuItem onSelect={() => openInOtherPane(pane.id, paperId)}>{t.reader.tabs.openInOtherPane}</MenuItem>
+                  <MenuItem onSelect={() => closeTab(pane.id, paperId)}>{t.reader.tabs.closeTab}</MenuItem>
                   <MenuItem
-                    onSelect={() => pane.tabs.filter((t) => t !== paperId).forEach((t) => closeTab(pane.id, t))}
+                    onSelect={() => pane.tabs.filter((id) => id !== paperId).forEach((id) => closeTab(pane.id, id))}
                   >
-                    关闭其他标签
+                    {t.reader.tabs.closeOthers}
                   </MenuItem>
                 </ContextMenu.Content>
               </ContextMenu.Portal>
@@ -90,8 +91,8 @@ export function TabBar({ pane, focused, split }: Props) {
       <button
         type="button"
         onClick={toggleSplit}
-        title={split ? "取消分屏" : "左右分屏"}
-        aria-label={split ? "取消分屏" : "左右分屏"}
+        title={split ? t.reader.tabs.unsplit : t.reader.tabs.split}
+        aria-label={split ? t.reader.tabs.unsplit : t.reader.tabs.split}
         aria-pressed={split}
         className="flex w-9 shrink-0 items-center justify-center text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
         data-split-toggle

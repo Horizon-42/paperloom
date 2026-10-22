@@ -1,6 +1,7 @@
 // 存储模块里读写整库的工作：生成快照并保存、比对与上传 PDF、生成 Markdown、恢复、导入导出。
 // 默认在 storage.worker.ts 中执行（读表、序列化、哈希、解析都不占主线程），Worker 不可用时在主线程执行同样的代码。
 import type { PaperLensDB } from "@/db/schema";
+import { t } from "@/i18n";
 import { sha256Hex } from "@/lib/hash";
 import { StorageApiError, type FileEntry, type FilesResult, type StorageApi } from "./api";
 import {
@@ -236,7 +237,7 @@ export async function fetchPdfToDb(ctx: TaskContext, hash: string): Promise<Blob
   if (existing) return existing.blob;
   const blob = await ctx.api.getPdf(hash);
   if (!blob) return null;
-  if ((await sha256Hex(blob)) !== hash) throw new Error("data/pdfs 中的文件已损坏（哈希不符）");
+  if ((await sha256Hex(blob)) !== hash) throw new Error(t.data.errors.pdfCorrupt);
   await ctx.db.files.put({ hash, blob, size: blob.size });
   return blob;
 }
@@ -357,7 +358,7 @@ export function applyImport(ctx: TaskContext, arg: { text: string; expect?: stri
 /** 用 data/library.json 替换本地数据 */
 export async function restoreFromService(ctx: TaskContext, arg: { expect?: string } = {}): Promise<ReplaceResult & { revision: number }> {
   const lib = await ctx.api.getLibrary();
-  if (!lib) throw new Error("data/ 中没有 library.json");
+  if (!lib) throw new Error(t.data.errors.noLibrary);
   const res = await replaceWith(ctx, lib.text, arg.expect);
   return { ...res, revision: res.revision ?? lib.revision };
 }

@@ -6,17 +6,17 @@ import type { Paper } from "@/types/models";
 /** 单个标签的最大长度（按字符计） */
 export const TAG_MAX_LENGTH = 40;
 
-/** 输入框里分隔多个标签的字符：逗号、分号（含全角）、换行 */
-const SEPARATORS = /[,，;；\n\r]+/;
+/** 输入框里分隔多个标签的字符：逗号、分号（含全角 \uFF0C \uFF1B）、换行 */
+const SEPARATORS = /[,\uFF0C;\uFF1B\n\r]+/;
 
 /** 去掉开头的 #（可以有多个，中间夹空格也算）、分隔符，合并空白，截断到 TAG_MAX_LENGTH；结果可能为空串。幂等 */
 export function normalizeTag(raw: string): string {
   const t = raw
     .normalize("NFC")
-    .replace(/[,，;；\u0000-\u001f\u007f]/g, " ")
+    .replace(/[,\uFF0C;\uFF1B\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^(?:[#＃]\s*)+/, "");
+    .replace(/^(?:[#\uFF03]\s*)+/, ""); // \uFF03：全角 #
   return [...t].slice(0, TAG_MAX_LENGTH).join("").trim();
 }
 

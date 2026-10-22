@@ -2,6 +2,7 @@
 // 列表是虚拟化的，弹层打开期间锚点行可能被卸载，所以弹层挂在侧栏层级、由 library store 的 tagEditor 驱动，
 // 用虚拟锚点每帧按选择器找锚点元素的位置（找不到时沿用上一次的位置）。
 // 修改立即写库（tagService），没有保存按钮。论文被删除、工具栏所在分栏换了论文或切到其他视图时关闭。
+import { t } from "@/i18n";
 import { useEffect, useMemo, useRef } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { useAppStore } from "@/app/stores/app";
@@ -74,7 +75,7 @@ function TagEditorPopover({ editor }: { editor: TagEditorState }) {
           sideOffset={row ? 10 : 4}
           collisionPadding={8}
           updatePositionStrategy="always"
-          aria-label="编辑标签"
+          aria-label={t.library.tags.editor.ariaLabel}
           data-tag-editor={paper.id}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
@@ -98,7 +99,7 @@ function TagEditorPopover({ editor }: { editor: TagEditorState }) {
           className="z-50 w-[288px] rounded-lg border border-neutral-200 bg-white p-2.5 text-[13px] text-neutral-700 shadow-lg shadow-neutral-900/10 focus:outline-none"
         >
           <div className="mb-2 flex items-baseline gap-2 px-0.5">
-            <span className="shrink-0 text-xs font-medium text-neutral-600">标签</span>
+            <span className="shrink-0 text-xs font-medium text-neutral-600">{t.library.tags.editor.heading}</span>
             <span className="min-w-0 flex-1 truncate text-[11.5px] text-neutral-400" title={paper.title}>
               {paper.title}
             </span>
@@ -108,12 +109,12 @@ function TagEditorPopover({ editor }: { editor: TagEditorState }) {
             variant="popover"
             tags={paper.tags ?? []}
             allTags={allTags}
-            label="添加标签"
+            label={t.library.tags.editor.inputLabel}
             onAdd={(names) => void addPaperTags(paper.id, names)}
-            onRemove={(t) => void removePaperTag(paper.id, t)}
+            onRemove={(tag) => void removePaperTag(paper.id, tag)}
             onEmptyEnter={close}
           />
-          <div className="mt-2 border-t border-neutral-100 px-0.5 pt-1.5 text-[11px] text-neutral-400">回车添加 · 逗号分隔多个 · Esc 关闭</div>
+          <div className="mt-2 border-t border-neutral-100 px-0.5 pt-1.5 text-[11px] text-neutral-400">{t.library.tags.editor.hint}</div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

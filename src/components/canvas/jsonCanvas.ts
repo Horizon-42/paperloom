@@ -1,7 +1,8 @@
 // 导出为 JSON Canvas 1.0（Obsidian .canvas 使用的开放格式，https://jsoncanvas.org/spec/1.0/）。纯函数。
 // 批注、术语、论文、自由笔记都导出为 text 节点（内容为 Markdown，带原文和出处）；边的 label 用关系名。
 // 论文、术语带 Obsidian 双链，指向存储模块导出的 data/markdown/papers|terms/<名称>.md（文件名规则与之相同）。
-import type { CanvasExportData } from "@/services/canvasService";
+import { t } from "@/i18n";
+import { defaultBoardName, type CanvasExportData } from "@/services/canvasService";
 import { markdownFileNames, safeFileName } from "@/services/storage/markdown";
 import type { Annotation, Board, BoardNode, Note, Paper, Term } from "@/types/models";
 import { RELATION_STYLE, linksToEdges, relationText } from "./model";
@@ -39,12 +40,8 @@ export interface JsonCanvas {
   edges: JsonCanvasEdge[];
 }
 
-const ENTITY_MISSING: Record<BoardNode["ref"]["kind"], string> = {
-  annotation: "（已删除的批注）",
-  term: "（已删除的术语）",
-  paper: "（已删除的论文）",
-  note: "（已删除的笔记）",
-};
+/** 已删除条目的占位文字（导出时的界面语言） */
+const missingText = (kind: BoardNode["ref"]["kind"]) => t.canvas.export.missing(t.canvas.entity.deleted[kind]);
 
 const quoteBlock = (s: string) =>
   s
@@ -69,18 +66,18 @@ const linkText = (s: string) => s.replace(/[|[\]]+/g, " ").replace(/\s+/g, " ").
 const wiki = (dir: "papers" | "terms", file: string | undefined, text: string) => (file ? `[[${dir}/${file}|${linkText(text)}]]` : text);
 
 function annotationText(a: Annotation, paper: Paper | undefined, names?: MarkdownNames): string {
-  const parts = [quoteBlock(a.quote.exact || "（无原文）")];
+  const parts = [quoteBlock(a.quote.exact || t.canvas.entity.noQuote)];
   if (a.note.trim()) parts.push(a.note.trim());
-  const title = paper ? wiki("papers", names?.papers.get(paper.id), paper.title) : "未知论文";
-  parts.push(`—— 《${title}》第 ${a.page} 页`);
+  const title = paper ? wiki("papers", names?.papers.get(paper.id), paper.title) : t.canvas.entity.unknownPaper;
+  parts.push(t.canvas.export.source(title, a.page));
   return parts.join("\n\n");
 }
 
-function termText(t: Term, names?: MarkdownNames): string {
-  const head = [`### ${wiki("terms", names?.terms.get(t.id), t.name)}`];
-  if (t.aliases.length) head.push(`别名：${t.aliases.join("、")}`);
+function termText(term: Term, names?: MarkdownNames): string {
+  const head = [`### ${wiki("terms", names?.terms.get(term.id), term.name)}`];
+  if (term.aliases.length) head.push(t.canvas.export.aliases(t.canvas.join(term.aliases)));
   const parts = [head.join("\n")];
-  if (t.note.trim()) parts.push(t.note.trim());
+  if (term.note.trim()) parts.push(term.note.trim());
   return parts.join("\n\n");
 }
 
@@ -103,7 +100,7 @@ export function sideToward(a: Pick<BoardNode, "x" | "y" | "w" | "h">, b: Pick<Bo
 /** 把一块画布转成 JSON Canvas 对象。连线只导出两端都在这块画布上的。names 缺省时论文/术语不带双链 */
 export function toJsonCanvas(boardId: string, data: CanvasExportData, names?: MarkdownNames): JsonCanvas {
   const annotations = new Map(data.annotations.map((a) => [a.id, a]));
-  const terms = new Map(data.terms.map((t) => [t.id, t]));
+  const terms = new Map(data.terms.map((x) => [x.id, x]));
   const papers = new Map(data.papers.map((p) => [p.id, p]));
   const notes = new Map(data.notes.map((n) => [n.id, n]));
   const boardNodes = data.nodes
@@ -115,31 +112,31 @@ export function toJsonCanvas(boardId: string, data: CanvasExportData, names?: Ma
     const { kind, id } = n.ref;
     if (kind === "annotation") {
       const a = annotations.get(id);
-      return a ? { ...base, color: a.color, text: annotationText(a, papers.get(a.paperId), names) } : { ...base, text: ENTITY_MISSING[kind] };
+      return a ? { ...base, color: a.color, text: annotationText(a, papers.get(a.paperId), names) } : { ...base, text: missingText(kind) };
     }
     if (kind === "term") {
-      const t = terms.get(id);
-      return { ...base, text: t ? termText(t, names) : ENTITY_MISSING[kind] };
+      const term = terms.get(id);
+      return { ...base, text: term ? termText(term, names) : missingText(kind) };
     }
     if (kind === "paper") {
       const p = papers.get(id);
-      return { ...base, text: p ? paperText(p, names) : ENTITY_MISSING[kind] };
+      return { ...base, text: p ? paperText(p, names) : missingText(kind) };
     }
     const note = notes.get(id);
-    return { ...base, text: note ? noteText(note) : ENTITY_MISSING[kind] };
+    return { ...base, text: note ? noteText(note) : missingText(kind) };
   });
 
   const byId = new Map(boardNodes.map((n) => [n.id, n]));
   const edges: JsonCanvasEdge[] = linksToEdges(data.links, boardNodes).map((e) => {
     const s = byId.get(e.source)!;
-    const t = byId.get(e.target)!;
+    const tg = byId.get(e.target)!;
     const style = RELATION_STYLE[e.link.relation] ?? RELATION_STYLE.custom;
     const edge: JsonCanvasEdge = {
       id: e.id,
       fromNode: e.source,
-      fromSide: sideToward(s, t),
+      fromSide: sideToward(s, tg),
       toNode: e.target,
-      toSide: sideToward(t, s),
+      toSide: sideToward(tg, s),
       color: style.color,
       label: relationText(e.link),
     };
@@ -158,11 +155,15 @@ export function serializeJsonCanvas(c: JsonCanvas): string {
 /** 文件名主干的字节上限：加上 " (99)" 和 ".canvas" 后不超过存储模块的 200 字节（extraNames） */
 const MAX_STEM_BYTES = 180;
 
-/** 画布名 → 合法文件名主干（不含扩展名）：与存储模块的 Markdown 文件名规则相同，按 UTF-8 字节截断 */
-export function sanitizeFileName(name: string, fallback = "未命名画布"): string {
+/**
+ * 画布名 → 合法文件名主干（不含扩展名）：与存储模块的 Markdown 文件名规则相同，按 UTF-8 字节截断。
+ * 清理后为空时用 fallback（缺省为当前界面语言的默认画布名）
+ */
+export function sanitizeFileName(name: string, fallback = defaultBoardName()): string {
   const out = safeFileName(name, MAX_STEM_BYTES);
-  // safeFileName 在名称清理后为空时返回"未命名"
-  return out === "未命名" && name.trim() !== "未命名" ? fallback : out;
+  // safeFileName 在名称清理后为空时返回它自己的兜底名（随界面语言），用空串探出这个兜底名；画布本来就叫这个名字时保留
+  const emptyName = safeFileName("", MAX_STEM_BYTES);
+  return out === emptyName && name.trim() !== emptyName ? fallback : out;
 }
 
 /**

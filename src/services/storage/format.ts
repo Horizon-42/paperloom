@@ -4,6 +4,7 @@
 // 以及 kv 中 "indexer:"（索引派生数据）和 "storage:"（本模块在每个浏览器里的记账）开头的记录。
 // 纯函数：不碰数据库和 DOM，可在 Worker 中运行。
 import { DATA_FORMAT_VERSION } from "@/db/schema";
+import { t } from "@/i18n";
 import { normalizeTags } from "@/lib/tags";
 import type {
   AnchorStatus,
@@ -173,15 +174,15 @@ export function parseDataFile(text: string, now = Date.now()): ParsedDataFile {
   try {
     doc = JSON.parse(text);
   } catch {
-    throw new DataFormatError("不是有效的 JSON 文件");
+    throw new DataFormatError(t.data.format.invalidJson);
   }
-  if (!isObj(doc) || doc.format !== "paperlens") throw new DataFormatError("这不是 Paperloom 的备份文件");
+  if (!isObj(doc) || doc.format !== "paperlens") throw new DataFormatError(t.data.format.notPaperloom);
   const v = doc.version;
-  if (!isNum(v) || v < 1) throw new DataFormatError("备份文件缺少有效的数据格式版本");
+  if (!isNum(v) || v < 1) throw new DataFormatError(t.data.format.missingVersion);
   if (Math.floor(v) > DATA_FORMAT_VERSION) {
-    throw new DataFormatError(`这份数据来自更新版本的 Paperloom（数据格式 v${Math.floor(v)}，当前只支持 v${DATA_FORMAT_VERSION}），请先更新应用`);
+    throw new DataFormatError(t.data.format.newerVersion(Math.floor(v), DATA_FORMAT_VERSION));
   }
-  if (!isObj(doc.tables)) throw new DataFormatError("备份文件缺少数据表");
+  if (!isObj(doc.tables)) throw new DataFormatError(t.data.format.missingTables);
   const { tables, report } = normalizeTables(doc.tables, now);
   return {
     file: {
@@ -257,7 +258,7 @@ export function normalizeTables(raw: Obj, now = Date.now()): { tables: DataTable
       ...r,
       id: r.id as string,
       fileHash: r.fileHash,
-      title: isStr(r.title) && r.title.trim() ? r.title : "未命名论文",
+      title: isStr(r.title) && r.title.trim() ? r.title : t.data.format.untitledPaper,
       authors: strList(r.authors),
       domainIds: strList(r.domainIds).filter((id) => domainIds.has(id)),
       pageCount: numOr(r.pageCount, 0),
@@ -395,7 +396,7 @@ export function normalizeTables(raw: Obj, now = Date.now()): { tables: DataTable
     const b: Board = {
       ...r,
       id: r.id as string,
-      name: isStr(r.name) && r.name.trim() ? r.name : "未命名画布",
+      name: isStr(r.name) && r.name.trim() ? r.name : t.data.format.untitledBoard,
       domainIds: strList(r.domainIds).filter((id) => domainIds.has(id)),
       createdAt: numOr(r.createdAt, now),
       updatedAt: numOr(r.updatedAt, numOr(r.createdAt, now)),
@@ -440,23 +441,13 @@ export function normalizeTables(raw: Obj, now = Date.now()): { tables: DataTable
 /** 修复报告里值得告诉用户的部分（没有则为空数组） */
 export function describeRepairs(r: RepairReport): string[] {
   const out: string[] = [];
-  const names: Record<DataTableName, string> = {
-    domains: "领域",
-    papers: "论文",
-    annotations: "批注",
-    terms: "术语",
-    links: "连线",
-    notes: "笔记",
-    boards: "画布",
-    boardNodes: "画布节点",
-    kv: "设置",
-  };
+  const m = t.data.format;
   for (const name of DATA_TABLE_NAMES) {
     const n = r.dropped[name];
-    if (n) out.push(`跳过 ${n} 条无效或引用缺失的${names[name]}`);
+    if (n) out.push(m.skipped(n, name));
   }
-  if (r.mergedPapers) out.push(`合并 ${r.mergedPapers} 篇重复的论文`);
-  if (r.annotationTermId) out.push(`${r.annotationTermId} 条批注关联的术语不存在，已解除关联`);
-  if (r.termSource) out.push(`${r.termSource} 个术语的出处批注不存在，已清除出处`);
+  if (r.mergedPapers) out.push(m.mergedPapers(r.mergedPapers));
+  if (r.annotationTermId) out.push(m.annotationTermMissing(r.annotationTermId));
+  if (r.termSource) out.push(m.termSourceMissing(r.termSource));
   return out;
 }

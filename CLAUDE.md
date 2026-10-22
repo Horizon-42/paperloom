@@ -13,7 +13,7 @@
 - `npm run typecheck` — tsc 类型检查（app + node 两个 tsconfig）
 - `npm test` — Vitest 单元测试（`tests/engine/**`、`tests/unit/**`）
 - `npm run e2e` — Playwright（`tests/e2e/**`，自动在 5199 端口起服务）。各模块另有独立配置：
-  `npx playwright test -c tests/e2e/<viewer|annotation|term|glossary|canvas|storage|projects|tags>.config.ts`；
+  `npx playwright test -c tests/e2e/<viewer|annotation|term|glossary|canvas|storage|projects|tags|i18n|static>.config.ts`（static 是在线版冒烟测试，先构建）；
   `PAPERLENS_LITERATURE_DIR=<你的论文目录>` 时额外跑真实论文用例
 
 ## 项目（notebook）与数据目录
@@ -86,7 +86,8 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 
 - 界面文案中英两套，都在 `src/i18n/locales/{zh,en}/<模块>.ts`（D13）：代码里用 `t.<模块>.<键>`（`import { t } from "@/i18n"`），
   带参数的文案写成函数（`t.library.paperCount(n)`），文案里嵌元素用 `<Trans text=… values={{…}} />`，时间用 `@/i18n/format`。
-  **代码里不写死任何语言的界面文字**（`tests/unit/i18n/hardcoded.test.ts` 扫描检查）；中文文案是结构来源，英文必须一一对应（类型检查 + `messages.test.ts`）。
+  **代码里不写死任何语言的界面文字**（`tests/unit/i18n/hardcoded.test.ts` 扫描检查；确需中文字符的非界面代码写 `// i18n-ignore: <原因>`）；
+  中文文案是结构来源，英文必须一一对应（类型检查 + `messages.test.ts`）。显示项目名一律用 `projectDisplayName`，本地服务的错误经 `services/storage/errors.ts`。
   代码标识符用英文；注释用中文，简洁，只解释不显而易见的地方。
 - 导入路径用 `@/` 别名。
 - 持久化数据在 Dexie 里，组件用 `useLiveQuery` 读取；Zustand 只放界面状态（当前标签、弹窗开关等），不要把数据库内容复制进 store。

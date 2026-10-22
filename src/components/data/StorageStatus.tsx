@@ -10,6 +10,7 @@ import { ConflictDialog } from "./ConflictDialog";
 import { DataDialog } from "./DataDialog";
 import { MigrationNotice } from "./MigrationNotice";
 import { IconX } from "./icons";
+import { t } from "@/i18n";
 import { relativeTime } from "@/i18n/format";
 
 const DAY = 86_400_000;
@@ -18,8 +19,8 @@ const DAY = 86_400_000;
 function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(t);
+    const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(timer);
   }, [intervalMs]);
   return now;
 }
@@ -42,35 +43,36 @@ type Tone = "gray" | "green" | "blue" | "amber" | "red";
 
 function describe(s: StorageSyncState, now: number, remindDays: number | null): { tone: Tone; text: string; busy?: boolean } {
   const dir = shortDirLabel(s.dataDirLabel);
+  const m = t.data.status;
   switch (s.phase) {
     case "probing":
-      return { tone: "gray", text: "正在连接本地服务…" };
+      return { tone: "gray", text: m.probing };
     case "offline":
       return remindDays !== null
-        ? { tone: "amber", text: `数据只在本浏览器中 · 已 ${remindDays} 天未导出备份` }
-        : { tone: "amber", text: "未连接本地服务：数据只保存在本浏览器中" };
+        ? { tone: "amber", text: m.offlineRemind(remindDays) }
+        : { tone: "amber", text: m.offline };
     case "restoring":
-      return { tone: "blue", text: `正在从 ${dir} 恢复…`, busy: true };
+      return { tone: "blue", text: m.restoring(dir), busy: true };
     case "pending":
     case "saving":
-      return { tone: "blue", text: "正在保存…", busy: true };
+      return { tone: "blue", text: m.saving, busy: true };
     case "conflict":
-      if (s.conflict?.kind === "local-empty") return { tone: "red", text: "本浏览器的数据已被清空，自动保存已暂停" };
-      if (s.conflict?.kind === "newer-format") return { tone: "red", text: `${dir} 中的数据来自更新版本，自动保存已暂停` };
-      if (s.conflict?.kind === "db-reset") return { tone: "red", text: "本地数据库已被重置，自动保存已暂停" };
-      if (s.conflict?.kind === "unreadable") return { tone: "red", text: `${dir}library.json 无法读取，自动保存已暂停` };
-      return { tone: "red", text: "文件夹中的数据已被另一个窗口更新" };
+      if (s.conflict?.kind === "local-empty") return { tone: "red", text: m.localEmpty };
+      if (s.conflict?.kind === "newer-format") return { tone: "red", text: m.newerFormat(dir) };
+      if (s.conflict?.kind === "db-reset") return { tone: "red", text: m.dbReset };
+      if (s.conflict?.kind === "unreadable") return { tone: "red", text: m.unreadable(dir) };
+      return { tone: "red", text: m.revision };
     case "error":
-      return { tone: "red", text: s.error ?? "保存失败" };
+      return { tone: "red", text: s.error ?? m.saveFailed };
     case "needs-migration":
-      return { tone: "red", text: "数据需要迁移到项目结构，自动保存已暂停" };
+      return { tone: "red", text: m.needsMigration };
     case "saved": {
       const a = s.activity;
       if (a) {
-        const what = a.kind === "pdf-upload" ? "正在保存 PDF" : "正在取回 PDF";
-        return { tone: "blue", text: `已保存到 ${dir} · ${what} ${Math.min(a.done + 1, a.total)}/${a.total}`, busy: true };
+        const what = a.kind === "pdf-upload" ? m.pdfUpload : m.pdfFetch;
+        return { tone: "blue", text: `${m.savedTo(dir)} · ${what} ${Math.min(a.done + 1, a.total)}/${a.total}`, busy: true };
       }
-      return { tone: "green", text: `已保存到 ${dir}${s.lastSavedAt ? ` · ${relativeTime(s.lastSavedAt, now)}` : ""}` };
+      return { tone: "green", text: `${m.savedTo(dir)}${s.lastSavedAt ? ` · ${relativeTime(s.lastSavedAt, now)}` : ""}` };
     }
   }
 }
@@ -109,7 +111,7 @@ export function StorageStatus() {
         type="button"
         onClick={open}
         className="flex w-full items-center gap-2 border-t border-neutral-200 px-3 py-2 text-left text-[11.5px] text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
-        title={s.dataDir ? `数据与备份（${s.dataDir}）` : "数据与备份"}
+        title={t.data.status.buttonTitle(s.dataDir)}
         data-testid="storage-status"
         data-phase={s.phase}
       >
@@ -147,15 +149,15 @@ function BrowserOnlyHint({ onExport }: { onExport: () => void }) {
   return (
     <div className="border-t border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900" role="note" data-testid="browser-only-hint">
       <div className="space-y-1 leading-snug">
-        <div className="font-medium">数据只保存在这个浏览器里</div>
-        <div className="text-amber-800">论文和批注不会上传到任何服务器。但清除浏览器的网站数据、换浏览器或换电脑后都会看不到，请定期导出备份。</div>
+        <div className="font-medium">{t.data.browserOnly.heading}</div>
+        <div className="text-amber-800">{t.data.browserOnly.body}</div>
       </div>
       <div className="mt-2 flex gap-2">
         <button type="button" onClick={onExport} className="rounded bg-amber-600 px-2 py-1 font-medium text-white hover:bg-amber-700">
-          导出备份
+          {t.data.browserOnly.exportBackup}
         </button>
         <button type="button" onClick={dismiss} className="rounded px-2 py-1 text-amber-800 hover:bg-amber-100">
-          知道了
+          {t.data.browserOnly.dismiss}
         </button>
       </div>
     </div>
@@ -166,18 +168,15 @@ function BrowserOnlyHint({ onExport }: { onExport: () => void }) {
 function StrayLegacyWarning({ files }: { files: string[] }) {
   const [hidden, setHidden] = useState(false);
   if (hidden) return null;
-  const shown = files.slice(0, 4).join("、") + (files.length > 4 ? ` 等 ${files.length} 项` : "");
+  const shown = t.data.strayLegacy.files(files.slice(0, 4), files.length);
   return (
     <div className="border-t border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900" role="alert" data-testid="stray-legacy-warning">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 space-y-1 leading-snug">
-          <div className="font-medium">data/ 根目录下有旧版本写入的文件：{shown}</div>
-          <div className="text-amber-800">
-            可能是迁移到项目结构之后又启动过旧版本。新版本不读取这些文件。如果在旧版本里做过改动，请在「数据与备份」中导入 data/library.json（导入前会自动备份当前数据）；
-            确认不需要之后，把这些文件移出 data/（例如移到 data-backup-before-projects-旧版残留/）。
-          </div>
+          <div className="font-medium">{t.data.strayLegacy.heading(shown)}</div>
+          <div className="text-amber-800">{t.data.strayLegacy.body}</div>
         </div>
-        <button type="button" onClick={() => setHidden(true)} className="rounded p-0.5 text-amber-500 hover:bg-amber-100 hover:text-amber-800" aria-label="暂时隐藏提示">
+        <button type="button" onClick={() => setHidden(true)} className="rounded p-0.5 text-amber-500 hover:bg-amber-100 hover:text-amber-800" aria-label={t.data.strayLegacy.hide}>
           <IconX width={14} height={14} />
         </button>
       </div>
@@ -191,8 +190,8 @@ function Notice() {
   // 成功提示 15 秒后自动收起
   useEffect(() => {
     if (notice?.tone !== "success") return;
-    const t = window.setTimeout(dismiss, 15_000);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(dismiss, 15_000);
+    return () => window.clearTimeout(timer);
   }, [notice, dismiss]);
   if (!notice) return null;
   const color = notice.tone === "error" ? "text-red-700" : notice.tone === "success" ? "text-emerald-700" : "text-neutral-700";
@@ -212,7 +211,7 @@ function Notice() {
             type="button"
             onClick={dismiss}
             className="rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-            aria-label="关闭提示"
+            aria-label={t.data.status.closeNotice}
           >
             <IconX width={14} height={14} />
           </button>

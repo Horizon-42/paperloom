@@ -11,9 +11,11 @@ import { openPaperAtTerm } from "@/components/term/interaction";
 import { getOutdatedPaperIds, listOccurrencesForTerm } from "@/db/repo/occurrences";
 import { listPapers } from "@/db/repo/papers";
 import { MATCH_VERSION } from "@/engine/types";
+import { htmlLang, t } from "@/i18n";
+import { Trans } from "@/i18n/Trans";
 import { deleteTerm } from "@/services/termService";
 import type { Domain, Paper, Term } from "@/types/models";
-import { MATCH_MODE_LABELS, formatPages, groupOccurrencesByDomain, scopeSummary } from "./model";
+import { formatPages, groupOccurrencesByDomain, scopeSummary } from "./model";
 import { EntityDeleteImpact } from "@/components/canvas/DeleteImpact";
 
 interface Props {
@@ -24,11 +26,11 @@ interface Props {
 
 export function TermDetail({ term, domains, domainById }: Props) {
   return (
-    <aside className="flex w-[400px] shrink-0 flex-col border-l border-neutral-200 bg-white" aria-label="术语详情">
+    <aside className="flex w-[400px] shrink-0 flex-col border-l border-neutral-200 bg-white" aria-label={t.term.glossary.detail.ariaLabel}>
       {term ? (
         <TermDetailBody key={term.id} term={term} domains={domains} domainById={domainById} />
       ) : (
-        <div className="flex flex-1 items-center justify-center px-8 text-center text-[13px] text-neutral-400">选择一个术语查看详情</div>
+        <div className="flex flex-1 items-center justify-center px-8 text-center text-[13px] text-neutral-400">{t.term.glossary.detail.placeholder}</div>
       )}
     </aside>
   );
@@ -37,6 +39,7 @@ export function TermDetail({ term, domains, domainById }: Props) {
 function TermDetailBody({ term, domains, domainById }: { term: Term; domains: Domain[]; domainById: ReadonlyMap<string, Domain> }) {
   const [confirming, setConfirming] = useState(false);
   const scope = scopeSummary(term, domainById);
+  const tx = t.term.glossary.detail;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -46,14 +49,14 @@ function TermDetailBody({ term, domains, domainById }: { term: Term; domains: Do
             {term.name}
           </h2>
           <button type="button" className={cx(btnOutline, "h-7 px-2.5")} onClick={() => useTermUiStore.getState().openTermEditor({ termId: term.id })}>
-            编辑
+            {t.common.edit}
           </button>
           <button type="button" className={cx(btnGhost, "h-7 px-2.5 text-red-600 hover:bg-red-50")} onClick={() => setConfirming(true)}>
-            删除
+            {t.common.delete}
           </button>
         </div>
         {term.aliases.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1" aria-label="别名">
+          <div className="mt-2 flex flex-wrap gap-1" aria-label={tx.aliases}>
             {term.aliases.map((a) => (
               <span key={a} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[12px] text-neutral-700">
                 {a}
@@ -64,30 +67,30 @@ function TermDetailBody({ term, domains, domainById }: { term: Term; domains: Do
       </header>
 
       <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2 px-5 py-3 text-[12.5px]">
-        <dt className="text-neutral-400">匹配方式</dt>
-        <dd className="text-neutral-700">{MATCH_MODE_LABELS[term.matchMode]}</dd>
-        <dt className="text-neutral-400">作用范围</dt>
+        <dt className="text-neutral-400">{tx.matchMode}</dt>
+        <dd className="text-neutral-700">{t.term.matchModes[term.matchMode].detail}</dd>
+        <dt className="text-neutral-400">{tx.scope}</dt>
         <dd className="text-neutral-700" data-testid="term-detail-scope">
-          {scope.kind === "global" && "全局（所有论文）"}
-          {scope.kind === "none" && <span className="text-amber-700">未生效：限定的领域为空或已删除</span>}
+          {scope.kind === "global" && tx.scopeGlobal}
+          {scope.kind === "none" && <span className="text-amber-700">{tx.scopeNone}</span>}
           {scope.kind === "domains" && (
             <div className="flex flex-wrap gap-1">
-              {scope.tags.map((t) => (
-                <span key={t.id} className="inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[12px]">
-                  <span className="h-2 w-2 rounded-full" style={{ background: t.color }} aria-hidden />
-                  {t.path}
+              {scope.tags.map((tag) => (
+                <span key={tag.id} className="inline-flex items-center gap-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[12px]">
+                  <span className="h-2 w-2 rounded-full" style={{ background: tag.color }} aria-hidden />
+                  {tag.path}
                 </span>
               ))}
             </div>
           )}
         </dd>
-        <dt className="text-neutral-400">修改时间</dt>
-        <dd className="tabular-nums text-neutral-700">{new Date(term.updatedAt).toLocaleString("zh-CN")}</dd>
+        <dt className="text-neutral-400">{tx.updated}</dt>
+        <dd className="tabular-nums text-neutral-700">{new Date(term.updatedAt).toLocaleString(htmlLang())}</dd>
       </dl>
 
-      <section className="border-t border-neutral-100 px-5 py-3" aria-label="笔记">
-        <h3 className="mb-1.5 text-[11px] font-medium tracking-wide text-neutral-400">笔记</h3>
-        <MarkdownView source={term.note} emptyText="（还没有笔记）" className="text-[13.5px]" />
+      <section className="border-t border-neutral-100 px-5 py-3" aria-label={tx.note}>
+        <h3 className="mb-1.5 text-[11px] font-medium tracking-wide text-neutral-400">{tx.note}</h3>
+        <MarkdownView source={term.note} emptyText={t.term.noNote} className="text-[13.5px]" />
       </section>
 
       <OccurrenceSection term={term} domains={domains} />
@@ -116,29 +119,30 @@ function OccurrenceSection({ term, domains }: { term: Term; domains: Domain[] })
     [data, paperById, domains],
   );
   const loaded = data !== undefined && papers !== undefined;
+  const tx = t.term.glossary.detail;
 
   return (
-    <section className="border-t border-neutral-100 px-5 pb-6 pt-3" aria-label="出现位置" data-testid="term-occurrences">
+    <section className="border-t border-neutral-100 px-5 pb-6 pt-3" aria-label={tx.occurrences} data-testid="term-occurrences">
       <h3 className="mb-2 flex items-baseline gap-2 text-[11px] font-medium tracking-wide text-neutral-400">
-        出现在
+        {tx.appearsIn}
         {loaded && (
           <span className="font-normal normal-case tracking-normal text-neutral-500" data-testid="term-occurrence-summary">
-            {grouped.paperCount} 篇论文 · 共 {grouped.total} 次
+            {tx.summary(grouped.paperCount, grouped.total)}
           </span>
         )}
         {(indexing || grouped.updating > 0) && (
           <span
             className="ml-auto font-normal tracking-normal text-blue-500"
             data-testid="term-occurrence-updating"
-            title={grouped.updating > 0 ? `${grouped.updating} 篇论文的结果来自旧版规则，后台更新后自动替换` : undefined}
+            title={grouped.updating > 0 ? tx.updatingTitle(grouped.updating) : undefined}
           >
-            {grouped.updating > 0 ? `${grouped.updating} 篇待更新` : "索引更新中…"}
+            {grouped.updating > 0 ? tx.updatingCount(grouped.updating) : tx.indexing}
           </span>
         )}
       </h3>
       {loaded && grouped.paperCount === 0 && (
         <p className="text-[12.5px] leading-relaxed text-neutral-400">
-          {term.scope.kind === "domains" ? "限定领域内的论文中没有出现。" : "文库中还没有出现。"}
+          {term.scope.kind === "domains" ? tx.noneInDomains : tx.noneInLibrary}
         </p>
       )}
       <div className="space-y-3">
@@ -147,7 +151,7 @@ function OccurrenceSection({ term, domains }: { term: Term; domains: Domain[] })
             <div className="mb-0.5 flex items-center gap-1.5 text-[12px] font-medium text-neutral-600">
               {g.color ? <span className="h-2 w-2 rounded-full" style={{ background: g.color }} aria-hidden /> : <span className="h-2 w-2 rounded-full border border-neutral-300" aria-hidden />}
               <span className="truncate">{g.label}</span>
-              <span className="ml-auto font-normal tabular-nums text-neutral-400">{g.count} 次</span>
+              <span className="ml-auto font-normal tabular-nums text-neutral-400">{tx.times(g.count)}</span>
             </div>
             <ul>
               {g.papers.map(({ paper, pages, count, updating }) => (
@@ -155,18 +159,18 @@ function OccurrenceSection({ term, domains }: { term: Term; domains: Domain[] })
                   <button
                     type="button"
                     data-paper-id={paper.id}
-                    title={`跳到第 ${pages[0]} 页的第一处`}
+                    title={tx.jumpToFirst(pages[0])}
                     onClick={() => openPaperAtTerm(paper.id, pages[0] ?? 1, term.id)}
                     className="group flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-neutral-100"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="line-clamp-2 text-[13px] leading-snug text-neutral-800 group-hover:text-blue-700">{paper.title}</span>
                       <span className="block truncate text-[11.5px] text-neutral-400">
-                        第 {formatPages(pages)} 页
-                        {updating && <span className="ml-1.5 text-blue-500" data-testid="occurrence-updating">待更新</span>}
+                        {tx.pages(formatPages(pages))}
+                        {updating && <span className="ml-1.5 text-blue-500" data-testid="occurrence-updating">{tx.outdated}</span>}
                       </span>
                     </span>
-                    <span className={cx("shrink-0 text-[12px] tabular-nums", updating ? "text-neutral-400" : "text-neutral-500")}>{count} 次</span>
+                    <span className={cx("shrink-0 text-[12px] tabular-nums", updating ? "text-neutral-400" : "text-neutral-500")}>{tx.times(count)}</span>
                   </button>
                 </li>
               ))}
@@ -191,25 +195,24 @@ function DeleteDialog({ term, open, onOpenChange }: { term: Term; open: boolean;
       setBusy(false);
     }
   };
+  const tx = t.term.glossary.detail;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={dialogContent}>
-          <Dialog.Title className={dialogTitle}>删除术语「{term.name}」？</Dialog.Title>
+          <Dialog.Title className={dialogTitle}>{tx.deleteTitle(term.name)}</Dialog.Title>
           <Dialog.Description className="mt-2 text-[13px] leading-relaxed text-neutral-600">
-            术语的名称、别名和笔记将被删除，所有论文中的下划线随之消失。创建术语时的出处批注会保留。
-            <EntityDeleteImpact entity={{ kind: "term", id: term.id }} />
-            此操作无法撤销。
+            <Trans text={tx.deleteBody} values={{ impact: <EntityDeleteImpact entity={{ kind: "term", id: term.id }} /> }} />
           </Dialog.Description>
           <div className="mt-5 flex justify-end gap-2">
             <Dialog.Close asChild>
               <button type="button" className={btnOutline}>
-                取消
+                {t.common.cancel}
               </button>
             </Dialog.Close>
             <button type="button" className={btnDanger} disabled={busy} onClick={() => void confirm()}>
-              删除术语
+              {tx.deleteConfirm}
             </button>
           </div>
         </Dialog.Content>

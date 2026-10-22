@@ -1,4 +1,5 @@
 // 领域树：固定项（全部论文 / 未分类）+ 可嵌套领域；支持拖放调整层级、把论文拖入领域
+import { t } from "@/i18n";
 import { memo, useEffect, useMemo, useRef, useState, type ComponentType, type DragEvent, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -59,8 +60,8 @@ export function DomainTree() {
 
   useEffect(() => {
     if (!flashId) return;
-    const t = window.setTimeout(() => setFlashId(null), 900);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setFlashId(null), 900);
+    return () => window.clearTimeout(timer);
   }, [flashId]);
 
   const setHintIfChanged = (h: DropHint | null) =>
@@ -163,18 +164,18 @@ export function DomainTree() {
   };
 
   return (
-    <nav className="flex max-h-[45%] min-h-[132px] shrink-0 flex-col" aria-label="领域">
+    <nav className="flex max-h-[45%] min-h-[132px] shrink-0 flex-col" aria-label={t.library.domains.navLabel}>
       <div className="space-y-px px-2 pt-2">
         <FixedItem
           icon={<IconLibrary width={15} height={15} />}
-          label="全部论文"
+          label={t.library.domains.all}
           count={papers.length}
           selected={selection.kind === "all"}
           onClick={() => select({ kind: "all" })}
         />
         <FixedItem
           icon={<IconInbox width={15} height={15} />}
-          label="未分类"
+          label={t.library.domains.unfiled}
           count={unfiledCount}
           selected={selection.kind === "unfiled"}
           onClick={() => select({ kind: "unfiled" })}
@@ -182,17 +183,17 @@ export function DomainTree() {
       </div>
 
       <div className="mt-2 flex items-center justify-between px-4">
-        <span className="text-[11px] font-medium tracking-wide text-neutral-400">领域</span>
-        <button type="button" className={iconBtn} title="新建领域" aria-label="新建领域" onClick={() => void createAndRename(null)}>
+        <span className="text-[11px] font-medium tracking-wide text-neutral-400">{t.library.domains.heading}</span>
+        <button type="button" className={iconBtn} title={t.library.domains.newDomain} aria-label={t.library.domains.newDomain} onClick={() => void createAndRename(null)}>
           <IconPlus width={14} height={14} />
         </button>
       </div>
 
       {/* pt-1：给第一行上方的插入线留位置，避免被滚动容器裁掉 */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1" role="tree" aria-label="领域树">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1" role="tree" aria-label={t.library.domains.treeLabel}>
         {loaded && rows.length === 0 && (
           <p className="px-2 py-1.5 text-xs leading-relaxed text-neutral-400">
-            还没有领域。点击 + 新建，然后把论文拖到领域上归类。
+            {t.library.domains.empty}
           </p>
         )}
         {rows.map((node) => (
@@ -218,7 +219,7 @@ export function DomainTree() {
               hint?.targetId === null ? "border-blue-400 bg-blue-50 text-blue-600" : "border-neutral-300 text-neutral-400",
             )}
           >
-            拖到这里移到顶层
+            {t.library.domains.dropToRoot}
           </div>
         )}
       </div>
@@ -317,7 +318,7 @@ const DomainRow = memo(function DomainRow({ node, count, selected, expanded, ren
           <button
             type="button"
             tabIndex={-1}
-            aria-label={expanded ? "折叠" : "展开"}
+            aria-label={expanded ? t.library.domains.collapse : t.library.domains.expand}
             onClick={(e) => {
               e.stopPropagation();
               store().toggleExpanded(domain.id);
@@ -357,8 +358,8 @@ const DomainRow = memo(function DomainRow({ node, count, selected, expanded, ren
                   type="button"
                   tabIndex={-1}
                   className={iconBtn}
-                  title="新建子领域"
-                  aria-label="新建子领域"
+                  title={t.library.domains.newSubdomain}
+                  aria-label={t.library.domains.newSubdomain}
                   onClick={(e) => {
                     e.stopPropagation();
                     void createAndRename(domain.id);
@@ -372,8 +373,8 @@ const DomainRow = memo(function DomainRow({ node, count, selected, expanded, ren
                       type="button"
                       tabIndex={-1}
                       className={iconBtn}
-                      title="更多"
-                      aria-label="领域操作"
+                      title={t.library.domains.more}
+                      aria-label={t.library.domains.actions}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <IconMore width={14} height={14} />
@@ -420,8 +421,8 @@ function ColorDot({ domain }: { domain: Domain }) {
         <button
           type="button"
           tabIndex={-1}
-          title="更改颜色"
-          aria-label="更改颜色"
+          title={t.library.domains.changeColor}
+          aria-label={t.library.domains.changeColor}
           onClick={(e) => e.stopPropagation()}
           className="flex h-5 w-4 shrink-0 items-center justify-center"
         >
@@ -441,8 +442,8 @@ function ColorDot({ domain }: { domain: Domain }) {
               <Popover.Close asChild key={c.value}>
                 <button
                   type="button"
-                  title={c.name}
-                  aria-label={c.name}
+                  title={t.library.domains.colors[c.key]}
+                  aria-label={t.library.domains.colors[c.key]}
                   onClick={() => void setDomainColor(domain.id, c.value)}
                   className="flex h-5 w-5 items-center justify-center rounded-full text-white ring-offset-1 hover:ring-2 hover:ring-neutral-300"
                   style={{ backgroundColor: c.value }}
@@ -464,12 +465,12 @@ function RenameInput({ domain }: { domain: Domain }) {
 
   useEffect(() => {
     // 等菜单关闭、焦点归位之后再聚焦
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       ref.current?.focus();
       ref.current?.select();
       ref.current?.scrollIntoView({ block: "nearest" });
     }, 0);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const finish = (save: boolean) => {
@@ -483,7 +484,7 @@ function RenameInput({ domain }: { domain: Domain }) {
     <input
       ref={ref}
       defaultValue={domain.name}
-      aria-label="领域名称"
+      aria-label={t.library.domains.nameLabel}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
@@ -535,16 +536,16 @@ function DomainMenuItems({ parts: M, domain }: { parts: MenuParts; domain: Domai
   return (
     <>
       <M.Item className={menuItem} onSelect={() => void createAndRename(domain.id)}>
-        新建子领域
+        {t.library.domains.newSubdomain}
       </M.Item>
       <M.Item className={menuItem} onSelect={() => store().setRenamingDomain(domain.id)}>
-        重命名
+        {t.common.rename}
       </M.Item>
       <M.Sub>
         <M.SubTrigger className={cx(menuItem, "justify-between data-[state=open]:bg-neutral-100")}>
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: domain.color }} />
-            颜色
+            {t.library.domains.color}
           </span>
           <IconChevronRight width={13} height={13} className="text-neutral-400" />
         </M.SubTrigger>
@@ -553,7 +554,7 @@ function DomainMenuItems({ parts: M, domain }: { parts: MenuParts; domain: Domai
             {DOMAIN_COLORS.map((c) => (
               <M.Item key={c.value} className={menuItem} onSelect={() => void setDomainColor(domain.id, c.value)}>
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.value }} />
-                <span className="flex-1">{c.name}</span>
+                <span className="flex-1">{t.library.domains.colors[c.key]}</span>
                 {c.value === domain.color && <IconCheck width={13} height={13} className="text-neutral-500" />}
               </M.Item>
             ))}
@@ -562,7 +563,7 @@ function DomainMenuItems({ parts: M, domain }: { parts: MenuParts; domain: Domai
       </M.Sub>
       <M.Separator className={menuSeparator} />
       <M.Item className={menuItemDanger} onSelect={() => store().openDialog({ kind: "deleteDomain", domainId: domain.id })}>
-        删除领域…
+        {t.library.domains.deleteDomain}
       </M.Item>
     </>
   );

@@ -1,6 +1,7 @@
 import { Component, memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { PDFDocumentProxy, PDFPageProxy, PageViewport } from "@/lib/pdf";
 import type { PaneId } from "@/app/stores/reader";
+import { t } from "@/i18n";
 import { docOverlays, pageOverlays, type PageLayerContext, type PageOverlayEntry, type PageTextInfo } from "./overlays";
 import {
   domRangeToTextRange,
@@ -115,10 +116,10 @@ export const PageView = memo(function PageView(props: PageViewProps) {
         {badge && (
           <div
             className="absolute top-1.5 right-1.5 z-[4] cursor-default rounded bg-neutral-800/45 px-1.5 py-0.5 text-[10px] leading-4 text-white select-none hover:bg-neutral-800/75"
-            title={badge === "no-text" ? "此页无文字层，无法选字" : "扫描件：标注精度取决于 OCR"}
+            title={badge === "no-text" ? t.reader.viewer.noTextTitle : t.reader.viewer.scannedTitle}
             data-page-badge={badge}
           >
-            {badge === "no-text" ? "无文字层" : "扫描件"}
+            {badge === "no-text" ? t.reader.viewer.noTextBadge : t.reader.viewer.scannedBadge}
           </div>
         )}
         {error && (
@@ -149,7 +150,7 @@ export class OverlayBoundary extends Component<{ name: string; children: ReactNo
     return { failed: true };
   }
   componentDidCatch(error: unknown) {
-    console.error(`覆盖层 ${this.props.name} 出错`, error);
+    console.error(`Overlay ${this.props.name} crashed`, error);
   }
   render() {
     return this.state.failed ? null : this.props.children;

@@ -1,8 +1,10 @@
-// 在线版冒烟测试：子路径部署、没有本地存储服务时，导入 PDF → 高亮 → 刷新后仍在；首次提示可以关掉且不再出现。
+// 在线版冒烟测试：子路径部署、没有本地存储服务时，导入 PDF → 高亮 → 刷新后仍在；首次提示可以关掉且不再出现；
+// pdf.js 附属资源的地址（中文 CMap）。
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 const simplePdf = fileURLToPath(new URL("../../fixtures/simple.pdf", import.meta.url));
+const cjkPdf = fileURLToPath(new URL("../../fixtures/cjk.pdf", import.meta.url));
 
 test("在线版：导入、高亮、刷新后仍在", async ({ page }) => {
   const errors: string[] = [];
@@ -44,4 +46,21 @@ test("在线版：导入、高亮、刷新后仍在", async ({ page }) => {
   await expect(page.locator(".pl-hl")).toHaveCount(1);
 
   expect(errors).toEqual([]);
+});
+
+// pdf.js 的附属资源（cmaps、wasm、标准字体）由它的 Worker 下载：地址必须按页面而不是 Worker 脚本解析
+test("在线版：不嵌入字体的中文 PDF 能从 pdfjs/cmaps/ 取到 CMap，文字层正常", async ({ page }) => {
+  const failed: string[] = [];
+  const cmaps: string[] = [];
+  page.on("response", (r) => {
+    if (r.url().includes("/cmaps/")) cmaps.push(`${r.status()} ${new URL(r.url()).pathname}`);
+    if (r.status() >= 400 && !r.url().includes("/__paperlens/")) failed.push(`${r.status()} ${r.url()}`);
+  });
+  await page.goto("/paperlens/");
+  await expect(page.getByTestId("storage-status")).toHaveAttribute("data-phase", "offline");
+  await page.getByTestId("import-input").setInputFiles(cjkPdf);
+  await page.locator("[data-library-sidebar] [data-paper-id]").click();
+  await expect(page.locator(".textLayer")).toContainText("\u4e2d\u6587\u8bba\u6587"); // 中文论文
+  expect(cmaps).toContain("200 /paperlens/pdfjs/cmaps/UniGB-UCS2-H.bcmap");
+  expect(failed).toEqual([]);
 });

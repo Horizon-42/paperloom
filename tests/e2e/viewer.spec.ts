@@ -3,11 +3,13 @@
 // 阅读器 e2e：通过开发模式的 window.__paperlens 直接写入 fixture PDF 并打开。
 // 单独运行：npx playwright test -c tests/e2e/viewer.config.ts
 // 设置 PAPERLENS_LITERATURE_DIR 时额外用真实论文检查渲染耗时（只在浏览器内读取，不复制进仓库）。
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   LIT,
+  realPaper,
+  type RealPaperKey,
   addFixture,
   addPaper,
   boot,
@@ -358,20 +360,17 @@ test("渲染耗时（fixture）", async ({ page }) => {
   expect(pct(0.5)).toBeLessThan(200);
 });
 
-const REAL = [
-  "transformer/PatchTST_Nie2023_time_series_is_worth_64_words.pdf",
-  "roll_rate_and_turn_response/papers/NASA_TN_D-5957_Holleman_1970_roll_requirements_transports.pdf",
-];
+const REAL: RealPaperKey[] = ["patchtst", "scanned"];
 
 test.describe("真实论文", () => {
   test.skip(!LIT, "设置 PAPERLENS_LITERATURE_DIR 后运行");
   // PAPERLENS_DPR=2 模拟 Retina 屏
   test.use({ deviceScaleFactor: Number(process.env.PAPERLENS_DPR ?? 1) });
-  for (const rel of REAL) {
-    test(`渲染与懒加载：${rel}`, async ({ page }) => {
-      const file = join(LIT!, rel);
-      test.skip(!existsSync(file), "文件不存在");
-      const id = await addPaper(page, readFileSync(file), `real-${rel}`, rel.split("/").at(-1)!);
+  for (const key of REAL) {
+    test(`渲染与懒加载：${key}`, async ({ page }) => {
+      const file = realPaper(key);
+      test.skip(!file, "real-papers.local.json 里没有这篇");
+      const id = await addPaper(page, readFileSync(file!), `real-${key}`, basename(file!));
       // 在页面内计时：从 openPaper 到第 1 页 canvas 和文本层都出现
       const firstPageMs = await page.evaluate(async (id) => {
         const t0 = performance.now();
@@ -438,14 +437,14 @@ test.describe("真实论文", () => {
       const dpr = await page.evaluate(() => window.devicePixelRatio);
       const zoom = await page.locator("[data-zoom-label]").textContent();
       console.log(
-        `[perf] ${rel} (dpr ${dpr}, ${zoom}): ${count} 页；打开到首页渲染 ${firstPageMs} ms\n` +
+        `[perf] ${key} (dpr ${dpr}, ${zoom}): ${count} 页；打开到首页渲染 ${firstPageMs} ms\n` +
           `  逐页阅读：${stats(stepPerf)}\n` +
           `  快速滚动：${stats(scrollPerf)}；${frames.n} 帧，帧间隔 p50 ${frames.p50.toFixed(0)} / p95 ${frames.p95.toFixed(0)} / 最大 ${frames.max.toFixed(0)} ms；滚到底后存活 canvas ${live} 个`,
       );
       for (const p of stepPerf.filter((p) => p.kind === "initial" && p.totalMs > 150))
         console.log(`  逐页慢页 p${p.page}: canvas ${p.canvasMs.toFixed(0)} ms，文本层 ${p.textMs.toFixed(0)} ms`);
       expect(live).toBeLessThanOrEqual(6);
-      await shot(page, `real-${rel.split("/")[0]}`);
+      await shot(page, `real-${key}`);
     });
   }
 });

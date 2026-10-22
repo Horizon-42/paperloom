@@ -16,7 +16,9 @@ export const TEXT_CONTENT_PARAMS = { includeMarkedContent: true, disableNormaliz
 
 // pdf.js 的附属资源由 vite.config.ts 中的 pdfjsAssets 插件复制到 public/pdfjs/。
 // 缺 wasm 时 JBIG2/JPX 图像（常见于扫描版论文）解不出来，整页空白；缺 cmaps 时部分中文 PDF 无法显示文字。
-const assetBase = `${import.meta.env.BASE_URL}pdfjs/`;
+// 必须是绝对地址：这些资源由 pdf.js 的 Worker 下载，相对地址会按 Worker 脚本所在的 assets/ 解析
+// （在线版用 --base=./ 构建，BASE_URL 是 "./"）。
+const assetBase = new URL(`${import.meta.env.BASE_URL}pdfjs/`, document.baseURI).href;
 
 // 所有文档共用一个 pdf.js Worker：传入的 worker 不会随 loadingTask.destroy() 关闭，省去每次约 280 ms 的启动
 let sharedWorker: pdfjs.PDFWorker | null = null;

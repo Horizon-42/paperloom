@@ -5,10 +5,10 @@
 // npx playwright test -c tests/e2e/term.config.ts term-perf
 // 真实论文：PAPERLENS_LITERATURE_DIR=<你的论文目录>（只读，PDF 只写进测试浏览器的临时 IndexedDB）
 // 截图：PAPERLENS_SHOTS_DIR=<目录>，输出 term-*.png
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { LIT, SHOTS, addFixture, addPaper, boot, installCtxProbe, store, waitGlyphs } from "./viewerHelpers";
+import { LIT, SHOTS, realPaper, addFixture, addPaper, boot, installCtxProbe, store, waitGlyphs } from "./viewerHelpers";
 
 interface TermPerf {
   paperId: string;
@@ -221,14 +221,17 @@ test("2000 条术语 × 50 页（fixtures/long.pdf）：每页匹配与绘制耗
 });
 
 const REAL_PAPERS = [
-  ["transformer/PatchTST_Nie2023_time_series_is_worth_64_words.pdf", "PatchTST"],
-  ["trajectory_prediction/papers/4-D_Flight_Trajectory_Prediction_With_Constrained_LSTM_Network.pdf", "4-D LSTM"],
+  ["patchtst", "PatchTST"],
+  ["lstm", "LSTM"],
 ] as const;
 
 test("真实论文：2000 条术语的耗时 + 截图", async ({ page }) => {
   test.skip(!LIT, "未设置 PAPERLENS_LITERATURE_DIR");
   test.setTimeout(240_000);
-  const files = REAL_PAPERS.map(([rel, title]) => ({ path: join(LIT!, rel), title })).filter((x) => existsSync(x.path));
+  const files = REAL_PAPERS.flatMap(([key, title]) => {
+    const path = realPaper(key);
+    return path ? [{ path, title }] : [];
+  });
   expect(files.length).toBeGreaterThan(0);
   const ids: string[] = [];
   for (const [i, f2] of files.entries()) ids.push(await addPaper(page, readFileSync(f2.path), `lit-${i}`, f2.title));
@@ -265,7 +268,7 @@ test("真实论文：2000 条术语的耗时 + 截图", async ({ page }) => {
     const keys = await db.terms.toCollection().primaryKeys();
     await db.terms.bulkDelete(keys.filter((k) => !k.startsWith("r-")));
   });
-  const lstmPaper = ids[files.findIndex((x) => x.title === "4-D LSTM")] ?? ids[0];
+  const lstmPaper = ids[files.findIndex((x) => x.title === "LSTM")] ?? ids[0];
   await reload(page);
   await store(page).open(lstmPaper);
   await waitGlyphs(page, 1);

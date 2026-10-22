@@ -8,16 +8,19 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { expect, test } from "@playwright/test";
-import { LIT, SHOTS } from "./viewerHelpers";
+import { LIT, SHOTS, realPaper, type RealPaperKey } from "./viewerHelpers";
 import { addPdf, bootGlossary, getOccurrences, putDomains, putTerms, waitIndexed } from "./glossaryHelpers";
 
-const PAPERS: { rel: string; domains: string[] }[] = [
-  { rel: "multi_agent_interaction/papers/SocialLSTM_Alahi2016_social_lstm_human_trajectory_prediction_in_crowded_spaces.pdf", domains: ["d-traj"] },
-  { rel: "multi_agent_interaction/papers/RelStateTransformer_Groot2022_relative_state_transformer_models_for_marl_in_air_traffic_control.pdf", domains: ["d-atm", "d-rl"] },
-  { rel: "transformer/RoFormer_Su2021_enhanced_transformer_with_rotary_position_embedding.pdf", domains: ["d-dl"] },
-  { rel: "manoeuvre_tokens/papers/LLM-FTP_Luo2025_large_language_models_for_single-step_and_multi-step_flight_trajectory_prediction.pdf", domains: ["d-traj"] },
-  { rel: "multi_agent_interaction/papers/DA-STGCN_Kuang2025_4d_trajectory_prediction_based_on_spatiotemporal_feature_extraction.pdf", domains: ["d-traj"] },
-  { rel: "multi_agent_interaction/papers/D2MAV-A_Brittain2020_deep_multi-agent_rl_approach_to_autonomous_separation_assurance.pdf", domains: ["d-atm", "d-rl"] },
+// 6 篇论文在 real-papers.local.json 里的键是 glossary-1 … glossary-6，下面的断言按它们的内容写：
+//   1 Social LSTM（Alahi 2016，LSTM 很多）  2 空管领域的多智能体强化学习论文（有 ATC，没有 RoPE）  3 RoFormer（有 RoPE，没有 ATC）
+//   4、5 航迹预测论文  6 空管冲突解脱的强化学习论文（RL 很多）
+const PAPERS: { key: RealPaperKey; domains: string[] }[] = [
+  { key: "glossary-1", domains: ["d-traj"] },
+  { key: "glossary-2", domains: ["d-atm", "d-rl"] },
+  { key: "glossary-3", domains: ["d-dl"] },
+  { key: "glossary-4", domains: ["d-traj"] },
+  { key: "glossary-5", domains: ["d-traj"] },
+  { key: "glossary-6", domains: ["d-atm", "d-rl"] },
 ];
 
 const EXTRA = Number(process.env.PAPERLENS_REAL_EXTRA ?? 0);
@@ -58,7 +61,9 @@ test("真实论文：自动提取全文并建立术语索引", async ({ page }) 
   ]);
   await page.evaluate(() => (window as any).__paperlens.useAppStore.getState().setView("glossary"));
 
-  const chosen = PAPERS.map((p) => ({ file: join(LIT!, p.rel), domains: p.domains }));
+  const files = PAPERS.map((p) => realPaper(p.key));
+  test.skip(files.some((f) => !f), "real-papers.local.json 里缺少 glossary-1 … glossary-6");
+  const chosen = PAPERS.map((p, i) => ({ file: files[i]!, domains: p.domains }));
   if (EXTRA > 0) {
     const fixed = new Set(chosen.map((c) => c.file));
     const more = listPdfs(LIT!).filter((f) => !fixed.has(f)).slice(0, EXTRA);

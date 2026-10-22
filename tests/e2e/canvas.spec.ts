@@ -5,10 +5,10 @@
 // 删除（连线/节点/笔记/画布）、导出 .canvas、多画布互相独立、视口保留、600 节点性能。
 // npx playwright test -c tests/e2e/canvas.config.ts
 // 真实论文截图：PAPERLENS_LITERATURE_DIR=<你的论文目录> PAPERLENS_SHOTS_DIR=<目录>
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { LIT, SHOTS, addFixture, addPaper, boot, installCtxProbe, store, waitGlyphs } from "./viewerHelpers";
+import { LIT, SHOTS, realPaper, addFixture, addPaper, boot, installCtxProbe, store, waitGlyphs } from "./viewerHelpers";
 
 type Rect = [number, number, number, number];
 interface Ref {
@@ -1220,11 +1220,10 @@ test("性能：600 节点 + 800 连线", async ({ page }) => {
 test("真实论文：RoFormer 的批注与术语整理成网络（截图）", async ({ page }) => {
   test.skip(!LIT || !SHOTS, "未设置 PAPERLENS_LITERATURE_DIR / PAPERLENS_SHOTS_DIR");
   test.setTimeout(120_000);
-  const dir = join(LIT!, "transformer");
-  const file = readdirSync(dir).find((f) => f.startsWith("RoFormer_Su2021_") && f.endsWith(".pdf"));
-  test.skip(!file, "找不到 RoFormer 论文");
+  const file = realPaper("roformer");
+  test.skip(!file, "real-papers.local.json 里没有 roformer");
   // 只在浏览器内存（IndexedDB）里读取，不复制进仓库
-  const paperId = await addPaper(page, readFileSync(join(dir, file!)), "roformer", "RoFormer: Enhanced Transformer with Rotary Position Embedding");
+  const paperId = await addPaper(page, readFileSync(file!), "roformer", "RoFormer: Enhanced Transformer with Rotary Position Embedding");
   await page.evaluate(() =>
     (window as unknown as CW).__paperlens.db.papers.update("roformer", { authors: ["Jianlin Su", "Yu Lu", "Shengfeng Pan", "Ahmed Murtadha", "Bo Wen", "Yunfeng Liu"], year: 2021 }),
   );

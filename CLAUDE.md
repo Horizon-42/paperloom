@@ -14,7 +14,7 @@
 - `npm test` — Vitest 单元测试（`tests/engine/**`、`tests/unit/**`）
 - `npm run e2e` — Playwright（`tests/e2e/**`，自动在 5199 端口起服务）。各模块另有独立配置：
   `npx playwright test -c tests/e2e/<viewer|annotation|term|glossary|canvas|storage|projects|tags|i18n|static>.config.ts`（static 是在线版冒烟测试，先构建）；
-  `PAPERLENS_LITERATURE_DIR=<你的论文目录>` 时额外跑真实论文用例
+  `PAPERLENS_LITERATURE_DIR=<你的论文目录>` 时额外跑真实论文用例；用哪几篇写在 `tests/e2e/real-papers.local.json`（git 忽略，格式见同目录的 `real-papers.example.json`）
 
 ## 项目（notebook）与数据目录
 
@@ -105,4 +105,4 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 
 ## 隐私
 
-真实论文用例通过 `PAPERLENS_LITERATURE_DIR` 指向本机的论文目录，只能原地读取。不要把真实论文复制进本仓库，不要上传到任何服务。
+真实论文用例通过 `PAPERLENS_LITERATURE_DIR` 指向本机的论文目录，只能原地读取。论文的文件名和目录结构只写在 `tests/e2e/real-papers.local.json`，不要写进测试代码。不要把真实论文复制进本仓库，不要上传到任何服务。

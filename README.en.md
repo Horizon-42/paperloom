@@ -26,11 +26,11 @@ Your papers and notes stay on your own computer. Nothing is uploaded to any serv
 
 ### Online version
 
-Data is stored in your browser (IndexedDB). Clearing site data, switching browsers or computers will lose it, so export a backup regularly from "数据与备份" (Data & backup) at the bottom left.
+Data is stored in your browser (IndexedDB). Clearing site data, switching browsers or computers will lose it, so export a backup regularly from "数据与备份" (Data & backup) at the bottom left. The JSON backup contains paper metadata, highlights, terms and canvases but **not the PDF files themselves** — keep your original PDFs; after restoring a backup in a new browser, import those PDFs again and they are matched back up.
 
 ### Run locally (recommended for long-term use)
 
-Requires [Node.js](https://nodejs.org/) 20.19 or newer.
+Requires [Node.js](https://nodejs.org/) 22.13 or newer.
 
 ```bash
 git clone https://github.com/Horizon-42/paperloom.git

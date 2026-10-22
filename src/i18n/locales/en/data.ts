@@ -42,7 +42,7 @@ const data: Messages["data"] = {
   },
   browserOnly: {
     heading: "Your data is saved only in this browser",
-    body: "Papers and annotations are never uploaded to a server, but you'll lose access to them if you clear site data or switch browsers or computers. Export a backup regularly.",
+    body: "Papers and annotations are never uploaded to a server, but you'll lose access to them if you clear site data or switch browsers or computers. Export a backup regularly. Backups don't include the PDF files themselves, so keep your originals.",
     exportBackup: "Export backup",
     dismiss: "Got it",
   },

@@ -1,0 +1,14 @@
+{
+  "roformer": "path/to/RoFormer.pdf",
+  "patchtst": "path/to/PatchTST.pdf",
+  "scanned": "path/to/scanned-report.pdf",
+  "elsevier": "path/to/elsevier-article.pdf",
+  "chinese": "path/to/chinese-paper.pdf",
+  "lstm": "path/to/lstm-paper.pdf",
+  "glossary-1": "path/to/social-lstm.pdf",
+  "glossary-2": "path/to/atc-marl.pdf",
+  "glossary-3": "path/to/RoFormer.pdf",
+  "glossary-4": "path/to/trajectory-1.pdf",
+  "glossary-5": "path/to/trajectory-2.pdf",
+  "glossary-6": "path/to/separation-rl.pdf"
+}

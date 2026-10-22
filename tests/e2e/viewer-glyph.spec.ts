@@ -3,12 +3,14 @@
 // 字形映射、词级校正、textGeometry、文档级覆盖层、文档 LRU 的 e2e。
 // 词框精度以 canvas 墨迹为真值（见 viewerHelpers.measureWordsInBrowser）。
 // 设置 PAPERLENS_LITERATURE_DIR 时额外在真实论文上做同样的断言，并输出 glyph-*.png 截图到 PAPERLENS_SHOTS_DIR。
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
   LIT,
   SHOTS,
+  realPaper,
+  type RealPaperKey,
   crossLineOverlapInBrowser,
   dragWords,
   type DragResult,
@@ -396,25 +398,21 @@ test("论文换了 PDF 文件后加载新文档", async ({ page }) => {
 
 // ---- 真实论文 ----
 
-const REAL: { rel: string; pages: number[]; shotPage: number }[] = [
-  { rel: "transformer/RoFormer_Su2021_enhanced_transformer_with_rotary_position_embedding.pdf", pages: [1, 3, 6], shotPage: 3 },
-  { rel: "transformer/PatchTST_Nie2023_time_series_is_worth_64_words.pdf", pages: [2, 5], shotPage: 5 },
-  { rel: "trajectory_prediction/papers/4D-flight-trajectory-ATL.pdf", pages: [2, 6], shotPage: 2 },
-  {
-    rel: "roll_rate_and_turn_response/papers/NASA_TN_D-5957_Holleman_1970_roll_requirements_transports.pdf",
-    pages: [20, 40],
-    shotPage: 20,
-  },
+const REAL: { key: RealPaperKey; pages: number[]; shotPage: number }[] = [
+  { key: "roformer", pages: [1, 3, 6], shotPage: 3 },
+  { key: "patchtst", pages: [2, 5], shotPage: 5 },
+  { key: "elsevier", pages: [2, 6], shotPage: 2 },
+  { key: "scanned", pages: [20, 40], shotPage: 20 },
 ];
 
 test.describe("真实论文", () => {
   test.skip(!LIT, "设置 PAPERLENS_LITERATURE_DIR 后运行");
-  for (const { rel, pages, shotPage } of REAL) {
-    test(`词框精度：${rel.split("/").at(-1)}`, async ({ page }) => {
+  for (const { key, pages, shotPage } of REAL) {
+    test(`词框精度：${key}`, async ({ page }) => {
       test.setTimeout(120_000);
-      const file = join(LIT!, rel);
-      test.skip(!existsSync(file), "文件不存在");
-      const id = await addPaper(page, readFileSync(file), `real-${rel}`, rel.split("/").at(-1)!);
+      const file = realPaper(key);
+      test.skip(!file, "real-papers.local.json 里没有这篇");
+      const id = await addPaper(page, readFileSync(file!), `real-${key}`, basename(file!));
       await store(page).open(id);
       const { words, skipped } = await measurePages(page, id, pages);
       const scanned = await page.evaluate(
@@ -423,7 +421,7 @@ test.describe("真实论文", () => {
       );
       // 真值失败（两种方法都偏离 >1 em，多为图表、公式与文字相接）剔除
       const valid = words.filter((w) => Math.max(w.glyphL, w.glyphR) < 1 || Math.max(w.domL ?? 0, w.domR ?? 0) < 1);
-      const { glyph } = report(`${rel.split("/").at(-1)}${scanned ? "（扫描件）" : ""}`, valid, skipped + words.length - valid.length);
+      const { glyph } = report(`${key}${scanned ? "（扫描件）" : ""}`, valid, skipped + words.length - valid.length);
       expect(valid.length).toBeGreaterThan(100);
       // 扫描件只能复现 OCR 文字层的位置，OCR 词与墨迹不一致（漏字、粘连）时真值本身有偏差
       expect(glyph.p95).toBeLessThan(scanned ? 0.15 : 0.1);
@@ -436,24 +434,24 @@ test.describe("真实论文", () => {
       const drag = await dragWords(page, pages[0], sample);
       console.log(`  ${fmtDrag(drag)}`);
       expectDrag(drag);
-      if (SHOTS) await drawWordBoxes(page, id, shotPage, join(SHOTS, `glyph-${rel.split("/")[0]}-${rel.includes("NASA") ? "nasa" : rel.includes("RoFormer") ? "roformer" : "2211"}`));
+      if (SHOTS) await drawWordBoxes(page, id, shotPage, join(SHOTS, `glyph-${key}`));
     });
   }
 });
 
-const OVERLAP: { rel: string; pages: number[] }[] = [
-  { rel: "transformer/RoFormer_Su2021_enhanced_transformer_with_rotary_position_embedding.pdf", pages: [1, 3] },
-  { rel: "trajectory_prediction/papers/4D-flight-trajectory-ATL.pdf", pages: [2, 6] },
-  { rel: "trajectory_prediction/papers/面向终端空域的四维飞机轨迹预测：近五年高质量期刊AI方法深度调研报告.pdf", pages: [2, 4] },
+const OVERLAP: { key: RealPaperKey; pages: number[] }[] = [
+  { key: "roformer", pages: [1, 3] },
+  { key: "elsevier", pages: [2, 6] },
+  { key: "chinese", pages: [2, 4] },
 ];
 
 test.describe("真实论文：跨行高亮", () => {
   test.skip(!LIT, "设置 PAPERLENS_LITERATURE_DIR 后运行");
-  for (const { rel, pages } of OVERLAP) {
-    test(`跨行高亮两段不重叠：${rel.split("/").at(-1)}`, async ({ page }) => {
-      const file = join(LIT!, rel);
-      test.skip(!existsSync(file), "文件不存在");
-      const id = await addPaper(page, readFileSync(file), `real-${rel}`, rel.split("/").at(-1)!);
+  for (const { key, pages } of OVERLAP) {
+    test(`跨行高亮两段不重叠：${key}`, async ({ page }) => {
+      const file = realPaper(key);
+      test.skip(!file, "real-papers.local.json 里没有这篇");
+      const id = await addPaper(page, readFileSync(file!), `real-${key}`, basename(file!));
       await store(page).open(id);
       const all: number[] = [];
       for (const n of pages) {
@@ -462,17 +460,16 @@ test.describe("真实论文：跨行高亮", () => {
         all.push(...(await page.evaluate(crossLineOverlapInBrowser, { paneId: "left", pageNumber: n })));
       }
       const s = summarize(all);
-      console.log(`[glyph] 跨行高亮重叠 ${rel.split("/").at(-1)}：${s.n} 处，中位 ${s.median.toFixed(3)} / p95 ${s.p95.toFixed(3)} / 最大 ${s.max.toFixed(3)} em`);
+      console.log(`[glyph] 跨行高亮重叠 ${key}：${s.n} 处，中位 ${s.median.toFixed(3)} / p95 ${s.p95.toFixed(3)} / 最大 ${s.max.toFixed(3)} em`);
       expect(s.n).toBeGreaterThan(20);
       expect(s.p95).toBeLessThan(0.05);
     });
   }
 
   test("文本层不重复：Elsevier 论文加载中连续放大", async ({ page }) => {
-    const rel = "trajectory_prediction/papers/4D-flight-trajectory-ATL.pdf";
-    const file = join(LIT!, rel);
-    test.skip(!existsSync(file), "文件不存在");
-    const id = await addPaper(page, readFileSync(file), `real-${rel}`, "ATL");
+    const file = realPaper("elsevier");
+    test.skip(!file, "real-papers.local.json 里没有这篇");
+    const id = await addPaper(page, readFileSync(file!), "real-elsevier", "Elsevier");
     await page.evaluate(burstWhileLoading, id);
     await waitRendered(page, 1);
     await page.waitForTimeout(1500);

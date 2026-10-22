@@ -22,14 +22,14 @@ describe("title heuristics", () => {
     "joes_518.tex",
     "jwuk_acs_1176.dvi",
     "9643Flyleaf.cdr",
-    "ufte251.PDF",
+    "abcd123.PDF",
     "untitled",
     "Untitled-1",
     "PowerPoint Presentation",
     "Paper Title (use style: paper title)",
     "WP-IP Template",
-    "COMPLEXITY1659103 1..19",
-    "FSBR_B737_Rev_17",
+    "REPORT1234567 1..19",
+    "ABCD_X123_Rev_4",
     "2211.14730v2",
     "arXiv:2405.04515",
     "无标题",
@@ -39,10 +39,10 @@ describe("title heuristics", () => {
 
   it.each([
     "Social LSTM: Human Trajectory Prediction in Crowded Spaces",
-    "AC 90-114B",
+    "AC 12-345B",
     "RoFormer",
-    "GAO-24-105254, AIR TRAFFIC CONTROL MODERNIZATION",
-    "面向终端空域的四维飞机轨迹预测",
+    "ABC-12-345678, SYSTEM MODERNIZATION REVIEW",
+    "面向长文档的检索增强方法",
   ])("keeps %j", (t) => {
     expect(isMeaninglessTitle(t)).toBe(false);
   });
@@ -53,7 +53,7 @@ describe("title heuristics", () => {
   });
 
   it("falls back to the file name", () => {
-    expect(titleFromFileName("CATK_Zhang2025_closed-loop_fine-tuning.pdf")).toBe("CATK Zhang2025 closed-loop fine-tuning");
+    expect(titleFromFileName("ABCD_Smith2025_closed-loop_fine-tuning.pdf")).toBe("ABCD Smith2025 closed-loop fine-tuning");
     expect(titleFromFileName("/a/b/my__paper .PDF")).toBe("my paper");
     expect(deriveTitle({ title: "Microsoft Word - x.docx" }, "Real_Title.pdf")).toBe("Real Title");
     expect(deriveTitle({ title: "untitled", xmpTitle: "Good XMP Title" }, "f.pdf")).toBe("Good XMP Title");
@@ -72,11 +72,11 @@ describe("year heuristics", () => {
   });
 
   it("reads years from file names", () => {
-    expect(yearFromFileName("CATK_Zhang2025_closed-loop.pdf")).toBe(2025);
-    expect(yearFromFileName("doc-4444-pans-atm-16ed-2016.pdf")).toBe(2016);
+    expect(yearFromFileName("ABCD_Smith2025_closed-loop.pdf")).toBe(2025);
+    expect(yearFromFileName("doc-1234-manual-16ed-2016.pdf")).toBe(2016);
     expect(yearFromFileName("2211.14730v2.pdf")).toBe(2022);
-    expect(yearFromFileName("WP32_THA-SGP.pdf")).toBeUndefined();
-    expect(yearFromFileName("id_120245.pdf")).toBeUndefined();
+    expect(yearFromFileName("WP12_ABC-DEF.pdf")).toBeUndefined();
+    expect(yearFromFileName("id_123456.pdf")).toBeUndefined();
   });
 
   it("prefers the file name over the creation date", () => {

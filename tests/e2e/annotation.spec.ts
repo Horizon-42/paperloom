@@ -3,13 +3,15 @@
 // 批注模块 e2e：选区工具栏、高亮层、角注栏、跳转闪烁、批注列表、删除、设为术语、替换 PDF 重新锚定。
 // 通过开发模式的 window.__paperlens / __paperlensAnnotation 注入数据。
 // 设置 PAPERLENS_LITERATURE_DIR 时在真实论文上创建高亮和笔记并截图（PAPERLENS_SHOTS_DIR/annotation-*.png）。
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import {
   LIT,
   SHOTS,
+  realPaper,
+  type RealPaperKey,
   addFixture,
   addPaper,
   boot,
@@ -743,9 +745,9 @@ test("性能：50 页 300 条批注滚动不卡顿", async ({ page }) => {
 // 真实论文（只读原地读取，不复制进仓库）：创建高亮和笔记并截图，供人工检查
 // ---------------------------------------------------------------------------
 
-const REAL: { rel: string; page: number; phrases: { text: string; color: string; note: string }[] }[] = [
+const REAL: { key: RealPaperKey; page: number; phrases: { text: string; color: string; note: string }[] }[] = [
   {
-    rel: "transformer/RoFormer_Su2021_enhanced_transformer_with_rotary_position_embedding.pdf",
+    key: "roformer",
     page: 1,
     phrases: [
       { text: "Rotary Position Embedding", color: "#fde68a", note: "**RoPE**：用旋转矩阵编码绝对位置，$q_m^T k_n$ 只依赖 $m-n$" },
@@ -755,7 +757,8 @@ const REAL: { rel: string; page: number; phrases: { text: string; color: string;
     ],
   },
   {
-    rel: "roll_rate_and_turn_response/papers/NASA_TN_D-5957_Holleman_1970_roll_requirements_transports.pdf",
+    // 扫描件（1970 年代的 NASA 技术报告）
+    key: "scanned",
     page: 5,
     phrases: [
       { text: "roll", color: "#fde68a", note: "滚转性能要求" },
@@ -767,12 +770,12 @@ const REAL: { rel: string; page: number; phrases: { text: string; color: string;
 
 test.describe("真实论文", () => {
   test.skip(!LIT, "设置 PAPERLENS_LITERATURE_DIR 后运行");
-  for (const { rel, page: pn, phrases } of REAL) {
-    test(`截图：${rel.split("/").at(-1)}`, async ({ page }) => {
+  for (const { key, page: pn, phrases } of REAL) {
+    test(`截图：${key}`, async ({ page }) => {
       test.setTimeout(120_000);
-      const file = join(LIT!, rel);
-      test.skip(!existsSync(file), "文件不存在");
-      const id = await addPaper(page, readFileSync(file), `real-${rel}`, rel.split("/").at(-1)!);
+      const file = realPaper(key);
+      test.skip(!file, "real-papers.local.json 里没有这篇");
+      const id = await addPaper(page, readFileSync(file!), `real-${key}`, basename(file!));
       await store(page).open(id);
       await store(page).jump({ paperId: id, page: pn });
       await waitGlyphs(page, pn);
@@ -786,7 +789,7 @@ test.describe("真实论文", () => {
           { pn, text: ph.text },
         );
         if (found < 0) {
-          console.log(`[annotation] ${rel} 第 ${pn} 页没有「${ph.text}」`);
+          console.log(`[annotation] ${key} 第 ${pn} 页没有「${ph.text}」`);
           continue;
         }
         const exact = await page.evaluate(
@@ -815,12 +818,11 @@ test.describe("真实论文", () => {
       const hl = (await page.locator(`.pl-hl[data-annotation-id="${first.id}"]`).first().boundingBox())!;
       await page.locator("[data-viewer-scroll]").evaluate((el, y) => (el.scrollTop += y - 200), hl.y);
       await page.waitForTimeout(400);
-      const slug = rel.includes("RoFormer") ? "roformer" : "nasa";
-      await shot(page, `${slug}`);
+      await shot(page, key);
       // 选中一条：卡片对齐原文、页内引线
       await page.locator(`[data-margin-marker="${made[made.length - 1].id}"]`).click();
       await page.waitForTimeout(300);
-      await shot(page, `${slug}-selected`);
+      await shot(page, `${key}-selected`);
     });
   }
 });

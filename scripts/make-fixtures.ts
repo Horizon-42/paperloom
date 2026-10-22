@@ -9,6 +9,8 @@
 //                   扫描件（整页图片 + 不可见文字）、/Rotate 90 页、连字字体、
 //                   负字号与 180° 文字、Type3 字体（含不可见、FontMatrix 平移）、竖排（Identity-V）、
 //                   无文字层的纯扫描页
+//   cjk.pdf         不嵌入的中文字体（UniGB-UCS2-H 编码），pdf.js 要从 pdfjs/cmaps/ 下载 CMap 才能得到文字层，
+//                   用于检查在线版（子路径部署）的附属资源地址
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { crc32, deflateSync } from "node:zlib";
 import { dirname, join } from "node:path";
@@ -17,9 +19,11 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   PDFDict,
   PDFDocument,
+  PDFHexString,
   PDFName,
   PDFOperator,
   PDFOperatorNames,
+  PDFString,
   StandardFonts,
   TextRenderingMode,
   beginText,
@@ -513,6 +517,38 @@ async function makeGlyphOps(): Promise<Uint8Array> {
   return doc.save({ useObjectStreams: false });
 }
 
+// ---------- cjk.pdf ----------
+
+/** 中文正文用的文字（UCS-2 编码即 UniGB-UCS2-H 的字符码） */
+const CJK_TEXT = "\u4e2d\u6587\u8bba\u6587\u9605\u8bfb\u6d4b\u8bd5"; // 中文论文阅读测试
+
+async function makeCjk(): Promise<Uint8Array> {
+  const doc = await PDFDocument.create({ updateMetadata: false });
+  setMeta(doc, "CJK CMap Fixture");
+  const ctx = doc.context;
+  const helv = await doc.embedFont(StandardFonts.Helvetica);
+  // Type0 字体，不嵌入字形：编码和 ToUnicode 都要用 pdf.js 自带的 CMap 文件
+  const cid = ctx.register(
+    ctx.obj({
+      Type: "Font",
+      Subtype: "CIDFontType0",
+      BaseFont: "STSong-Light",
+      CIDSystemInfo: ctx.obj({ Registry: PDFString.of("Adobe"), Ordering: PDFString.of("GB1"), Supplement: 4 }),
+      FontDescriptor: ctx.register(
+        ctx.obj({ Type: "FontDescriptor", FontName: "STSong-Light", Flags: 6, FontBBox: [-25, -254, 1000, 880], ItalicAngle: 0, Ascent: 880, Descent: -120, CapHeight: 880, StemV: 93 }),
+      ),
+      DW: 1000,
+    }),
+  );
+  const type0 = ctx.register(ctx.obj({ Type: "Font", Subtype: "Type0", BaseFont: "STSong-Light-UniGB-UCS2-H", Encoding: "UniGB-UCS2-H", DescendantFonts: [cid] }));
+  const page = doc.addPage(LETTER);
+  page.drawText("CJK text below uses a predefined CMap", { x: 72, y: 720, size: 14, font: helv });
+  const key = page.node.newFontDictionary("CJK", type0);
+  const hex = [...CJK_TEXT].map((c) => c.charCodeAt(0).toString(16).padStart(4, "0")).join("");
+  page.pushOperators(pushGraphicsState(), beginText(), setFontAndSize(key, 24), setTextMatrix(1, 0, 0, 1, 72, 660), showText(PDFHexString.of(hex)), endText(), popGraphicsState());
+  return doc.save({ useObjectStreams: false });
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const write = (name: string, bytes: Uint8Array) => {
@@ -527,6 +563,7 @@ async function main() {
   const lig = await makeLigature();
   write("ligature.pdf", lig.bytes);
   write("glyph-ops.pdf", await makeGlyphOps());
+  write("cjk.pdf", await makeCjk());
   console.log(`  连字字形：${lig.ligatures.join(" ")}`);
 }
 

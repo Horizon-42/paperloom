@@ -2,14 +2,44 @@
 /// <reference lib="dom.iterable" />
 // 阅读器 e2e 的公共工具：通过开发模式的 window.__paperlens 写入 PDF 并驱动界面。
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 
 export const FIXTURES = fileURLToPath(new URL("../../fixtures", import.meta.url));
 export const SHOTS = process.env.PAPERLENS_SHOTS_DIR;
 export const LIT = process.env.PAPERLENS_LITERATURE_DIR;
+
+/** 真实论文用例用到的论文（键名只表示用途，具体文件由使用者自己指定） */
+export type RealPaperKey =
+  | "roformer" // RoFormer（arXiv 2104.09864），批注、画布、术语用例按它的原文断言
+  | "patchtst" // PatchTST（arXiv 2211.14730）
+  | "scanned" // 扫描版长文档（带 OCR 文字层，40 页以上）
+  | "elsevier" // Elsevier 排版的期刊论文（加载中连续放大时曾出现重复文本层）
+  | "chinese" // 中文论文（跨行高亮）
+  | "lstm" // 正文大量出现 LSTM 的论文（术语性能）
+  | "glossary-1" // 术语表用例的 6 篇：见 glossary-real.spec.ts 的说明
+  | "glossary-2"
+  | "glossary-3"
+  | "glossary-4"
+  | "glossary-5"
+  | "glossary-6";
+
+/**
+ * 真实论文的文件位置：键 → 相对 PAPERLENS_LITERATURE_DIR 的路径，写在 tests/e2e/real-papers.local.json
+ * （git 忽略；或用 PAPERLENS_REAL_PAPERS 指定别的文件），格式见 real-papers.example.json。
+ * 没设目录、没配这个键或文件不存在时返回 undefined，对应用例跳过。论文只在测试浏览器内读取，不复制进仓库。
+ */
+export function realPaper(key: RealPaperKey): string | undefined {
+  if (!LIT) return undefined;
+  const list = process.env.PAPERLENS_REAL_PAPERS ?? fileURLToPath(new URL("./real-papers.local.json", import.meta.url));
+  if (!existsSync(list)) return undefined;
+  const rel = (JSON.parse(readFileSync(list, "utf8")) as Partial<Record<RealPaperKey, string>>)[key];
+  if (!rel) return undefined;
+  const file = isAbsolute(rel) ? rel : resolve(LIT, rel);
+  return existsSync(file) ? file : undefined;
+}
 
 export type PaneId = "left" | "right";
 

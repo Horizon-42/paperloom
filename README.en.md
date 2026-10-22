@@ -10,7 +10,7 @@ Your papers and notes stay on your own computer. Nothing is uploaded to any serv
 
 > The interface is currently Chinese only.
 
-<!-- Online version: add the link and a demo GIF here after deploying -->
+**Try it online: <https://horizon-42.github.io/paperloom/>** (nothing to install; data stays in your browser)
 
 ## Features
 
@@ -33,8 +33,8 @@ Data is stored in your browser (IndexedDB). Clearing site data, switching browse
 Requires [Node.js](https://nodejs.org/) 20.19 or newer.
 
 ```bash
-git clone <repository-url> paperlens
-cd paperlens
+git clone https://github.com/Horizon-42/paperloom.git
+cd paperloom
 npm install
 npm run dev
 ```

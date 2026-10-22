@@ -8,7 +8,7 @@
 
 论文和笔记只保存在你自己的电脑上，不上传到任何服务器。
 
-<!-- 在线版：部署后在这里放链接和演示 GIF -->
+**在线试用：<https://horizon-42.github.io/paperloom/>**（打开就能用，数据只存在你的浏览器里）
 
 ## 功能
 
@@ -33,8 +33,8 @@
 需要 [Node.js](https://nodejs.org/) 20.19 或更新版本。
 
 ```bash
-git clone <仓库地址> paperlens
-cd paperlens
+git clone https://github.com/Horizon-42/paperloom.git
+cd paperloom
 npm install
 npm run dev
 ```

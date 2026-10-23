@@ -13,7 +13,7 @@ import {
 } from "@/components/term/logic/conflicts";
 import { weakForms } from "@/components/term/logic/forms";
 import { surfaceForms } from "@/engine/matcher";
-import { findDefinitions, looksLikeAbbreviation, matchLongForm, suggestFromSelection } from "@/components/term/logic/definition";
+import { findDefinitions, looksLikeAbbreviation, matchLongForm, suggestFromSelection, initialsAbbreviation } from "@/components/term/logic/definition";
 import {
   buildOccurrenceIndex,
   groupOccurrences,
@@ -319,5 +319,28 @@ describe("occurrences", () => {
     expect(orderCandidates(["g", "r", "m2", "l", "m1"], byId, ["leaf"], parent)).toEqual(["l", "m1", "m2", "r", "g"]);
     expect(orderCandidates(["r", "l"], byId, ["mid"], parent)).toEqual(["r", "l"]); // leaf 不在范围内，排后
     expect(orderCandidates(["g", "r"], byId)).toEqual(["r", "g"]);
+  });
+});
+
+describe("initialsAbbreviation", () => {
+  it.each([
+    ["Long Short-Term Memory", "LSTM"],
+    ["air traffic management", "ATM"],
+    ["convolutional neural network", "CNN"],
+    ["Generative Pre-trained Transformer", "GPT"],
+    ["Bidirectional Encoder Representations from Transformers", "BERFT"],
+    ["long short-term memory", "LSM"],
+  ])("%s → %s", (name, abbr) => expect(initialsAbbreviation(name)).toBe(abbr));
+
+  it("名称里已有缩写时不推断", () => {
+    expect(initialsAbbreviation("Transformer-XL")).toBeNull();
+    expect(initialsAbbreviation("Mask R-CNN")).toBeNull();
+    expect(initialsAbbreviation("3D Convolutional Network")).toBeNull();
+  });
+
+  it("一个词、非拉丁文字开头时不推断", () => {
+    expect(initialsAbbreviation("Transformer")).toBeNull();
+    expect(initialsAbbreviation("长短期 记忆")).toBeNull();
+    expect(initialsAbbreviation("  ")).toBeNull();
   });
 });

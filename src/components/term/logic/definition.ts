@@ -12,6 +12,23 @@ export function looksLikeAbbreviation(s: string): boolean {
 
 const isAlnum = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
 
+/**
+ * 由名称推断缩写：每个词的首字母大写。连字符后面是大写字母时也算一个词：
+ * "Long Short-Term Memory" → "LSTM"，"Generative Pre-trained Transformer" → "GPT"。
+ * 至少两个词、每个词以拉丁字母或数字开头时才推断，否则返回 null
+ */
+export function initialsAbbreviation(name: string): string | null {
+  const words = name
+    .trim()
+    .split(/\s+|[-\u2010-\u2013](?=\p{Lu})/u)
+    .filter(Boolean);
+  if (words.length < 2) return null;
+  if (!words.every((w) => /^[A-Za-z0-9]/.test(w))) return null;
+  // 名称里已经有缩写（Transformer-XL、Mask R-CNN）：首字母拼出来没意义
+  if (words.some((w) => w.length >= 2 && looksLikeAbbreviation(w))) return null;
+  return words.map((w) => w[0].toUpperCase()).join("");
+}
+
 /** 去掉缩写末尾的复数 s（LSTMs → LSTM） */
 function singularShort(short: string): string {
   return short.length > 2 && short.endsWith("s") && /\p{Lu}/u.test(short[short.length - 2]) ? short.slice(0, -1) : short;

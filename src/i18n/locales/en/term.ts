@@ -45,6 +45,8 @@ const term: Messages["term"] = {
     },
     moveToAlias: "Move to aliases",
     abbreviationHint: (name) => `“${name}” looks like an abbreviation. Move it to aliases and use the full form as the name.`,
+    initialsHint: (abbr) => `The abbreviation might be “${abbr}” (initial letters).`,
+    addAsAlias: "Add as alias",
     name: "Name",
     namePlaceholder: "Canonical name, e.g. Long Short-Term Memory",
     aliases: "Aliases",

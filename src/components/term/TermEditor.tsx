@@ -17,7 +17,7 @@ import { cleanAliases, cleanTermText, createTerm, deleteTerm, updateTerm } from 
 import type { MatchMode, Term, TermScope } from "@/types/models";
 import { buildFormIndex, findConflicts, paperDomainClosures } from "./logic/conflicts";
 import { weakForms } from "./logic/forms";
-import { looksLikeAbbreviation, suggestFromSelection, type DefinitionSuggestion } from "./logic/definition";
+import { initialsAbbreviation, looksLikeAbbreviation, suggestFromSelection, type DefinitionSuggestion } from "./logic/definition";
 import { getPageEntry } from "./pages";
 import { useTermRuntime } from "./runtime";
 import { IconX, btnDanger, btnGhost, btnOutline, btnPrimary, chip, cx, dialogOverlay, dialogTitle, input } from "./ui";
@@ -115,6 +115,12 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
   const showDefinition =
     !!definition && !dismissed.has("def") && !(nameNow === definition.name && definition.aliases.every((a) => effAliases.includes(a)));
   const showAbbrev = !term && !showDefinition && !dismissed.has("abbr") && looksLikeAbbreviation(nameNow) && !effAliases.includes(nameNow);
+  // 新建时按首字母推断缩写；别名里已经有缩写时不提示
+  const initials = !term && !showDefinition && !showAbbrev ? initialsAbbreviation(nameNow) : null;
+  const showInitials =
+    !!initials &&
+    !dismissed.has(`initials:${initials}`) &&
+    !effAliases.some((a) => looksLikeAbbreviation(a) || a.toLowerCase() === initials.toLowerCase());
 
   const addAlias = (raw: string) => {
     const parts = raw.split(ALIAS_SEPARATORS).map(cleanTermText).filter(Boolean);
@@ -230,6 +236,17 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                 data="abbreviation"
               >
                 {tx.abbreviationHint(nameNow)}
+              </Suggestion>
+            )}
+
+            {showInitials && initials && (
+              <Suggestion
+                onDismiss={() => setDismissed((s) => new Set(s).add(`initials:${initials}`))}
+                action={tx.addAsAlias}
+                onAction={() => setAliases((xs) => cleanAliases([...xs, initials], nameNow))}
+                data="initials"
+              >
+                {tx.initialsHint(initials)}
               </Suggestion>
             )}
 

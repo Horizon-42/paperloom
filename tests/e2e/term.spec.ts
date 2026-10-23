@@ -623,6 +623,35 @@ test("拖选结束时不打开弹窗", async ({ page }) => {
 
 const editor = (page: Page) => page.locator("[data-term-editor]");
 
+test("编辑器：新建时按各词首字母建议缩写，一键加为别名；已有缩写或忽略后不再提示", async ({ page }) => {
+  await openSimple(page, []);
+  await page.evaluate(() => (window as unknown as Win).__paperlens.useTermUiStore.getState().openTermEditor({} as never));
+  const ed = editor(page);
+  const name = ed.locator('[data-term-field="name"]');
+  const hint = ed.locator('[data-term-suggestion="initials"]');
+  await name.fill("Transformer");
+  await expect(hint).toHaveCount(0); // 一个词不推断
+  await name.fill("Long Short-Term Memory");
+  await expect(hint).toContainText("LSTM");
+  await hint.getByRole("button", { name: "添加为别名" }).click();
+  await expect(ed.locator('[data-alias="LSTM"]')).toBeVisible();
+  await expect(hint).toHaveCount(0);
+  // 改名后重新推断；忽略后同一个缩写不再提示
+  await ed.locator('[data-alias="LSTM"]').getByRole("button").click();
+  await name.fill("Generative Pre-trained Transformer");
+  await expect(hint).toContainText("GPT");
+  await hint.getByRole("button", { name: "忽略建议" }).click();
+  await expect(hint).toHaveCount(0);
+  // 已有别名是缩写时不提示
+  await name.fill("air traffic management");
+  await expect(hint).toContainText("ATM");
+  await ed.locator('[data-term-field="alias"]').fill("A.T.M");
+  await page.keyboard.press("Enter");
+  await ed.locator('[data-term-field="alias"]').fill("AirTM");
+  await page.keyboard.press("Enter");
+  await expect(hint).toHaveCount(0);
+});
+
 test("编辑器：新建后下划线立即出现；冲突提示；编辑；删除", async ({ page }) => {
   await openSimple(page, [{ id: "t-lstm", name: "Long Short-Term Memory", aliases: ["LSTM"] }]);
   expect(firstSegs(await underlines(page, 1)).some((u) => /trajectory prediction/i.test(u.text))).toBe(false);

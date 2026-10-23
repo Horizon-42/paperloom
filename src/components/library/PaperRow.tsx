@@ -1,8 +1,8 @@
 // 论文列表中的一项：单击打开，可拖到领域上。右键菜单由外层 PaperContextMenu 统一提供。
-// 行高由 paperRowHeight 给出（有标签的行多一行标签），供虚拟列表使用；标题最多两行。
+// 行高由 paperRowHeight 给出（有标签的行多一行标签），供虚拟列表使用；标题最多两行。内容 PaperRowContent 与领域树共用。
 // 加标签：作者行末尾的按钮（悬停/聚焦/当前论文时显示），或在行上按 T。
 import { t } from "@/i18n";
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { useLibraryStore, type TagEditorState } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
 import { domainPath } from "@/services/domainTree";
@@ -49,8 +49,6 @@ export function isRowEditing(editor: TagEditorState | null, paperId: string, par
 
 export const PaperRow = memo(function PaperRow({ paper, domainById, active, flash, menuOpen }: Props) {
   const domains = paper.domainIds.map((id) => domainById.get(id)).filter((d): d is Domain => !!d);
-  const authors = formatAuthorsShort(paper.authors);
-  const tags = paper.tags ?? [];
   const editing = useLibraryStore((s) => isRowEditing(s.tagEditor, paper.id));
   const open = () => useReaderStore.getState().openPaper(paper.id);
 
@@ -79,31 +77,68 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
       title={paper.title}
       aria-keyshortcuts="T"
       style={{ height: paperRowHeight(paper) - 1 }}
-      className={cx(
-        "group flex cursor-default select-none flex-col justify-center rounded-md px-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-300",
-        flash
-          ? "bg-amber-50 ring-1 ring-inset ring-amber-300"
-          : menuOpen || editing
-            ? "bg-neutral-100 ring-1 ring-inset ring-neutral-300"
-            : active
-              ? "bg-blue-50"
-              : "hover:bg-neutral-100",
-      )}
+      className={paperRowClass({ active, flash, highlighted: !!menuOpen || editing }, "px-2.5")}
     >
-      <div className={cx("line-clamp-2 text-[13px] font-medium leading-snug", active ? "text-blue-900" : "text-neutral-800")}>
-        {paper.title}
-      </div>
+      <PaperRowContent
+        paper={paper}
+        active={active}
+        editing={editing}
+        onTagClick={() => toggleRowTagEditor(paper.id)}
+        marker={
+          domains.length > 0 && (
+            <span className="flex shrink-0 items-center gap-0.5" aria-label={t.library.paperRow.domains(domains.map((d) => d.name))}>
+              {domains.slice(0, MAX_DOTS).map((d) => (
+                <span key={d.id} title={domainPath(domainById, d.id)} className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
+              ))}
+              {domains.length > MAX_DOTS && <span className="text-[10px] text-neutral-400">+{domains.length - MAX_DOTS}</span>}
+            </span>
+          )
+        }
+      />
+    </div>
+  );
+});
+
+/** 论文行（全部论文列表和领域树共用）的外观：闪烁定位 > 菜单或标签编辑指向它 > 当前论文 > 悬停 */
+export function paperRowClass(state: { active: boolean; flash: boolean; highlighted: boolean }, extra?: string): string {
+  return cx(
+    "group flex cursor-default select-none flex-col justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-300",
+    extra,
+    state.flash
+      ? "bg-amber-50 ring-1 ring-inset ring-amber-300"
+      : state.highlighted
+        ? "bg-neutral-100 ring-1 ring-inset ring-neutral-300"
+        : state.active
+          ? "bg-blue-50"
+          : "hover:bg-neutral-100",
+  );
+}
+
+/**
+ * 论文行的内容：标题（最多两行）；作者 · 年份 · marker（全部论文里是领域色点，领域树里是"也在其他领域"标记）· 加标签按钮；有标签时再一行标签
+ */
+export function PaperRowContent({
+  paper,
+  active,
+  editing,
+  onTagClick,
+  marker,
+}: {
+  paper: Paper;
+  active: boolean;
+  editing: boolean;
+  onTagClick: () => void;
+  marker?: ReactNode;
+}) {
+  const authors = formatAuthorsShort(paper.authors);
+  const tags = paper.tags ?? [];
+  return (
+    <>
+      <div className={cx("line-clamp-2 text-[13px] font-medium leading-snug", active ? "text-blue-900" : "text-neutral-800")}>{paper.title}</div>
       <div className="mt-1 flex items-center gap-2 text-[11.5px] leading-4 text-neutral-500">
         <span className={cx("min-w-0 flex-1 truncate", !authors && "text-neutral-300")}>{authors || t.library.paperRow.unknownAuthors}</span>
         {paper.year !== undefined && <span className="shrink-0 tabular-nums">{paper.year}</span>}
-        {domains.length > 0 && (
-          <span className="flex shrink-0 items-center gap-0.5" aria-label={t.library.paperRow.domains(domains.map((d) => d.name))}>
-            {domains.slice(0, MAX_DOTS).map((d) => (
-              <span key={d.id} title={domainPath(domainById, d.id)} className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
-            ))}
-            {domains.length > MAX_DOTS && <span className="text-[10px] text-neutral-400">+{domains.length - MAX_DOTS}</span>}
-          </span>
-        )}
+        {marker}
         {/* 加标签按钮：在作者行末尾占固定位置（悬停/聚焦/当前论文时才显示），不盖住标题、不改变行高 */}
         <button
           type="button"
@@ -114,7 +149,7 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
           title={t.library.paperRow.editTags}
           onClick={(e) => {
             e.stopPropagation(); // 不打开论文
-            toggleRowTagEditor(paper.id);
+            onTagClick();
           }}
           onDoubleClick={(e) => e.stopPropagation()}
           className={cx(
@@ -127,6 +162,6 @@ export const PaperRow = memo(function PaperRow({ paper, domainById, active, flas
         </button>
       </div>
       {tags.length > 0 && <TagLine tags={tags} />}
-    </div>
+    </>
   );
-});
+}

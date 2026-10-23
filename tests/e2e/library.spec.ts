@@ -51,11 +51,11 @@ test("import a PDF, file it into a domain, filter by domain", async ({ page }) =
   const pdf = await makePdf(title, "Alice Zhang; Bob Li");
   await page.getByTestId("import-input").setInputFiles({ name: "smoke_test.pdf", mimeType: "application/pdf", buffer: pdf });
 
-  // 新导入的论文在「未分类」里；领域树里的行只有标题和年份，作者在悬停提示里
+  // 新导入的论文在「未分类」里；领域树里的行和「全部」列表一样显示作者、年份
   const row = paperRows(sidebar).filter({ hasText: title });
   await expect(row).toBeVisible();
   await expect(row).toHaveAttribute("data-parent-domain-id", "");
-  await expect(row).toHaveAttribute("title", /Alice Zhang, Bob Li/);
+  await expect(row).toContainText("Alice Zhang, Bob Li");
   await expect(row).toContainText("2021");
 
   // 同一文件再导入一次：提示已在文库中，不新增
@@ -250,7 +250,10 @@ test("领域树：在树里编辑标签、筛选时新建领域、移动后撤�
   await expect(editor).toBeInViewport();
   const eb = (await editor.boundingBox())!;
   const rb = (await rowIn("p", "B").boundingBox())!;
-  expect(Math.abs(eb.y - (rb.y + rb.height))).toBeLessThan(40);
+  // 在这一行的右侧、与它竖直方向重叠（靠近窗口底部时会向上挪一些）
+  expect(eb.x).toBeGreaterThan(rb.x + rb.width - 8);
+  expect(eb.y).toBeLessThan(rb.y + rb.height);
+  expect(eb.y + eb.height).toBeGreaterThan(rb.y);
   await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
   await expect(rowIn("p", "B")).toBeFocused(); // 焦点回到打开它的那一行（不是同一篇论文在「甲」下的那行）
@@ -450,6 +453,37 @@ test("导入到某个领域：领域行上的导入按钮、右键菜单、把�
   expect(errors).toEqual([]);
 });
 
+test("双击领域展开 / 收起（不再改名，改名用 F2 或菜单）", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await page.getByTestId("import-input").setInputFiles({ name: "d.pdf", mimeType: "application/pdf", buffer: await makePdf("Double Click Paper", "Ann") });
+  await createDomain(sidebar, "丙");
+  const row = paperRows(sidebar).first();
+  const folder = domainRow(sidebar, "丙");
+  await row.dragTo(folder);
+  await expect(folder).toHaveAttribute("aria-expanded", "false");
+
+  // 收起的领域：双击展开并选中
+  await folder.locator("span", { hasText: "丙" }).dblclick();
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await expect(folder).toHaveAttribute("aria-selected", "true");
+  await expect(sidebar.getByRole("textbox", { name: "领域名称" })).toHaveCount(0);
+  // 展开的、已选中的领域：双击收起，仍然选中（第一次单击不会取消选中）
+  await folder.dblclick();
+  await expect(folder).toHaveAttribute("aria-expanded", "false");
+  await expect(folder).toHaveAttribute("aria-selected", "true");
+  // 展开箭头上的双击只按箭头算（两次切换），不额外再切换一次
+  await folder.getByRole("button", { name: "展开" }).dblclick();
+  await expect(folder).toHaveAttribute("aria-expanded", "false");
+  // F2 改名
+  await folder.focus();
+  await page.keyboard.press("F2");
+  await expect(sidebar.getByRole("textbox", { name: "领域名称" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");
@@ -475,7 +509,7 @@ test("edit metadata and delete a domain", async ({ page }) => {
   await expect(sidebar.locator("[data-unfiled]")).toHaveCount(0);
   await domainRow(sidebar, "方法").click();
   await expect(row).toContainText("A Better Title");
-  await expect(row).toHaveAttribute("title", /张三, 李四, 王五/);
+  await expect(row).toContainText("张三, 李四, 王五");
   await expect(row).toContainText("2020");
 
   await domainRow(sidebar, "方法").click({ button: "right" });

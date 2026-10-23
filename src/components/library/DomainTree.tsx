@@ -2,7 +2,7 @@
 // 拖放：领域拖到领域上调整层级；论文拖到领域（或该领域里的论文）上是移动——移出拖出时所在的领域（D14）。
 // 行数可能很多（每个展开的领域的论文都在里面），用虚拟列表渲染。
 import { t } from "@/i18n";
-import { memo, useEffect, useMemo, useRef, useState, type ComponentType, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ComponentType, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
@@ -21,7 +21,8 @@ import { useLibraryData } from "./libraryData";
 import { PaperContextMenu } from "./PaperContextMenu";
 import { useActivePaperId } from "./PaperList";
 import { sortPapers } from "./paperQuery";
-import { TREE_INDENT, TREE_PAPER_ROW_HEIGHT, TreePaperRow } from "./TreePaperRow";
+import { paperRowHeight } from "./PaperRow";
+import { TREE_INDENT, TreePaperRow } from "./TreePaperRow";
 import { cx, iconBtn, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
 import { VirtualList, type VirtualListHandle } from "./VirtualList";
 
@@ -45,7 +46,7 @@ export async function createAndRename(parentId: string | null) {
   store.setRenamingDomain(d.id);
 }
 
-const rowHeight = (r: FieldTreeRow) => (r.kind === "paper" ? TREE_PAPER_ROW_HEIGHT : FOLDER_ROW_HEIGHT);
+const rowHeight = (r: FieldTreeRow) => (r.kind === "paper" ? paperRowHeight(r.paper) : FOLDER_ROW_HEIGHT);
 const rowKey = (r: FieldTreeRow) => r.key;
 
 /**
@@ -554,6 +555,19 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
   // 展开节点的"之后"提示线画在子领域的缩进处
   const afterIndent = node.children.length && expanded ? indent + INDENT : indent;
   // 再点一次已选中的领域：取消选中（之后导入不归类）；否则选中并展开
+  // 双击 = 展开 / 收起（相对第一次单击之前的状态：第一次单击已经选中并展开了）
+  const beforeClick = useRef({ selected, expanded });
+  const onClick = (e: MouseEvent) => {
+    if (e.detail > 1) return; // 双击里的第二次单击交给 onDoubleClick
+    beforeClick.current = { selected, expanded };
+    activate();
+  };
+  const onDoubleClick = (e: MouseEvent) => {
+    // 行内按钮（展开箭头、+、导入、⋯）上的双击不算
+    if (renaming || (e.target as HTMLElement).closest("button")) return;
+    store().select({ kind: "domain", id: domain.id });
+    if (expandable) handlers.setOpen(domain.id, !beforeClick.current.expanded);
+  };
   const activate = () => {
     if (selected) {
       store().select({ kind: "all" });
@@ -586,7 +600,8 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
           onDragOver={(e) => handlers.onFolderDragOver(e, row)}
           onDragLeave={(e) => handlers.onDragLeave(e, domain.id)}
           onDrop={(e) => handlers.onFolderDrop(e, row)}
-          onClick={activate}
+          onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onKeyDown={(e) => {
             if (renaming || e.target !== e.currentTarget) return;
             if (e.key === "Enter") activate();
@@ -628,14 +643,7 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
           {renaming ? (
             <RenameInput domain={domain} />
           ) : (
-            <span
-              className="min-w-0 flex-1 truncate"
-              title={domain.name}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                store().setRenamingDomain(domain.id);
-              }}
-            >
+            <span className="min-w-0 flex-1 truncate" title={domain.name}>
               {domain.name}
             </span>
           )}
@@ -735,7 +743,8 @@ const UnfiledRow = memo(function UnfiledRow({ count, expanded, selected, hint, f
       onDragOver={(e) => handlers.onTargetDragOver(e, UNFILED)}
       onDragLeave={(e) => handlers.onDragLeave(e, UNFILED)}
       onDrop={(e) => handlers.onTargetDrop(e, UNFILED)}
-      onClick={() => {
+      onClick={(e) => {
+        if (e.detail > 1) return; // 双击 = 只切换一次
         useLibraryStore.getState().select({ kind: "unfiled" });
         toggle();
       }}

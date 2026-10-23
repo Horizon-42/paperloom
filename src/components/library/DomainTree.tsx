@@ -555,18 +555,19 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
   // 展开节点的"之后"提示线画在子领域的缩进处
   const afterIndent = node.children.length && expanded ? indent + INDENT : indent;
   // 再点一次已选中的领域：取消选中（之后导入不归类）；否则选中并展开
-  // 双击 = 展开 / 收起（相对第一次单击之前的状态：第一次单击已经选中并展开了）
+  // 双击 = 展开 / 收起（相对第一次单击之前的状态：第一次单击已经选中并展开了）。
+  // 不用 dblclick 事件：连着双击时浏览器把点击次数接着往上数（第二次双击是第 3、4 次），dblclick 不一定再触发，
+  // 所以按点击次数的奇偶判断：奇数次是一次单击，偶数次与前一次合成一次双击。行内按钮的点击不会冒泡到这里
   const beforeClick = useRef({ selected, expanded });
   const onClick = (e: MouseEvent) => {
-    if (e.detail > 1) return; // 双击里的第二次单击交给 onDoubleClick
+    if (e.detail > 0 && e.detail % 2 === 0) {
+      if (renaming) return;
+      store().select({ kind: "domain", id: domain.id });
+      if (expandable) handlers.setOpen(domain.id, !beforeClick.current.expanded);
+      return;
+    }
     beforeClick.current = { selected, expanded };
     activate();
-  };
-  const onDoubleClick = (e: MouseEvent) => {
-    // 行内按钮（展开箭头、+、导入、⋯）上的双击不算
-    if (renaming || (e.target as HTMLElement).closest("button")) return;
-    store().select({ kind: "domain", id: domain.id });
-    if (expandable) handlers.setOpen(domain.id, !beforeClick.current.expanded);
   };
   const activate = () => {
     if (selected) {
@@ -601,7 +602,6 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
           onDragLeave={(e) => handlers.onDragLeave(e, domain.id)}
           onDrop={(e) => handlers.onFolderDrop(e, row)}
           onClick={onClick}
-          onDoubleClick={onDoubleClick}
           onKeyDown={(e) => {
             if (renaming || e.target !== e.currentTarget) return;
             if (e.key === "Enter") activate();
@@ -744,7 +744,7 @@ const UnfiledRow = memo(function UnfiledRow({ count, expanded, selected, hint, f
       onDragLeave={(e) => handlers.onDragLeave(e, UNFILED)}
       onDrop={(e) => handlers.onTargetDrop(e, UNFILED)}
       onClick={(e) => {
-        if (e.detail > 1) return; // 双击 = 只切换一次
+        if (e.detail > 0 && e.detail % 2 === 0) return; // 双击（含连着双击）= 只切换一次
         useLibraryStore.getState().select({ kind: "unfiled" });
         toggle();
       }}

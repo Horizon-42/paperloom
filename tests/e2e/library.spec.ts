@@ -473,6 +473,14 @@ test("双击领域展开 / 收起（不再改名，改名用 F2 或菜单）", a
   await folder.dblclick();
   await expect(folder).toHaveAttribute("aria-expanded", "false");
   await expect(folder).toHaveAttribute("aria-selected", "true");
+  // 连着双击两次（第二次双击时 click 的 detail 是 3、4）：开、关各一次
+  const box = (await folder.locator("span", { hasText: "丙" }).boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { clickCount: 2 });
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { clickCount: 4 });
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { clickCount: 3 });
+  await expect(folder).toHaveAttribute("aria-expanded", "false");
   // 展开箭头上的双击只按箭头算（两次切换），不额外再切换一次
   await folder.getByRole("button", { name: "展开" }).dblclick();
   await expect(folder).toHaveAttribute("aria-expanded", "false");

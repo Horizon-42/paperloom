@@ -314,6 +314,142 @@ test("领域树：在树里编辑标签、筛选时新建领域、移动后撤�
   expect(errors).toEqual([]);
 });
 
+test("导入到某个领域：领域行上的导入按钮、右键菜单、把文件拖到领域行上", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await expect(sidebar).toBeVisible();
+  await createDomain(sidebar, "甲");
+  await createDomain(sidebar, "乙");
+  const jia = domainRow(sidebar, "甲");
+  const yi = domainRow(sidebar, "乙");
+  // 选中乙：按钮、菜单和拖放都应导入到指定的领域，而不是选中的
+  await yi.click();
+  await expect(yi).toHaveAttribute("aria-selected", "true");
+  const domainsOf = (title: string) =>
+    page.evaluate(async (title) => {
+      const { db } = (window as any).__paperlens;
+      const p = (await db.papers.toArray()).find((x: any) => x.title === title);
+      const all = await db.domains.toArray();
+      return p ? p.domainIds.map((id: string) => all.find((d: any) => d.id === id)?.name) : null;
+    }, title);
+
+  // 行上的导入按钮（悬停时出现，在 + 右边）
+  await jia.hover();
+  const btn = jia.locator("[data-import-into]");
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveAttribute("title", /导入 PDF 到「甲」/);
+  const chooser = page.waitForEvent("filechooser");
+  await btn.click();
+  await (await chooser).setFiles({ name: "a.pdf", mimeType: "application/pdf", buffer: await makePdf("Paper Via Button", "Ann") });
+  await expect.poll(() => domainsOf("Paper Via Button")).toEqual(["甲"]);
+  // 导入完展开该领域，新论文就在它下面；选中的仍是乙
+  await expect(jia).toHaveAttribute("aria-expanded", "true");
+  await expect(paperRows(sidebar).filter({ hasText: "Paper Via Button" })).toHaveAttribute("data-parent-domain-id", (await jia.getAttribute("data-domain-id"))!);
+  await expect(yi).toHaveAttribute("aria-selected", "true");
+  // 各行共用一个挂在 body 上的 input
+  await expect(page.locator('[data-testid="import-input-domain"]')).toHaveCount(1);
+
+  // 右键菜单
+  await jia.click({ button: "right" });
+  const chooser2 = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "导入论文到此领域…" }).click();
+  await (await chooser2).setFiles({ name: "b.pdf", mimeType: "application/pdf", buffer: await makePdf("Paper Via Menu", "Ben") });
+  await expect.poll(() => domainsOf("Paper Via Menu")).toEqual(["甲"]);
+
+  // 从系统拖文件到领域行上：拖入提示显示这个领域，放下后只导入一次、归入它
+  const pdf = (await makePdf("Paper Via Drop", "Cid")).toString("base64");
+  const dt = await page.evaluateHandle((b64) => {
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const d = new DataTransfer();
+    d.items.add(new File([bin], "c.pdf", { type: "application/pdf" }));
+    return d;
+  }, pdf);
+  await jia.dispatchEvent("dragenter", { dataTransfer: dt });
+  await jia.dispatchEvent("dragover", { dataTransfer: dt });
+  await expect(jia).toHaveClass(/ring-blue-400/);
+  await expect(page.getByText("将归入「甲」")).toBeVisible();
+  await jia.dispatchEvent("drop", { dataTransfer: dt });
+  await expect.poll(() => domainsOf("Paper Via Drop")).toEqual(["甲"]);
+  await expect(page.getByText("将归入「甲」")).toHaveCount(0);
+  await expect(jia).not.toHaveClass(/ring-blue-400/);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => (window as any).__paperlens.db.papers.count())).toBe(3);
+
+  // 拖到领域行以外的地方：仍然导入到选中的领域（乙）
+  const dt2 = await page.evaluateHandle((b64) => {
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const d = new DataTransfer();
+    d.items.add(new File([bin], "d.pdf", { type: "application/pdf" }));
+    return d;
+  }, (await makePdf("Paper Elsewhere", "Dee")).toString("base64"));
+  const search = sidebar.getByRole("searchbox", { name: "全局搜索" });
+  await search.dispatchEvent("dragenter", { dataTransfer: dt2 });
+  await search.dispatchEvent("dragover", { dataTransfer: dt2 });
+  await expect(page.getByText("将归入「乙」")).toBeVisible();
+  await search.dispatchEvent("drop", { dataTransfer: dt2 });
+  await expect.poll(() => domainsOf("Paper Elsewhere")).toEqual(["乙"]);
+
+  // 拖到领域里的论文行上 = 导入到那个领域；拖到「未分类」上 = 不归类
+  const fileDrag = async (title: string) => {
+    const b64 = (await makePdf(title, "Eve")).toString("base64");
+    return page.evaluateHandle(
+      ([b64, name]) => {
+        const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const d = new DataTransfer();
+        d.items.add(new File([bin], name, { type: "application/pdf" }));
+        return d;
+      },
+      [b64, `${title}.pdf`],
+    );
+  };
+  const paperInJia = paperRows(sidebar).filter({ hasText: "Paper Via Button" });
+  const dt3 = await fileDrag("Paper On Paper Row");
+  await paperInJia.dispatchEvent("dragenter", { dataTransfer: dt3 });
+  await paperInJia.dispatchEvent("dragover", { dataTransfer: dt3 });
+  await expect(page.getByText("将归入「甲」")).toBeVisible();
+  await paperInJia.dispatchEvent("drop", { dataTransfer: dt3 });
+  await expect.poll(() => domainsOf("Paper On Paper Row")).toEqual(["甲"]);
+
+  // 「未分类」只在有未归类论文时显示：先放一篇进去
+  await yi.click(); // 再点一次取消选中：之后拖到别处的不归类
+  await expect(yi).toHaveAttribute("aria-selected", "false");
+  const dt4 = await fileDrag("Unfiled Seed");
+  await search.dispatchEvent("dragenter", { dataTransfer: dt4 });
+  await search.dispatchEvent("dragover", { dataTransfer: dt4 });
+  await search.dispatchEvent("drop", { dataTransfer: dt4 });
+  await expect.poll(() => domainsOf("Unfiled Seed")).toEqual([]);
+  await jia.click(); // 选中甲；拖到「未分类」上的仍然不归类
+  const unfiled = sidebar.locator("[data-unfiled]");
+  const dt5 = await fileDrag("Paper On Unfiled");
+  await unfiled.dispatchEvent("dragenter", { dataTransfer: dt5 });
+  await unfiled.dispatchEvent("dragover", { dataTransfer: dt5 });
+  await expect(page.getByText("不归入任何领域")).toBeVisible();
+  await unfiled.dispatchEvent("drop", { dataTransfer: dt5 });
+  await expect.poll(() => domainsOf("Paper On Unfiled")).toEqual([]);
+
+  // 放在会自己 preventDefault 的元素上（如笔记编辑器）：仍按选中的领域导入
+  await page.evaluate(() => {
+    const el = document.createElement("div");
+    el.id = "eats-drops";
+    el.style.cssText = "position:fixed;left:600px;top:300px;width:100px;height:100px";
+    el.addEventListener("dragover", (e) => e.preventDefault());
+    el.addEventListener("drop", (e) => e.preventDefault());
+    document.body.appendChild(el);
+  });
+  const dt6 = await fileDrag("Paper On Editor");
+  const eater = page.locator("#eats-drops");
+  await eater.dispatchEvent("dragenter", { dataTransfer: dt6 });
+  await eater.dispatchEvent("dragover", { dataTransfer: dt6 });
+  await eater.dispatchEvent("drop", { dataTransfer: dt6 });
+  await expect.poll(() => domainsOf("Paper On Editor")).toEqual(["甲"]);
+  await expect(page.getByText("松开以导入 PDF")).toHaveCount(0);
+
+  // 导入按钮的图标是"箭头进入托盘"
+  await expect(sidebar.getByRole("button", { name: "导入", exact: true }).locator("path")).toHaveAttribute("d", /^M12 3v11/);
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");

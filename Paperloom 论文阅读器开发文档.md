@@ -324,7 +324,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ## 10. 当前现状与进度（2026-10-23）
 
-**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D15）。
+**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D16）。
 
 ### 10.1 v1 目标完成情况
 
@@ -345,6 +345,9 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 - **对外名称 Paperloom（织读）**（D12），内部标识仍为 paperlens。
 - **侧栏领域树**（D15，2026-10-23）：取代原来"领域树 + 所选领域的论文列表"的上下两栏。多领域的论文在每个领域下各出现一次并带标记；末尾「未分类」；
   「按领域 | 全部」视图切换（「全部」是带作者、标签的详细平铺列表）；按标签筛选时隐藏没有匹配的领域；选中的领域是导入目标；支持键盘导航。
+- **导入到指定领域**（D16，2026-10-23）：领域行上的导入按钮（「+」右边）和右键菜单项；从系统把 PDF 拖到领域树的行上即导入到对应领域（拖到「未分类」上不归类）。
+- **术语表导出为 LaTeX acro 格式**（D16）：「导出 .tex」生成 `glossary.tex`（开头注释说明用法），有筛选时可只导出当前列表；
+  每条术语可复制它的 `\DeclareAcronym`（术语表列表条目右侧、⌘/Ctrl + C，论文里的术语弹窗）。中文全称配英文全称时写成 `foreign`。
 
 ### 10.3 §8 风险的应对现状
 
@@ -371,10 +374,11 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ### 10.6 质量与测试
 
-- 类型检查（app + node）；Vitest 单元测试 648 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
+- 类型检查（app + node）；Vitest 单元测试 665 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
 - 真实论文用例只在本机运行：`PAPERLENS_LITERATURE_DIR` 指向论文目录，用哪几篇写在 git 忽略的 `tests/e2e/real-papers.local.json`。
-- 重要改动合并前由独立 agent 审阅（侧栏领域树经过两轮）。
-- 已知问题：默认的 `npm run e2e`（单一 1280×720 视口、并发）下有少量画布用例超时，用各模块自己的配置运行则通过；
+- 重要改动合并前由独立 agent 审阅（侧栏领域树经过两轮；D16 一轮，acro 的属性名按 acro 3.8 源码核对，本机没有 TeX、未实际编译）。
+- 已知问题：默认的 `npm run e2e` 会跑全部用例（单一 1280×720 视口、并发），其中 9 个（画布、阅读器缩放、字形映射、术语下划线贴合、批注卡片、在线版 CMap）失败，
+  用各模块自己的配置运行则全部通过（2026-10-23 在 main 上同样如此，不是新改动引起的）；
   可选的文库性能测试（`PAPERLENS_PERF=1`）里冷启动到第一行的耗时在本机约 400 ms，超过 300 ms 的阈值（改动前同样如此）。
 - 领域树遗留的小问题：重命名中的领域被滚出可视区时，Firefox 下可能丢失输入；把论文拖回它本来所在的领域仍显示可放置（实际不做任何事）；
   拖动结束的兜底处理只在 Chromium 上验证过；每一行都是一个 Tab 停靠点；领域树视图在 2000 篇论文下的性能还没有专门测试。

@@ -13,9 +13,10 @@ import { DOMAIN_COLORS, createDomain, moveDomain, renameDomain, setDomainColor }
 import { computeDomainMove, type DomainDrop, type DropPosition } from "@/services/domainTree";
 import { movePaperOutOfDomains, movePaperToDomain, restorePaperDomains } from "@/services/paperService";
 import type { Domain } from "@/types/models";
-import { DOMAIN_MIME, PAPER_FROM_MIME, PAPER_MIME, hasType } from "./dnd";
+import { DOMAIN_MIME, PAPER_FROM_MIME, PAPER_MIME, hasType, isFileDrag } from "./dnd";
 import { UNFILED_ROW_KEY, buildFieldTreeRows, folderRowKey, revealPath, type FieldTreeRow } from "./fieldTree";
-import { IconCheck, IconChevronRight, IconInbox, IconMore, IconPlus } from "./icons";
+import { IconCheck, IconChevronRight, IconImport, IconInbox, IconMore, IconPlus } from "./icons";
+import { enqueueImport, filesFromList, markDropHandled, pickFilesForImport } from "./importController";
 import { useLibraryData } from "./libraryData";
 import { PaperContextMenu } from "./PaperContextMenu";
 import { useActivePaperId } from "./PaperList";
@@ -259,6 +260,7 @@ export function DomainTree() {
 
   const onFolderDragOver = (e: DragEvent, row: FolderRowData) => {
     const id = row.node.domain.id;
+    if (fileDragOver(e, id)) return;
     if (hasType(e, PAPER_MIME)) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
@@ -280,6 +282,7 @@ export function DomainTree() {
 
   const onFolderDrop = (e: DragEvent, row: FolderRowData) => {
     const id = row.node.domain.id;
+    if (fileDrop(e, id)) return;
     if (hasType(e, PAPER_MIME)) {
       e.preventDefault();
       void dropPaper(e, id);
@@ -295,14 +298,41 @@ export function DomainTree() {
     setHint(null);
   };
 
+  /**
+   * 从系统拖入的 PDF 放在领域树的行上：导入到这一行对应的领域（领域行、领域里的论文行），
+   * 或不归类（「未分类」及其中的论文行），与拖动论文的含义一致。返回是否是文件拖放
+   */
+  const fileDragOver = (e: DragEvent, targetId: string) => {
+    if (!isFileDrag(e)) return false;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setHintIfChanged({ targetId, position: "inside" });
+    useLibraryStore.getState().setFileDropTarget({ domainId: targetId === UNFILED ? null : targetId });
+    return true;
+  };
+  const fileDrop = (e: DragEvent, targetId: string) => {
+    if (!isFileDrag(e)) return false;
+    e.preventDefault();
+    markDropHandled(e.nativeEvent);
+    const files = filesFromList(e.dataTransfer.files);
+    if (files.length) {
+      enqueueImport(files, { domainId: targetId === UNFILED ? null : targetId });
+      setOpen(targetId, true);
+    }
+    setHint(null);
+    return true;
+  };
+
   /** 论文拖到「未分类」上，或拖到某个领域里的论文上（= 拖到那个领域上） */
   const onPaperTargetDragOver = (e: DragEvent, targetId: string) => {
+    if (fileDragOver(e, targetId)) return;
     if (!hasType(e, PAPER_MIME)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setHintIfChanged({ targetId, position: "inside" });
   };
   const onPaperTargetDrop = (e: DragEvent, targetId: string) => {
+    if (fileDrop(e, targetId)) return;
     if (!hasType(e, PAPER_MIME)) return;
     e.preventDefault();
     void dropPaper(e, targetId);
@@ -312,6 +342,9 @@ export function DomainTree() {
   const onDragLeave = (e: DragEvent, targetId: string) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     setHint((cur) => (cur?.targetId === targetId ? null : cur));
+    const store = useLibraryStore.getState();
+    const fileTarget = store.fileDropTarget?.domainId;
+    if (fileTarget !== undefined && (fileTarget ?? UNFILED) === targetId) store.setFileDropTarget(null);
     // 只是经过：不再自动展开
     if (expandTimer.current?.id === targetId) {
       window.clearTimeout(expandTimer.current.timer);
@@ -529,6 +562,8 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
     store().select({ kind: "domain", id: domain.id });
     if (expandable && !expanded) handlers.setOpen(domain.id, true);
   };
+  // 导入完展开，新论文就在这个领域里
+  const importHere = () => pickFilesForImport(domain.id, () => handlers.setOpen(domain.id, true));
 
   return (
     <ContextMenu.Root onOpenChange={setMenuOpen}>
@@ -624,6 +659,20 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
                 >
                   <IconPlus width={13} height={13} />
                 </button>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className={iconBtn}
+                  title={t.library.domains.importInto(domain.name)}
+                  aria-label={t.library.domains.importHere}
+                  data-import-into
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    importHere();
+                  }}
+                >
+                  <IconImport width={13} height={13} />
+                </button>
                 <DropdownMenu.Root onOpenChange={setMenuOpen}>
                   <DropdownMenu.Trigger asChild>
                     <button
@@ -645,7 +694,7 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
                       onCloseAutoFocus={(e) => e.preventDefault()}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <DomainMenuItems parts={DROPDOWN_PARTS} domain={domain} />
+                      <DomainMenuItems parts={DROPDOWN_PARTS} domain={domain} onImport={importHere} />
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
@@ -656,7 +705,7 @@ const FolderRow = memo(function FolderRow({ row, selected, renaming, hint, flash
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className={menuContent} onCloseAutoFocus={(e) => e.preventDefault()}>
-          <DomainMenuItems parts={CONTEXT_PARTS} domain={domain} />
+          <DomainMenuItems parts={CONTEXT_PARTS} domain={domain} onImport={importHere} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
@@ -846,10 +895,13 @@ const DROPDOWN_PARTS: MenuParts = {
   Portal: DropdownMenu.Portal,
 };
 
-function DomainMenuItems({ parts: M, domain }: { parts: MenuParts; domain: Domain }) {
+function DomainMenuItems({ parts: M, domain, onImport }: { parts: MenuParts; domain: Domain; onImport: () => void }) {
   const store = useLibraryStore.getState;
   return (
     <>
+      <M.Item className={menuItem} onSelect={onImport}>
+        {t.library.domains.importHere}
+      </M.Item>
       <M.Item className={menuItem} onSelect={() => void createAndRename(domain.id)}>
         {t.library.domains.newSubdomain}
       </M.Item>

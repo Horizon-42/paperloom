@@ -16,6 +16,7 @@ const library: Messages["library"] = {
     resizeLabel: "Resize sidebar (double-click to reset)",
     dropToImport: "Drop to import PDFs",
     dropInto: (domain) => `They will be added to ${q(domain)}`,
+    dropUnfiled: "They won't be added to any field",
   },
 
   search: {
@@ -43,6 +44,8 @@ const library: Messages["library"] = {
     collapse: "Collapse",
     expand: "Expand",
     newSubdomain: "New subfield",
+    importHere: "Import papers into this field…",
+    importInto: (domain) => `Import PDFs into ${q(domain)} (or drop files onto this row)`,
     more: "More",
     actions: "Field actions",
     changeColor: "Change color",

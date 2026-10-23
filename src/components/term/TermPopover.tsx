@@ -15,8 +15,10 @@ import { getOutdatedPaperIds, listOccurrencesForTerm } from "@/db/repo/occurrenc
 import { getTerm, getTerms } from "@/db/repo/terms";
 import { t } from "@/i18n";
 import { pdfRectToScreen } from "@/lib/coords";
+import { assignAcroIds } from "@/lib/acro";
 import { updateTerm } from "@/services/termService";
 import type { Domain, Term, TermScope } from "@/types/models";
+import { CopyAcroButton } from "./acroActions";
 import { goToOccurrence, openPaperAtTerm, popoverPointer } from "./interaction";
 import { groupOccurrences, navigationOrigin, occurrenceIndexOf, stepOccurrence } from "./logic/occurrences";
 import { useTermPositions, type PositionsState } from "./paperIndex";
@@ -263,6 +265,7 @@ function TermCard({ pop, navRef }: { pop: TermPopoverState; navRef: MutableRefOb
         </div>
         {edit && (
           <>
+            <PopoverCopyAcro term={term} />
             <button
               type="button"
               className={cx(iconBtn, "h-6 w-6")}
@@ -511,4 +514,14 @@ function SourceLink({ annotationId }: { annotationId: string }) {
       {a.quote.exact && <div className="mt-0.5 line-clamp-2 text-[12px] text-neutral-500">“{a.quote.exact}”</div>}
     </section>
   );
+}
+
+const listAllTerms = () => db.terms.toArray();
+
+/** 复制 acro 代码：id 要按全部术语分配，和术语表导出的一致，所以读一次全部术语 */
+function PopoverCopyAcro({ term }: { term: Term }) {
+  const all = useLiveQuery(listAllTerms, []);
+  const acroId = useMemo(() => (all ? assignAcroIds(all).get(term.id) : undefined), [all, term.id]);
+  if (!acroId) return <span className="h-6 w-6 shrink-0" aria-hidden />;
+  return <CopyAcroButton term={term} acroId={acroId} className="h-6 w-6" />;
 }

@@ -48,7 +48,14 @@ export const IconX = (p: P) => (
     <path d="M18 6 6 18M6 6l12 12" />
   </svg>
 );
-export const IconUpload = (p: P) => (
+/** 导入：箭头向下进入托盘 */
+export const IconImport = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3v11M8 10l4 4 4-4M8 6H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-3" />
+  </svg>
+);
+/** 导出：箭头向上离开托盘 */
+export const IconExport = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 15V4M7 9l5-5 5 5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
   </svg>

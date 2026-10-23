@@ -214,6 +214,40 @@ export default {
     },
   },
 
+  /** 导出为 LaTeX acro 宏包格式（术语表导出 .tex、复制单条） */
+  acro: {
+    copy: "复制 acro 代码",
+    copyTitle: "复制这条术语的 \\DeclareAcronym，粘贴到 LaTeX 导言区",
+    /** 术语表列表里的按钮：列表获得焦点时也可以按快捷键 */
+    copyTitleWithKey: "复制这条术语的 \\DeclareAcronym（⌘/Ctrl + C），粘贴到 LaTeX 导言区",
+    copied: (id: string) => `已复制，正文里用 \\ac{${id}}`,
+    copyFailed: "无法写入剪贴板",
+    exportButton: "导出 .tex",
+    exportTitle: "导出为 LaTeX acro 宏包格式的 .tex 文件",
+    exportAll: (n: number) => `全部术语（${n} 条）`,
+    exportShown: (n: number) => `当前列表（${n} 条）`,
+    exported: (n: number, file: string) => `已导出 ${n} 条术语到 ${file}`,
+    /** 导出文件开头的注释（每个元素一行，写入时加 "% "）；file 是不带扩展名的文件名 */
+    fileHeader: (o: { date: string; count: number; file: string }) => [
+      `Paperloom 术语表导出（LaTeX acro 宏包格式）· ${o.date} · 共 ${o.count} 条`,
+      "",
+      "用法：",
+      "  导言区   \\usepackage{acro}",
+      `           \\input{${o.file}}      把本文件放在 .tex 旁边，文件名不带 .tex（浏览器重复下载时可能存成 ${o.file} (1).tex，请改回来）`,
+      "  正文     \\ac{id}   第一次出现写成“全称 (缩写)”，之后只写缩写",
+      "           \\acs{id} 缩写 · \\acl{id} 全称 · \\acf{id} 全称 + 缩写 · \\acp{id} 复数",
+      "  缩写表   \\printacronyms",
+      "",
+      "说明：",
+      "  · 全称是中文、别名里有英文全称的术语，英文写在 foreign 中，第一次出现为“中文全称 (英文全称, 缩写)”",
+      `  · 没有缩写的术语 short 与 long 相同、\\ac 只写名称，带 tag = noabbrev；`,
+      `    不想列进缩写表时用 \\printacronyms[exclude=noabbrev]`,
+      "  · 含中文、希腊字母或数学符号等非 ASCII 字符时，用 XeLaTeX 或 LuaLaTeX 编译（中文可配合 ctex 宏包）",
+      "  · id 由缩写生成，重名的加 -2、-3；改了术语的别名、或删掉重名中较早的一个后重新导出，id 可能变化，正文里的 \\ac 要跟着改",
+      "  · 术语笔记以注释的形式写在对应条目上方",
+    ],
+  },
+
   /** 后台索引的进度与失败 */
   indexer: {
     extracting: (current: number, total: number) => `正在提取全文 ${current}/${total}`,

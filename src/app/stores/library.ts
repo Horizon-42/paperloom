@@ -69,6 +69,8 @@ interface LibraryState {
   dialog: LibraryDialog | null;
   /** 正在拖动的领域（dragover 时读不到 dataTransfer 内容，靠它判断能否放下） */
   draggingDomainId: string | null;
+  /** 从系统拖入文件、悬停在领域树的某一行上：文件会导入到哪里（domainId null = 不归类），拖入提示里显示它 */
+  fileDropTarget: { domainId: string | null } | null;
   /** 需要在列表中定位并闪烁的论文；seq 每次请求自增 */
   reveal: { paperId: string; seq: number } | null;
   importJob: ImportJob | null;
@@ -89,6 +91,7 @@ interface LibraryState {
   openDialog: (dialog: LibraryDialog) => void;
   closeDialog: () => void;
   setDraggingDomain: (id: string | null) => void;
+  setFileDropTarget: (target: { domainId: string | null } | null) => void;
   revealPaper: (paperId: string) => void;
   /** 列表处理完定位请求后调用，避免重新挂载时再次闪烁 */
   clearReveal: () => void;
@@ -116,6 +119,7 @@ export const useLibraryStore = create<LibraryState>()(
       renamingDomainId: null,
       dialog: null,
       draggingDomainId: null,
+      fileDropTarget: null,
       reveal: null,
       importJob: null,
       tagEditor: null,
@@ -152,6 +156,8 @@ export const useLibraryStore = create<LibraryState>()(
       openDialog: (dialog) => set({ dialog }),
       closeDialog: () => set({ dialog: null }),
       setDraggingDomain: (draggingDomainId) => set({ draggingDomainId }),
+      setFileDropTarget: (target) =>
+        set((s) => (s.fileDropTarget?.domainId === target?.domainId && !s.fileDropTarget === !target ? s : { fileDropTarget: target })),
       // 定位时退出搜索，回到论文列表
       revealPaper: (paperId) => set({ reveal: { paperId, seq: ++revealSeq }, query: "" }),
       clearReveal: () => set({ reveal: null }),

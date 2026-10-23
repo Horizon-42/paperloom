@@ -6,6 +6,7 @@ import { VirtualList, type VirtualListHandle } from "@/components/library/Virtua
 import { cx } from "@/components/library/ui";
 import { htmlLang, t } from "@/i18n";
 import type { Domain, Term } from "@/types/models";
+import { CopyAcroButton, copyAcro } from "../acroActions";
 import { aliasExcerpt, formatShortDate, scopeSummary, type TermStats } from "./model";
 
 export const TERM_ROW_HEIGHT = 56;
@@ -20,11 +21,13 @@ interface Props {
   selectedId: string | null;
   sort: GlossarySort;
   filtered: boolean;
+  /** 术语 id → acro id（按全部术语分配） */
+  acroIds: ReadonlyMap<string, string>;
   handleRef: Ref<VirtualListHandle>;
   onMove: (delta: number) => void;
 }
 
-export function TermList({ terms, totalTerms, stats, domainById, selectedId, sort, filtered, handleRef, onMove }: Props) {
+export function TermList({ terms, totalTerms, stats, domainById, selectedId, sort, filtered, acroIds, handleRef, onMove }: Props) {
   const toggleSort = useGlossaryStore((s) => s.toggleSort);
   const select = useGlossaryStore((s) => s.select);
   // 索引进行中时，还没有统计的术语显示"…"而不是"未出现"
@@ -34,6 +37,12 @@ export function TermList({ terms, totalTerms, stats, domainById, selectedId, sor
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       onMove(e.key === "ArrowDown" ? 1 : -1);
+    } else if (e.code === "KeyC" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+      // 列表获得焦点、没有选中文字时，⌘/Ctrl + C 复制当前术语的 acro 代码
+      const term = terms.find((x) => x.id === selectedId);
+      if (!term || !window.getSelection()?.isCollapsed) return;
+      e.preventDefault();
+      void copyAcro(term, acroIds.get(term.id)!);
     }
   };
 
@@ -78,7 +87,15 @@ export function TermList({ terms, totalTerms, stats, domainById, selectedId, sor
         onKeyDown={onKeyDown}
         className="min-h-0 flex-1 overflow-y-auto pt-1 outline-none"
         renderItem={(x) => (
-          <TermRow term={x} stats={stats?.get(x.id)} statsReady={!!stats && !indexing} domainById={domainById} selected={x.id === selectedId} onSelect={select} />
+          <TermRow
+            term={x}
+            acroId={acroIds.get(x.id)!}
+            stats={stats?.get(x.id)}
+            statsReady={!!stats && !indexing}
+            domainById={domainById}
+            selected={x.id === selectedId}
+            onSelect={select}
+          />
         )}
         footer={
           terms.length === 0 && (
@@ -94,6 +111,7 @@ export function TermList({ terms, totalTerms, stats, domainById, selectedId, sor
 
 interface RowProps {
   term: Term;
+  acroId: string;
   stats: TermStats | undefined;
   statsReady: boolean;
   domainById: ReadonlyMap<string, Domain>;
@@ -101,7 +119,7 @@ interface RowProps {
   onSelect: (id: string) => void;
 }
 
-const TermRow = memo(function TermRow({ term, stats, statsReady, domainById, selected, onSelect }: RowProps) {
+const TermRow = memo(function TermRow({ term, acroId, stats, statsReady, domainById, selected, onSelect }: RowProps) {
   const scope = scopeSummary(term, domainById);
   const tx = t.term.glossary.list;
   return (
@@ -111,23 +129,35 @@ const TermRow = memo(function TermRow({ term, stats, statsReady, domainById, sel
       data-term-id={term.id}
       onClick={() => onSelect(term.id)}
       className={cx(
-        "flex h-[52px] cursor-default flex-col justify-center rounded-md px-3",
+        "group flex h-[52px] cursor-default items-center gap-1.5 rounded-md pr-1.5 pl-3",
         selected ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : "hover:bg-neutral-50",
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={cx("truncate text-[13.5px] font-medium", selected ? "text-blue-950" : "text-neutral-900")}>{term.name}</span>
-        <ScopeChip scope={scope} />
-        <span className="ml-auto shrink-0 text-[11.5px] tabular-nums text-neutral-500" title={tx.statsTitle}>
-          {stats ? tx.stats(stats.papers, stats.count) : statsReady ? tx.notFound : "…"}
-        </span>
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={cx("truncate text-[13.5px] font-medium", selected ? "text-blue-950" : "text-neutral-900")}>{term.name}</span>
+          <ScopeChip scope={scope} />
+          <span className="ml-auto shrink-0 text-[11.5px] tabular-nums text-neutral-500" title={tx.statsTitle}>
+            {stats ? tx.stats(stats.papers, stats.count) : statsReady ? tx.notFound : "…"}
+          </span>
+        </div>
+        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12px]">
+          <span className="truncate text-neutral-500">{aliasExcerpt(term.aliases) || <span className="text-neutral-300">{tx.noAliases}</span>}</span>
+          <span className="ml-auto shrink-0 tabular-nums text-neutral-400" title={new Date(term.updatedAt).toLocaleString(htmlLang())}>
+            {formatShortDate(term.updatedAt)}
+          </span>
+        </div>
       </div>
-      <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12px]">
-        <span className="truncate text-neutral-500">{aliasExcerpt(term.aliases) || <span className="text-neutral-300">{tx.noAliases}</span>}</span>
-        <span className="ml-auto shrink-0 tabular-nums text-neutral-400" title={new Date(term.updatedAt).toLocaleString(htmlLang())}>
-          {formatShortDate(term.updatedAt)}
-        </span>
-      </div>
+      {/* 悬停或选中时显示；位置一直占着，出现时不挤动旁边的数字 */}
+      <CopyAcroButton
+        term={term}
+        acroId={acroId}
+        title={t.term.acro.copyTitleWithKey}
+        // 不进 Tab 顺序、不并入条目的读屏名称：键盘用 ⌘/Ctrl + C
+        tabIndex={-1}
+        aria-hidden
+        className={cx("h-7 w-7 shrink-0 focus-visible:opacity-100", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
+      />
     </div>
   );
 });

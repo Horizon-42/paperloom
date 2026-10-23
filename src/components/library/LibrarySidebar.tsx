@@ -9,9 +9,9 @@ import { findTag } from "@/lib/tags";
 import { markPaperOpened } from "@/services/paperService";
 import { isFileDrag } from "./dnd";
 import { DomainTree } from "./DomainTree";
-import { IconBook, IconCanvas, IconNote, IconSearch, IconTag, IconUpload, IconX } from "./icons";
+import { IconBook, IconCanvas, IconNote, IconSearch, IconImport, IconTag, IconX } from "./icons";
 import { ImportStatus } from "./ImportStatus";
-import { enqueueImport, filesFromList } from "./importController";
+import { enqueueImport, filesFromList, isDropHandled } from "./importController";
 import { LibraryDataProvider, useLibraryData } from "./libraryData";
 import { LibraryDialogs } from "./LibraryDialogs";
 import { LibraryToolbar, TagFilterBar } from "./LibraryToolbar";
@@ -96,7 +96,7 @@ function SidebarHeader() {
           className="inline-flex h-7 items-center gap-1 rounded-md bg-blue-600 px-2.5 text-[12.5px] font-medium text-white shadow-sm hover:bg-blue-700"
           title={target ? `${t.library.sidebar.importTitle}\n${t.library.sidebar.dropInto(target)}` : t.library.sidebar.importTitle}
         >
-          <IconUpload width={14} height={14} />
+          <IconImport width={14} height={14} />
           {t.library.sidebar.importButton}
         </button>
         <input
@@ -301,13 +301,19 @@ function useWindowFileDrop(): boolean {
     const leave = (e: DragEvent) => {
       if (!isFileDrag(e)) return;
       depth = Math.max(0, depth - 1);
-      if (depth === 0) setActive(false);
+      if (depth === 0) {
+        setActive(false);
+        useLibraryStore.getState().setFileDropTarget(null);
+      }
     };
     const drop = (e: DragEvent) => {
       if (!isFileDrag(e)) return;
-      e.preventDefault();
       depth = 0;
       setActive(false);
+      useLibraryStore.getState().setFileDropTarget(null);
+      e.preventDefault();
+      // 放在领域树的行上的，领域树已经导入到对应的领域了
+      if (isDropHandled(e)) return;
       enqueueImport(filesFromList(e.dataTransfer?.files));
     };
     window.addEventListener("dragenter", enter);
@@ -325,7 +331,9 @@ function useWindowFileDrop(): boolean {
 }
 
 function FileDropOverlay() {
-  const targetId = useLibraryStore(importTargetDomainId);
+  const selectedId = useLibraryStore(importTargetDomainId);
+  const hover = useLibraryStore((s) => s.fileDropTarget);
+  const targetId = hover ? hover.domainId : selectedId;
   const { domainById } = useLibraryData();
   const target = targetId ? domainById.get(targetId)?.name : undefined;
   return (
@@ -333,7 +341,11 @@ function FileDropOverlay() {
       <div className="flex h-full w-full items-center justify-center rounded-2xl border-2 border-dashed border-blue-400 bg-white/60">
         <div className="rounded-xl bg-white px-6 py-4 text-center shadow-lg">
           <div className="text-sm font-medium text-neutral-800">{t.library.sidebar.dropToImport}</div>
-          {target && <div className="mt-1 text-xs text-neutral-500">{t.library.sidebar.dropInto(target)}</div>}
+          {target ? (
+            <div className="mt-1 text-xs text-neutral-500">{t.library.sidebar.dropInto(target)}</div>
+          ) : (
+            hover && <div className="mt-1 text-xs text-neutral-500">{t.library.sidebar.dropUnfiled}</div>
+          )}
         </div>
       </div>
     </div>

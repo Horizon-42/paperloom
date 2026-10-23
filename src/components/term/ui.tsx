@@ -1,7 +1,7 @@
 // 术语模块共用的样式与小组件（沿用文库模块的按钮、输入框样式）
 import type { SVGProps } from "react";
 export { btn, btnDanger, btnGhost, btnOutline, btnPrimary, cx, dialogContent, dialogOverlay, dialogTitle, iconBtn, input, menuContent, menuItem } from "@/components/library/ui";
-export { IconPlus, IconSearch, IconX } from "@/components/library/icons";
+export { IconCheck, IconExport, IconPlus, IconSearch, IconX } from "@/components/library/icons";
 
 export const sectionTitle = "mb-1 text-[11px] font-medium tracking-wide text-neutral-400";
 export const chip = "inline-flex max-w-full items-center gap-1 truncate rounded bg-neutral-100 px-1.5 py-px text-[12px] text-neutral-600";
@@ -46,5 +46,12 @@ export const IconTermUnderline = (p: P) => (
   <svg {...base(p)}>
     <path d="M7 5v6a5 5 0 0 0 10 0V5" />
     <path d="M4 20h2.5M9 20h2.5M14 20h2.5M19 20h1" />
+  </svg>
+);
+/** 复制（两张叠放的纸） */
+export const IconCopy = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
   </svg>
 );

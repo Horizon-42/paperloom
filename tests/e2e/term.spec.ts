@@ -333,6 +333,29 @@ test("点击 → 弹窗 → 编辑笔记 → 持久化", async ({ page }) => {
   await expect(pop).toHaveCount(0);
 });
 
+test("弹窗：复制这条术语的 acro 代码；悬停预览里没有复制按钮", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await openSimple(page);
+  await clickAt(page, await findUl(page, 1, "t-lstm"));
+  const pop = popover(page);
+  await expect(pop).toHaveAttribute("data-term-popover", "edit");
+  await pop.locator("[data-copy-acro]").click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("\\DeclareAcronym{lstm}{\n  short = {LSTM} ,\n  long  = {Long Short-Term Memory} ,\n}");
+  await expect(page.getByRole("status").filter({ hasText: "\\ac{lstm}" })).toBeVisible();
+  // 弹窗仍然开着，焦点没被抢走到别处
+  await expect(pop).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
+
+  await page.mouse.move(5, 300);
+  const ul = await findUl(page, 1, "t-lstm");
+  await page.mouse.move(ul.left + ul.width / 2, ul.top + ul.height / 2);
+  await expect(pop).toHaveAttribute("data-term-popover", "preview");
+  await expect(pop.locator("[data-copy-acro]")).toHaveCount(0);
+});
+
 test("悬停 400 ms 显示只读预览，移开收起；点击预览进入可编辑", async ({ page }) => {
   await openSimple(page);
   const u = await findUl(page, 1, "t-tf");

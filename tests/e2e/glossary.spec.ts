@@ -2,6 +2,7 @@
 /// <reference lib="dom.iterable" />
 // 术语后台 e2e：自动提取全文 → Worker 写 occurrences → 术语或论文变化后自动更新 → 术语表界面。
 // 单独运行：npx playwright test -c tests/e2e/glossary.config.ts glossary.spec
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { fixtureBytes } from "./viewerHelpers";
 import {
@@ -303,4 +304,77 @@ test("多个标签页只有一个做索引；它关闭后另一个接手", async
   await expect.poll(async () => (await debug(other))?.leader, { timeout: 10_000 }).toBe(true);
   await putTerms(other, [{ id: "t-mem", name: "Long Short-Term Memory" }]);
   await expect.poll(async () => occFor(await getOccurrences(other), "t-mem", SIMPLE)?.count ?? 0, { timeout: 20_000 }).toBeGreaterThan(0);
+});
+
+test("术语表：导出 acro 格式的 .tex（全部 / 当前列表）、复制单条（按钮与 ⌘/Ctrl + C）", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await bootGlossary(page);
+  await putDomains(page, [{ id: "d-nlp", name: "NLP" }]);
+  await putTerms(page, [
+    { id: "t-1", name: "Long Short-Term Memory", aliases: ["LSTM", "LSTMs"], note: "带门控的循环网络\n50% 的情况" },
+    { id: "t-2", name: "Positional Encoding", aliases: ["PE"], domains: ["d-nlp"] },
+    { id: "t-3", name: "Policy Evaluation", aliases: ["PE"] },
+    { id: "t-4", name: "长短期记忆网络", aliases: ["Long Short Term Memory network", "LSTMN"] },
+    { id: "t-5", name: "self-attention" },
+  ]);
+  await page.evaluate(() => (window as any).__paperlens.useAppStore.getState().setView("glossary"));
+  const view = page.getByTestId("glossary");
+  await expect(view.getByRole("option")).toHaveCount(5);
+
+  await test.step("没有筛选时直接导出全部", async () => {
+    const download = page.waitForEvent("download");
+    await view.getByRole("button", { name: "导出 .tex" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe("glossary.tex");
+    const text = readFileSync((await file.path())!, "utf8");
+    expect(text).toMatch(/^% Paperloom 术语表导出（LaTeX acro 宏包格式）· \d{4}-\d{2}-\d{2} · 共 5 条\n/);
+    expect(text).toContain("%   导言区   \\usepackage{acro}\n%            \\input{glossary}");
+    // 按缩写字母序
+    const order = ["{lstm}", "{lstmn}", "{pe}", "{pe-2}", "{self-attention}"].map((id) => text.indexOf(`\\DeclareAcronym${id}{`));
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    // 笔记写成注释，% 在注释里无需转义
+    expect(text).toContain("% 带门控的循环网络\n% 50% 的情况\n\\DeclareAcronym{lstm}{\n  short = {LSTM} ,\n  long  = {Long Short-Term Memory} ,\n}");
+    expect(text).toContain("  foreign          = {Long Short Term Memory network} ,\n  long-plural-form = {长短期记忆网络} ,");
+    expect(text).toContain("\\DeclareAcronym{self-attention}{\n  short       = {self-attention} ,\n  long        = {self-attention} ,\n  first-style = short ,\n  tag         = noabbrev ,\n}");
+    await expect(page.getByRole("status").filter({ hasText: "已导出 5 条术语到 glossary.tex" })).toBeVisible();
+  });
+
+  await test.step("有筛选时可选全部或当前列表；id 与全部导出时一致", async () => {
+    await view.getByRole("searchbox").fill("policy");
+    await expect(view.getByRole("option")).toHaveCount(1);
+    await view.getByRole("button", { name: "导出 .tex" }).click();
+    await expect(page.getByRole("menuitem", { name: "全部术语（5 条）" })).toBeVisible();
+    const download = page.waitForEvent("download");
+    await page.getByRole("menuitem", { name: "当前列表（1 条）" }).click();
+    const text = readFileSync((await (await download).path())!, "utf8");
+    expect(text).toContain("共 1 条");
+    expect(text.match(/\\DeclareAcronym/g)).toHaveLength(1);
+    expect(text).toContain("\\DeclareAcronym{pe-2}{");
+    await view.getByRole("searchbox").fill("");
+  });
+
+  await test.step("列表条目右侧的复制按钮：悬停出现，复制后显示对勾", async () => {
+    const row = view.locator('[role="option"][data-term-id="t-2"]');
+    const btn = row.locator("[data-copy-acro]");
+    await expect(btn).toHaveCSS("opacity", "0");
+    await row.hover();
+    await expect(btn).toHaveCSS("opacity", "1");
+    await btn.click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("\\DeclareAcronym{pe}{\n  short = {PE} ,\n  long  = {Positional Encoding} ,\n}");
+    await expect(page.getByRole("status").filter({ hasText: "已复制，正文里用 \\ac{pe}" })).toBeVisible();
+    // 点击复制同时选中这一条；选中的条目一直显示按钮
+    await expect(row).toHaveAttribute("aria-selected", "true");
+    await page.mouse.move(5, 5);
+    await expect(btn).toHaveCSS("opacity", "1");
+  });
+
+  await test.step("列表获得焦点时 ⌘/Ctrl + C 复制选中的术语", async () => {
+    await view.locator('[role="option"][data-term-id="t-5"]').click();
+    await view.getByRole("listbox").focus();
+    await page.keyboard.press("ControlOrMeta+c");
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("\\DeclareAcronym{self-attention}{");
+  });
 });

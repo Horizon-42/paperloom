@@ -9,6 +9,8 @@ export default {
     resizeLabel: "调整侧栏宽度（双击恢复默认）",
     dropToImport: "松开以导入 PDF",
     dropInto: (domain: string) => `将归入「${domain}」`,
+    /** 拖到「未分类」上 */
+    dropUnfiled: "不归入任何领域",
   },
 
   search: {
@@ -38,6 +40,8 @@ export default {
     collapse: "折叠",
     expand: "展开",
     newSubdomain: "新建子领域",
+    importHere: "导入论文到此领域…",
+    importInto: (domain: string) => `导入 PDF 到「${domain}」（也可以把文件拖到这一行上）`,
     more: "更多",
     actions: "领域操作",
     changeColor: "更改颜色",

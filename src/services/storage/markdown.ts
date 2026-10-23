@@ -272,6 +272,7 @@ function paperFile(m: Model, p: Paper): string {
     ...yamlList("tags", tags),
     `paperlens-id: ${yq(p.id)}`,
     `file-hash: ${yq(p.fileHash)}`,
+    ...(p.doi ? [`doi: ${yq(p.doi)}`] : []),
     `added: ${day(p.addedAt)}`,
     "---",
   ];
@@ -282,6 +283,8 @@ function paperFile(m: Model, p: Paper): string {
   if (paths.length) meta.push(`- ${L.field(L.domains, escapeInline(domainList(paths)))}`);
   if (userTags.length) meta.push(`- ${L.field(L.tags, escapeInline(L.list(userTags)))}`);
   if (p.pageCount) meta.push(`- ${L.field(L.pageCount, String(p.pageCount))}`);
+  if (p.doi) meta.push(`- ${L.field(L.doi, `[${escapeInline(p.doi)}](https://doi.org/${encodeURI(p.doi).replace(/[()#]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)})`)}`);
+  if (p.citations?.status === "found") meta.push(`- ${L.field(L.citations, L.citationsValue(String(p.citations.count), day(p.citations.fetchedAt)))}`);
   const body = [`# ${p.title}`, ""];
   if (meta.length) body.push(...meta, "");
   const anns = m.annotationsByPaper.get(p.id) ?? [];

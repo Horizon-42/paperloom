@@ -326,6 +326,8 @@ export interface PaperMetadataPatch {
   authors?: string[];
   /** null 表示清空年份 */
   year?: number | null;
+  /** 已规范化的 DOI；null 表示清空 */
+  doi?: string | null;
   domainIds?: string[];
   /** 整体替换标签，空数组表示清空 */
   tags?: string[];
@@ -346,6 +348,11 @@ export async function updatePaperMetadata(id: string, patch: PaperMetadataPatch)
   if (patch.year !== undefined) {
     if (patch.year === null) changes.year = undefined;
     else if (Number.isInteger(patch.year)) changes.year = patch.year;
+  }
+  if (patch.doi !== undefined) {
+    changes.doi = patch.doi ?? undefined;
+    // 换了 DOI：旧的引用数对不上了，清掉（下次批量查询会重新查）
+    if ((await getPaper(id))?.doi !== changes.doi) changes.citations = undefined;
   }
   if (patch.domainIds !== undefined) changes.domainIds = dedupe(patch.domainIds);
   if (patch.tags !== undefined) {

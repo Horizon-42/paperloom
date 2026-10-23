@@ -10,6 +10,7 @@ import { markPaperOpened } from "@/services/paperService";
 import { isFileDrag } from "./dnd";
 import { DomainTree } from "./DomainTree";
 import { IconBook, IconCanvas, IconNote, IconSearch, IconImport, IconTag, IconX } from "./icons";
+import { CitationStatus } from "./Citations";
 import { ImportStatus } from "./ImportStatus";
 import { enqueueImport, filesFromList, isDropHandled } from "./importController";
 import { LibraryDataProvider, useLibraryData } from "./libraryData";
@@ -61,6 +62,7 @@ function SidebarInner() {
         </>
       )}
       <ImportStatus />
+      <CitationStatus />
       <StorageStatus />
       <ResizeHandle />
       <LibraryDialogs />

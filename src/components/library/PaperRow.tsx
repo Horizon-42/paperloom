@@ -10,6 +10,7 @@ import type { Domain, Paper } from "@/types/models";
 import { PAPER_MIME } from "./dnd";
 import { IconTagPlus } from "./icons";
 import { formatAuthorsShort } from "./paperQuery";
+import { CitationBadge } from "./Citations";
 import { TagLine } from "./TagChips";
 import { isTagShortcut } from "./tagKeys";
 import { cx } from "./ui";
@@ -115,7 +116,7 @@ export function paperRowClass(state: { active: boolean; flash: boolean; highligh
 }
 
 /**
- * 论文行的内容：标题（最多两行）；作者 · 年份 · marker（全部论文里是领域色点，领域树里是"也在其他领域"标记）· 加标签按钮；有标签时再一行标签
+ * 论文行的内容：标题（最多两行）；作者 · 年份 · 引用数 · marker（全部论文里是领域色点，领域树里是"也在其他领域"标记）· 加标签按钮；有标签时再一行标签
  */
 export function PaperRowContent({
   paper,
@@ -138,6 +139,7 @@ export function PaperRowContent({
       <div className="mt-1 flex items-center gap-2 text-[11.5px] leading-4 text-neutral-500">
         <span className={cx("min-w-0 flex-1 truncate", !authors && "text-neutral-300")}>{authors || t.library.paperRow.unknownAuthors}</span>
         {paper.year !== undefined && <span className="shrink-0 tabular-nums">{paper.year}</span>}
+        <CitationBadge paper={paper} />
         {marker}
         {/* 加标签按钮：在作者行末尾占固定位置（悬停/聚焦/当前论文时才显示），不盖住标题、不改变行高 */}
         <button

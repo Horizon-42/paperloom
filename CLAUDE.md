@@ -105,4 +105,6 @@ tests/engine, tests/unit  Vitest；tests/e2e  Playwright；fixtures/ 测试 PDF�
 
 ## 隐私
 
+应用里唯一的联网是查询引用数（OpenAlex，D17）：只在用户点击时发出，第一次先说明会发送什么（DOI 或标题），不发送 PDF、批注、笔记。新增联网功能要同样处理；e2e 用 `page.route` 拦截，不要真的请求。
+
 真实论文用例通过 `PAPERLENS_LITERATURE_DIR` 指向本机的论文目录，只能原地读取。论文的文件名和目录结构只写在 `tests/e2e/real-papers.local.json`，不要写进测试代码。不要把真实论文复制进本仓库，不要上传到任何服务。

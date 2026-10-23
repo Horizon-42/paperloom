@@ -10,14 +10,16 @@ export type LibrarySelection = { kind: "all" } | { kind: "unfiled" } | { kind: "
 /** 侧栏的论文视图：按领域（文件夹树）/ 全部论文（平铺列表） */
 export type LibraryView = "tree" | "all";
 
-export type PaperSort = "added" | "title" | "year" | "lastOpened";
+export type PaperSort = "added" | "title" | "year" | "lastOpened" | "citations";
 
 /** 侧栏里的弹窗（同一时间只开一个） */
 export type LibraryDialog =
   | { kind: "editPaper"; paperId: string }
   | { kind: "deletePaper"; paperId: string }
   | { kind: "deleteDomain"; domainId: string }
-  | { kind: "manageTags" };
+  | { kind: "manageTags" }
+  /** 查询引用数前的说明（第一次，或从"查询设置"打开）；paperIds 为空时只改设置 */
+  | { kind: "citationConsent"; paperIds: string[] };
 
 /**
  * 标签编辑弹层锚定在哪里：侧栏里的论文行，或某个分栏阅读器工具栏上的标签按钮。
@@ -48,6 +50,19 @@ export interface ImportJob {
   finished: boolean;
 }
 
+/** 批量查询引用数的进度与结果（侧栏底部显示） */
+export interface CitationJob {
+  total: number;
+  done: number;
+  found: number;
+  notFound: number;
+  /** scan：正在读 PDF 前几页识别 DOI（done/total 是这一阶段的）；lookup：正在查询 */
+  phase: "scan" | "lookup";
+  finished: boolean;
+  /** 中途停止的原因；error 是 OpenAlex 以外的意外错误 */
+  stopped?: "quota" | "network" | "http" | "aborted" | "error";
+}
+
 export const SIDEBAR_MIN_WIDTH = 220;
 export const SIDEBAR_MAX_WIDTH = 560;
 export const SIDEBAR_DEFAULT_WIDTH = 280;
@@ -74,6 +89,7 @@ interface LibraryState {
   /** 需要在列表中定位并闪烁的论文；seq 每次请求自增 */
   reveal: { paperId: string; seq: number } | null;
   importJob: ImportJob | null;
+  citationJob: CitationJob | null;
   tagEditor: TagEditorState | null;
 
   setView: (view: LibraryView) => void;
@@ -96,6 +112,7 @@ interface LibraryState {
   /** 列表处理完定位请求后调用，避免重新挂载时再次闪烁 */
   clearReveal: () => void;
   setImportJob: (job: ImportJob | null | ((prev: ImportJob | null) => ImportJob | null)) => void;
+  setCitationJob: (job: CitationJob | null | ((prev: CitationJob | null) => CitationJob | null)) => void;
   openTagEditor: (paperId: string, anchor: TagEditorAnchor) => void;
   closeTagEditor: () => void;
 }
@@ -122,6 +139,7 @@ export const useLibraryStore = create<LibraryState>()(
       fileDropTarget: null,
       reveal: null,
       importJob: null,
+      citationJob: null,
       tagEditor: null,
 
       setView: (view) => set({ view }),
@@ -162,6 +180,7 @@ export const useLibraryStore = create<LibraryState>()(
       revealPaper: (paperId) => set({ reveal: { paperId, seq: ++revealSeq }, query: "" }),
       clearReveal: () => set({ reveal: null }),
       setImportJob: (job) => set((s) => ({ importJob: typeof job === "function" ? job(s.importJob) : job })),
+      setCitationJob: (job) => set((s) => ({ citationJob: typeof job === "function" ? job(s.citationJob) : job })),
       openTagEditor: (paperId, anchor) => set({ tagEditor: { paperId, anchor, seq: ++tagEditorSeq } }),
       closeTagEditor: () => set({ tagEditor: null }),
     }),

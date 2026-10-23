@@ -5,6 +5,7 @@
 // 纯函数：不碰数据库和 DOM，可在 Worker 中运行。
 import { DATA_FORMAT_VERSION } from "@/db/schema";
 import { t } from "@/i18n";
+import { parseDoiInput } from "@/lib/openalex";
 import { normalizeTags } from "@/lib/tags";
 import type {
   AnchorStatus,
@@ -20,6 +21,7 @@ import type {
   MatchMode,
   Note,
   Paper,
+  PaperCitations,
   PdfRect,
   Term,
   TermScope,
@@ -168,6 +170,27 @@ function asRef(v: unknown): EntityRef | null {
   return { kind: v.kind as EntityKind, id: v.id };
 }
 
+/** 引用数记录：字段不全或类型不对时丢掉（下次查询会重新取） */
+function parseCitations(v: unknown): PaperCitations | null {
+  if (!isObj(v) || !isNum(v.fetchedAt)) return null;
+  if (v.status === "notFound") return { status: "notFound", fetchedAt: v.fetchedAt };
+  if (v.status !== "found" || !isNum(v.count) || v.count < 0 || !isStr(v.workId) || !/^W\d+$/.test(v.workId)) return null;
+  if (v.matchedBy !== "doi" && v.matchedBy !== "title") return null;
+  const c: PaperCitations = {
+    status: "found",
+    count: Math.round(v.count),
+    workId: v.workId,
+    matchedBy: v.matchedBy,
+    matchedTitle: strOr(v.matchedTitle, ""),
+    fetchedAt: v.fetchedAt,
+  };
+  if (isNum(v.matchedYear)) c.matchedYear = v.matchedYear;
+  const doi = isStr(v.matchedDoi) ? parseDoiInput(v.matchedDoi) : null;
+  if (doi) c.matchedDoi = doi;
+  if (v.preprint === true) c.preprint = true;
+  return c;
+}
+
 /** 解析数据文件：校验格式与版本，修复引用。失败时抛出 DataFormatError（消息可直接展示） */
 export function parseDataFile(text: string, now = Date.now()): ParsedDataFile {
   let doc: unknown;
@@ -269,6 +292,12 @@ export function normalizeTables(raw: Obj, now = Date.now()): { tables: DataTable
     const tags = normalizeTags(strList(r.tags));
     if (tags.length) p.tags = tags;
     else delete p.tags;
+    const doi = isStr(r.doi) ? parseDoiInput(r.doi) : null;
+    if (doi) p.doi = doi;
+    else delete p.doi;
+    const citations = parseCitations(r.citations);
+    if (citations) p.citations = citations;
+    else delete p.citations;
     papers.push(p);
     paperByHash.set(p.fileHash, p);
   }

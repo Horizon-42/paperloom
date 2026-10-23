@@ -24,7 +24,30 @@ export interface Paper {
   pageCount: number;
   addedAt: number;
   lastOpenedAt?: number;
+  /** 规范化的 DOI（小写、不带 https://doi.org/ 前缀）：用户填写，或查询引用数时从 PDF 识别并核对过 */
+  doi?: string;
+  /** 最近一次查询引用数的结果（D17） */
+  citations?: PaperCitations;
 }
+
+/** 引用数查询结果。数据源 OpenAlex；查不到时也记下时间，批量查询时跳过最近查过的 */
+export type PaperCitations =
+  | {
+      status: "found";
+      count: number;
+      /** OpenAlex 的作品 id，如 "W2963403868" */
+      workId: string;
+      /** doi：按 DOI 查到；title：按标题匹配（取正式发表、最新的版本） */
+      matchedBy: "doi" | "title";
+      matchedTitle: string;
+      matchedYear?: number;
+      /** 匹配到的版本的 DOI（按标题匹配时可能与论文自己的不同） */
+      matchedDoi?: string;
+      /** 匹配到的是预印本（没有正式发表的版本） */
+      preprint?: boolean;
+      fetchedAt: number;
+    }
+  | { status: "notFound"; fetchedAt: number };
 
 /** PDF 二进制单独存放，主键为文件哈希 */
 export interface FileRecord {

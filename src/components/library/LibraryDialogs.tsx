@@ -17,6 +17,8 @@ import {
 } from "@/services/paperService";
 import { normalizeTags, tagKey } from "@/lib/tags";
 import type { Paper } from "@/types/models";
+import { parseDoiInput } from "@/lib/openalex";
+import { CitationConsentDialog, CitationDetail } from "./Citations";
 import { Shell } from "./DialogShell";
 import { IconX } from "./icons";
 import { useLibraryData } from "./libraryData";
@@ -37,6 +39,8 @@ export function LibraryDialogs() {
       return <DeleteDomainDialog key={dialog.domainId} domainId={dialog.domainId} onClose={close} />;
     case "manageTags":
       return <ManageTagsDialog onClose={close} />;
+    case "citationConsent":
+      return <CitationConsentDialog paperIds={dialog.paperIds} onClose={close} />;
   }
 }
 
@@ -60,6 +64,12 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
   const [title, setTitle] = useState(paper.title);
   const [authors, setAuthors] = useState(formatAuthorsInput(paper.authors));
   const [year, setYear] = useState(paper.year?.toString() ?? "");
+  const [doi, setDoi] = useState(paper.doi ?? "");
+  // DOI 框没动过时跟着数据库变（查询引用数时识别出 DOI 会写进去）；保存时只在改过时写回
+  const [doiTouched, setDoiTouched] = useState(false);
+  useEffect(() => {
+    if (!doiTouched) setDoi(paper.doi ?? "");
+  }, [paper.doi, doiTouched]);
   const [domainIds, setDomainIds] = useState(() => paper.domainIds.filter((id) => domainById.has(id)));
   // 打开时的标签：保存时只把与它相比的增删写回，不覆盖期间从别处（弹层、其他标签页）加上的标签
   const [initialTags] = useState(() => paper.tags ?? []);
@@ -83,12 +93,22 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
   const yearText = year.trim();
   const yearError = yearText && !/^\d{4}$/.test(yearText) ? t.library.editPaper.yearInvalid : null;
   const titleError = !title.trim() ? t.library.editPaper.titleRequired : null;
+  const doiText = doi.trim();
+  const doiValue = doiText ? parseDoiInput(doiText) : null;
+  const doiError = doiText && !doiValue ? t.library.editPaper.doiInvalid : null;
+  /** 查询引用数前先保存 DOI（其他字段等点保存时再写） */
+  const saveDoi = async () => {
+    if (doiError) return false;
+    if (doiTouched && (doiValue ?? undefined) !== paper.doi) await updatePaperMetadata(paper.id, { doi: doiValue });
+    setDoiTouched(false);
+    return true;
+  };
 
   const toggle = (id: string) => setDomainIds((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (yearError || titleError || saving) return;
+    if (yearError || titleError || doiError || saving) return;
     setSaving(true);
     try {
       // 标签框里还没回车的文字也一起保存
@@ -97,6 +117,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
         title,
         authors: parseAuthorsInput(authors),
         year: yearText ? Number(yearText) : null,
+        ...(doiTouched ? { doi: doiValue } : {}),
         domainIds,
         tagChanges: diffTags(initialTags, finalTags),
       });
@@ -150,6 +171,28 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
         </div>
       </div>
       {yearError && <p className="-mt-2 text-xs text-red-600">{yearError}</p>}
+
+      <div>
+        <label className={label} htmlFor="paper-doi">
+          {t.library.editPaper.doiLabel} <span className="font-normal text-neutral-400">{t.library.editPaper.doiHint}</span>
+        </label>
+        <input
+          id="paper-doi"
+          value={doi}
+          onChange={(e) => {
+            setDoi(e.target.value);
+            setDoiTouched(true);
+          }}
+          spellCheck={false}
+          className={cx(input, "font-mono text-[12.5px]", doiError && "border-red-400 focus:border-red-400 focus:ring-red-100")}
+          placeholder="10.xxxx/…"
+        />
+        {doiError && <p className="mt-1 text-xs text-red-600">{doiError}</p>}
+      </div>
+      <div>
+        <span className={label}>{t.library.editPaper.citationsLabel}</span>
+        <CitationDetail paper={paper} beforeQuery={saveDoi} />
+      </div>
 
       <div>
         <label className={label} htmlFor="paper-tags">
@@ -227,7 +270,7 @@ function EditPaperForm({ paper, onClose }: { paper: Paper; onClose: () => void }
         <button type="button" className={btnGhost} onClick={onClose}>
           {t.common.cancel}
         </button>
-        <button type="submit" className={btnPrimary} disabled={!!yearError || !!titleError || saving}>
+        <button type="submit" className={btnPrimary} disabled={!!yearError || !!titleError || !!doiError || saving}>
           {t.common.save}
         </button>
       </div>

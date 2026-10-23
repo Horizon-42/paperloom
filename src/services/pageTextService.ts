@@ -89,6 +89,32 @@ async function extractAndStore(paper: Paper): Promise<PageTextRow[]> {
   return rows.map(({ page, text }) => ({ page, text }));
 }
 
+/**
+ * 前 n 页的规范化文本，连成一串：有效的全文缓存直接用；没有时只提取这几页（不写缓存，整篇交给后台索引）。
+ * 读不了时返回空串
+ */
+export async function readFirstPages(paperId: string, n: number): Promise<string> {
+  const paper = await db.papers.get(paperId);
+  if (!paper) return "";
+  const cached = await readFresh(paper);
+  if (cached) return cached.filter((r) => r.page <= n).map((r) => r.text).join("\n");
+  const { TEXT_CONTENT_PARAMS } = await import("@/lib/pdf");
+  const lease = acquirePdf({ paperId: paper.id, fileHash: paper.fileHash });
+  try {
+    const doc = await lease.promise;
+    const out: string[] = [];
+    for (let i = 1; i <= Math.min(n, doc.numPages); i++) {
+      const content = await (await doc.getPage(i)).getTextContent(TEXT_CONTENT_PARAMS);
+      out.push(normalizeItems(content.items.filter((it) => "str" in it)).text);
+    }
+    return out.join("\n");
+  } catch {
+    return "";
+  } finally {
+    lease.release();
+  }
+}
+
 /** 换文件或删除论文前调用：清掉该论文的全文缓存 */
 export async function invalidatePageTexts(paperId: string): Promise<void> {
   await db.pageTexts.where("paperId").equals(paperId).delete();

@@ -9,6 +9,7 @@ import { useLibraryStore } from "@/app/stores/library";
 import { useReaderStore } from "@/app/stores/reader";
 import { flattenTree } from "@/services/domainTree";
 import { addPaperToDomain, movePaperOutOfDomains, restorePaperDomains } from "@/services/paperService";
+import { requestCitations } from "./citationController";
 import { IconCheck, IconChevronRight } from "./icons";
 import { useLibraryData } from "./libraryData";
 import { cx, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
@@ -82,6 +83,9 @@ export function PaperContextMenu({ children }: Props) {
             </ContextMenu.Item>
             <ContextMenu.Item className={menuItem} onSelect={() => useAnnotationStore.getState().openReplaceDialog(paper.id)}>
               {t.library.paperMenu.replacePdf}
+            </ContextMenu.Item>
+            <ContextMenu.Item className={menuItem} onSelect={() => requestCitations([paper.id])} data-query-citations>
+              {paper.citations ? t.library.citations.refresh : t.library.citations.query}
             </ContextMenu.Item>
             {/* 添加到领域：保留原来的领域（拖到领域上是移动） */}
             <ContextMenu.Sub>

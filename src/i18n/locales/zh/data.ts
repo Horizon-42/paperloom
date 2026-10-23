@@ -279,6 +279,10 @@ export default {
     domains: "领域",
     tags: "标签",
     pageCount: "页数",
+    doi: "DOI",
+    /** 引用数：数据源与查询日期 */
+    citations: "被引",
+    citationsValue: (count: string, date: string) => `${count}（OpenAlex，${date}）`,
     annotations: (n: number) => `批注（${n}）`,
     noAnnotations: "_（还没有批注）_",
     page: (n: number) => `第 ${n} 页`,

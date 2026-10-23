@@ -80,7 +80,50 @@ export default {
     manageTags: "管理标签…",
     sortLabel: (label: string) => `排序：${label}`,
     sortHeading: "排序方式",
-    sort: { added: "添加时间", title: "标题", year: "年份", lastOpened: "最近打开" },
+    sort: { added: "添加时间", title: "标题", year: "年份", lastOpened: "最近打开", citations: "引用数" },
+  },
+
+  /** 引用数（D17，数据源 OpenAlex） */
+  citations: {
+    /** 论文行上的简写；n 已格式化 */
+    badge: (n: string) => `被引 ${n}`,
+    badgeTitle: (o: { count: string; source: string; date: string }) => `被引 ${o.count} 次 · ${o.source} · ${o.date} 查询`,
+    byDoi: "按 DOI 查到",
+    byTitle: (title: string, year: string) => `按标题匹配到「${title}」${year}`,
+    preprint: "（预印本，未找到正式发表的版本）",
+    notFound: "OpenAlex 里没有找到这篇论文",
+    never: "还没有查询",
+    query: "查询引用数",
+    refresh: "重新查询",
+    openWork: "在 OpenAlex 查看",
+    queryAll: "查询所有论文的引用数",
+    queryAllTitle: "跳过 7 天内查过的（没找到的 30 天内不再查）",
+    allFresh: "所有论文的引用数都在最近查过",
+    running: (done: number, total: number) => `正在查询引用数 ${done}/${total}`,
+    scanning: (done: number, total: number) => `正在从 PDF 识别 DOI ${done}/${total}`,
+    stop: "停止",
+    done: (found: number, notFound: number) => `引用数：查到 ${found} 篇${notFound ? `，${notFound} 篇没找到` : ""}`,
+    stopped: {
+      quota: (left: number) => `OpenAlex 今日的免费额度用完了，还有 ${left} 篇没查。明天再试，或在查询设置里填写 API key。`,
+      network: (left: number) => `无法连接 OpenAlex，还有 ${left} 篇没查`,
+      http: (left: number) => `OpenAlex 返回错误，还有 ${left} 篇没查`,
+      aborted: (left: number) => `已停止，还有 ${left} 篇没查`,
+      error: (left: number) => `查询出错，还有 ${left} 篇没查`,
+    },
+    singleFound: (n: string) => `被引 ${n} 次`,
+    singleNotFound: "OpenAlex 里没有找到这篇论文。可以在「编辑信息」里填写 DOI 后再查",
+    /** 第一次查询前的说明 */
+    consent: {
+      title: "查询引用数",
+      body: "引用数来自 OpenAlex（openalex.org，开放的学术数据库）。查询时会把论文的 DOI 或标题发给它；不会发送 PDF、批注或笔记。只在你点击查询时才会联网。",
+      how: "有 DOI 的按 DOI 查（论文没填时从 PDF 前两页识别）；没有的按标题搜索，取正式发表、最新的版本。",
+      quota: "不填 API key 时，同一网络下的所有人每天共用一小笔免费额度（按标题搜索约 100 次，按 DOI 查询不限）。",
+      apiKey: "OpenAlex API key（可选）",
+      apiKeyHint: "在 openalex.org 的账户设置里免费申请；只保存在本浏览器，不会导出或同步",
+      dontAsk: "以后不再提示",
+      confirm: (n: number) => (n === 1 ? "查询" : `查询 ${n} 篇`),
+    },
+    settings: "查询设置…",
   },
 
   paperRow: {
@@ -123,6 +166,10 @@ export default {
   editPaper: {
     title: "编辑论文信息",
     yearInvalid: "年份应为四位数字",
+    doiLabel: "DOI",
+    doiHint: "可留空：查询引用数时会尝试从 PDF 识别",
+    doiInvalid: "不像 DOI（应以 10. 开头，如 10.1145/3292500.3330701）",
+    citationsLabel: "引用数",
     titleRequired: "标题不能为空",
     titleLabel: "标题",
     authorsLabel: "作者",

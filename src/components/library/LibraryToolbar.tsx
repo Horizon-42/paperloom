@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLibraryStore, type LibraryView } from "@/app/stores/library";
 import { filterPapersByTags, tagKey } from "@/lib/tags";
+import { requestAllCitations } from "./citationController";
 import { createAndRename } from "./DomainTree";
 import { IconCheck, IconPlus, IconSort, IconTag } from "./icons";
 import { useLibraryData } from "./libraryData";
@@ -195,6 +196,16 @@ function SortMenu() {
               </DropdownMenu.RadioItem>
             ))}
           </DropdownMenu.RadioGroup>
+          <DropdownMenu.Separator className={menuSeparator} />
+          <DropdownMenu.Item className={cx(menuItem, "pl-[30px]")} title={t.library.citations.queryAllTitle} onSelect={() => void requestAllCitations()} data-query-all-citations>
+            {t.library.citations.queryAll}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            className={cx(menuItem, "pl-[30px] text-neutral-500")}
+            onSelect={() => useLibraryStore.getState().openDialog({ kind: "citationConsent", paperIds: [] })}
+          >
+            {t.library.citations.settings}
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

@@ -324,7 +324,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ## 10. 当前现状与进度（2026-10-23）
 
-**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D16）。
+**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D17）。
 
 ### 10.1 v1 目标完成情况
 
@@ -348,6 +348,8 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 - **导入到指定领域**（D16，2026-10-23）：领域行上的导入按钮（「+」右边）和右键菜单项；从系统把 PDF 拖到领域树的行上即导入到对应领域（拖到「未分类」上不归类）。
 - **术语表导出为 LaTeX acro 格式**（D16）：「导出 .tex」生成 `glossary.tex`（开头注释说明用法），有筛选时可只导出当前列表；
   每条术语可复制它的 `\DeclareAcronym`（术语表列表条目右侧、⌘/Ctrl + C，论文里的术语弹窗）。中文全称配英文全称时写成 `foreign`。
+- **引用数与 DOI**（D17，2026-10-23）：论文可填 DOI；引用数来自 OpenAlex——先按 DOI（没填时从 PDF 前两页识别），查不到再按标题匹配、取正式发表的最新版本。
+  只在用户点击时联网（第一次有说明），单篇或批量查询，按引用数排序。领域树里的论文行改为与「全部」列表同样式；双击领域展开收起；新建术语时按首字母建议缩写。
 
 ### 10.3 §8 风险的应对现状
 
@@ -374,7 +376,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ### 10.6 质量与测试
 
-- 类型检查（app + node）；Vitest 单元测试 665 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
+- 类型检查（app + node）；Vitest 单元测试 705 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
 - 真实论文用例只在本机运行：`PAPERLENS_LITERATURE_DIR` 指向论文目录，用哪几篇写在 git 忽略的 `tests/e2e/real-papers.local.json`。
 - 重要改动合并前由独立 agent 审阅（侧栏领域树经过两轮；D16 一轮，acro 的属性名按 acro 3.8 源码核对，本机没有 TeX、未实际编译）。
 - 已知问题：默认的 `npm run e2e` 会跑全部用例（单一 1280×720 视口、并发），其中 9 个（画布、阅读器缩放、字形映射、术语下划线贴合、批注卡片、在线版 CMap）失败，

@@ -46,6 +46,13 @@ const MODES: readonly MatchMode[] = ["auto", "caseSensitive", "caseInsensitive"]
 const ALIAS_SEPARATORS = /[,\uff0c;\uff1b]/;
 const FULLWIDTH_COMMA = "\uff0c"; // i18n-ignore: 分隔符，不是界面文字
 
+/** 别名里加上名称的首字母缩写（推断不出、或别名里已经有缩写时不加） */
+function withInitials(aliases: string[], name: string): string[] {
+  const abbr = initialsAbbreviation(name);
+  if (!abbr || aliases.some(looksLikeAbbreviation)) return aliases;
+  return cleanAliases([...aliases, abbr], name);
+}
+
 /** 表面形式加引号后连成一句 */
 const quotedForms = (forms: readonly string[]) => t.common.list(forms.map((f) => `“${f}”`));
 
@@ -65,7 +72,9 @@ function selectionContext(req: TermEditorRequest): { before: string; after: stri
 function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Term | null; onClose: () => void }) {
   const initialName = cleanTermText(term?.name ?? req.initialName ?? req.source?.quote.exact ?? "");
   const [name, setName] = useState(initialName);
-  const [aliases, setAliases] = useState<string[]>(term?.aliases ?? []);
+  // 新建时按名称各词首字母推断的缩写直接作为别名加进去（普通别名，不合适就删）
+  const [aliases, setAliases] = useState<string[]>(() => term?.aliases ?? withInitials([], initialName));
+  const lastInferred = useRef(term ? null : initialsAbbreviation(initialName));
   const [aliasDraft, setAliasDraft] = useState("");
   const [matchMode, setMatchMode] = useState<MatchMode>(term?.matchMode ?? "auto");
   const [scope, setScope] = useState<TermScope>(term?.scope ?? { kind: "global" });
@@ -115,12 +124,15 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
   const showDefinition =
     !!definition && !dismissed.has("def") && !(nameNow === definition.name && definition.aliases.every((a) => effAliases.includes(a)));
   const showAbbrev = !term && !showDefinition && !dismissed.has("abbr") && looksLikeAbbreviation(nameNow) && !effAliases.includes(nameNow);
-  // 新建时按首字母推断缩写；别名里已经有缩写时不提示
-  const initials = !term && !showDefinition && !showAbbrev ? initialsAbbreviation(nameNow) : null;
-  const showInitials =
-    !!initials &&
-    !dismissed.has(`initials:${initials}`) &&
-    !effAliases.some((a) => looksLikeAbbreviation(a) || a.toLowerCase() === initials.toLowerCase());
+  // 名称填完（失焦）时推断缩写；名称改了就换掉上次推断的那个
+  const inferInitials = () => {
+    if (term) return;
+    const next = initialsAbbreviation(nameNow);
+    const prev = lastInferred.current;
+    if (next === prev) return;
+    lastInferred.current = next;
+    setAliases((xs) => withInitials(prev ? xs.filter((x) => x !== prev) : xs, nameNow));
+  };
 
   const addAlias = (raw: string) => {
     const parts = raw.split(ALIAS_SEPARATORS).map(cleanTermText).filter(Boolean);
@@ -239,17 +251,6 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
               </Suggestion>
             )}
 
-            {showInitials && initials && (
-              <Suggestion
-                onDismiss={() => setDismissed((s) => new Set(s).add(`initials:${initials}`))}
-                action={tx.addAsAlias}
-                onAction={() => setAliases((xs) => cleanAliases([...xs, initials], nameNow))}
-                data="initials"
-              >
-                {tx.initialsHint(initials)}
-              </Suggestion>
-            )}
-
             <Field label={tx.name} htmlFor="term-name">
               <input
                 id="term-name"
@@ -261,6 +262,7 @@ function EditorDialog({ req, term, onClose }: { req: TermEditorRequest; term: Te
                   setName(e.target.value);
                   setError(null);
                 }}
+                onBlur={inferInitials}
                 data-term-field="name"
               />
             </Field>

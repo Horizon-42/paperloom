@@ -45,9 +45,6 @@ export default {
     },
     moveToAlias: "移到别名",
     abbreviationHint: (name: string) => `「${name}」看起来是缩写。可以把它移到别名，名称填写全称。`,
-    /** 按每个词的首字母推断的缩写 */
-    initialsHint: (abbr: string) => `缩写可能是「${abbr}」（各词首字母）。`,
-    addAsAlias: "添加为别名",
     name: "名称",
     namePlaceholder: "规范名，如 Long Short-Term Memory",
     aliases: "别名",

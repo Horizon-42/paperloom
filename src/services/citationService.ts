@@ -1,6 +1,8 @@
 // 查询论文的引用数（D17）：先按 DOI 查（论文填了 DOI，或从 PDF 前两页、文件名式的标题里识别出的 DOI / arXiv 编号），
 // 查不到再按标题搜索，取正式发表、最新的版本。结果写进 Paper.citations；识别出并核对过的 DOI 写进 Paper.doi。
 // 只在用户操作时调用，不会自动发请求。
+import { db } from "@/db/schema";
+import { skipUndo } from "@/db/undo";
 import { getPaper, updatePaper, type PaperChanges } from "@/db/repo/papers";
 import {
   OpenAlexError,
@@ -86,6 +88,13 @@ export function acceptCandidate(paper: Paper, c: DoiCandidate, all: readonly Doi
   if (sim >= LABELED_TITLE_MATCH) return true;
   return isMeaninglessTitle(paper.title) && authorsAgree(paper, work) === true;
 }
+
+/** 写入查询结果：不进撤销记录（批量查询一篇一步，会把真正的操作挤出撤销记录；D20） */
+const writeQuietly = (id: string, changes: PaperChanges) =>
+  db.transaction("rw", db.papers, async () => {
+    skipUndo();
+    await updatePaper(id, changes);
+  });
 
 const throwIfAborted = (signal?: AbortSignal) => {
   if (signal?.aborted) throw new DOMException("aborted", "AbortError");
@@ -174,10 +183,10 @@ export async function refreshCitations(paperIds: readonly string[], opts: Refres
     }
     if (work) {
       const citations = found(work, matchedBy, at);
-      await updatePaper(paper.id, { ...changes, citations });
+      await writeQuietly(paper.id, { ...changes, citations });
       report({ paperId: paper.id, status: "found", citations });
     } else {
-      await updatePaper(paper.id, { citations: { status: "notFound", fetchedAt: at } });
+      await writeQuietly(paper.id, { citations: { status: "notFound", fetchedAt: at } });
       report({ paperId: paper.id, status: "notFound" });
     }
   }

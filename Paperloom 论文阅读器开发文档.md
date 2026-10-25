@@ -381,7 +381,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ### 10.6 质量与测试
 
-- 类型检查（app + node）；Vitest 单元测试 736 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
+- 类型检查（app + node）；Vitest 单元测试 741 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
 - 真实论文用例只在本机运行：`PAPERLENS_LITERATURE_DIR` 指向论文目录，用哪几篇写在 git 忽略的 `tests/e2e/real-papers.local.json`。
 - 重要改动合并前由独立 agent 审阅（侧栏领域树经过两轮；D16 一轮，acro 的属性名按 acro 3.8 源码核对，本机没有 TeX、未实际编译）。
 - 已知问题：默认的 `npm run e2e` 会跑全部用例（单一 1280×720 视口、并发），其中 9 个（画布、阅读器缩放、字形映射、术语下划线贴合、批注卡片、在线版 CMap）失败，

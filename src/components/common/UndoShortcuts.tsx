@@ -6,18 +6,22 @@ import { redo, undo } from "@/db/undo";
 import { t } from "@/i18n";
 import { reportError } from "@/components/annotation/actions";
 
-const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor, [role="dialog"]';
+const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], .cm-editor, [role="dialog"], [role="alertdialog"], [role="menu"]';
 
 export function UndoShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || !(e.metaKey || e.ctrlKey)) return;
+      // 按住不放时的自动重复不算：一次按键一步
       const key = e.key.toLowerCase();
       const isUndo = key === "z" && !e.shiftKey;
       const isRedo = (key === "z" && e.shiftKey) || (key === "y" && e.ctrlKey && !e.metaKey);
       if (!isUndo && !isRedo) return;
       if ((e.target as Element | null)?.closest?.(EDITABLE)) return;
+      // 打开着的菜单、对话框：交给它们
+      if (document.querySelector('[role="menu"], [role="dialog"], [role="alertdialog"]')) return;
       e.preventDefault();
+      if (e.repeat) return;
       const toast = useAnnotationStore.getState().showToast;
       const tx = t.common.undoRedo;
       void (isUndo ? undo() : redo())

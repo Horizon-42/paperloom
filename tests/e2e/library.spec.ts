@@ -613,9 +613,11 @@ test("撤销 / 重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z）：移动论文、
   await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(domainsOfPaper).toEqual([]);
   await expect(page.getByRole("status").filter({ hasText: "已撤销" })).toBeVisible();
-  // 再撤销：新建的领域也没了
+  // 再撤销：新建领域和改名是一步，领域整个没了
+  const domainCount = () => page.evaluate(() => (window as any).__paperlens.db.domains.count());
   await page.keyboard.press("ControlOrMeta+z");
   await expect(jia).toHaveCount(0);
+  await expect.poll(domainCount).toBe(0);
   // 重做两次
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(jia).toBeVisible();

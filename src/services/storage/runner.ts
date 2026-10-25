@@ -1,4 +1,5 @@
 // 调用存储任务：默认交给 storage.worker.ts；Worker 不可用或出错时退回主线程执行同样的代码。
+import { resetUndo } from "@/db/undo";
 import { workerKind } from "@/i18n";
 import { db } from "@/db/schema";
 import { workerName } from "@/lib/project";
@@ -18,6 +19,9 @@ interface Pending {
   resolve: (v: unknown) => void;
   reject: (e: unknown) => void;
 }
+
+/** 会用另一份数据替换整个数据库的任务 */
+const REPLACES_DB = new Set<string>(["applyImport", "restoreFromService"]);
 
 export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
   let worker: Worker | null = null;
@@ -78,7 +82,7 @@ export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
   return {
     call(name, ...rest) {
       const arg = rest[0];
-      return new Promise((resolve, reject) => {
+      const done = new Promise<TaskResult<typeof name>>((resolve, reject) => {
         const p: Pending = { name, arg, resolve: resolve as (v: unknown) => void, reject };
         const w = ensureWorker();
         if (!w) {
@@ -89,6 +93,9 @@ export function createTaskRunner(opts: { worker?: boolean } = {}): TaskRunner {
         pending.set(id, p);
         w.postMessage({ id, name, arg, dbName: db.name } satisfies TaskRequest);
       });
+      // 整个数据库被替换：撤销记录对不上了，清空（D20）
+      if (REPLACES_DB.has(name)) void done.then(() => resetUndo(), () => undefined);
+      return done;
     },
     usesWorker: () => !broken,
     terminate() {

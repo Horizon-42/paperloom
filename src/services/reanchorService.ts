@@ -1,6 +1,7 @@
 // 换 PDF 文件与批注重新锚定（开发文档第 6 节第 4 步）。
 // 批注存创建时的 fileHash；与论文当前的 fileHash 不一致说明换过文件：用 quote 在新文件全文中重新查找，
 // 找到则改页码并清空矩形（矩形需要该页的字形映射，由高亮层渲染时补算），找不到则标为未定位。
+import { skipUndo } from "@/db/undo";
 import { db } from "@/db/schema";
 import { getPaper, getPaperByHash } from "@/db/repo/papers";
 import { findQuote } from "@/engine/anchor";
@@ -120,6 +121,8 @@ async function reanchorOnce(paper: Paper, opts: ReanchorOptions): Promise<Reanch
   const plan = planReanchor(todo, paper.fileHash, pages, opts);
   const result = { ...EMPTY };
   await db.transaction("rw", db.annotations, db.papers, async () => {
+    // 自动重新定位：不进撤销记录（D20；撤销替换 PDF 后会按旧文件再定位一次）
+    skipUndo();
     // 计算期间论文又换了文件：放弃，由下一次调用处理
     if ((await db.papers.get(paperId))?.fileHash !== paper.fileHash) return;
     const before = new Map(todo.map((a) => [a.id, a]));

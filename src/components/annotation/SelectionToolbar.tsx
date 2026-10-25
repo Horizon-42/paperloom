@@ -110,7 +110,8 @@ export function SelectionToolbar() {
   const lastR = pdfRectToScreen(ctx.viewport, pending.anchor.rects[pending.anchor.rects.length - 1]);
   let top = pr.top + firstR.top - TOOLBAR_H - 6;
   if (top < 4) top = pr.top + lastR.top + lastR.height + 6;
-  const left = Math.max(4, Math.min(window.innerWidth - 370, pr.left + firstR.left));
+  // 按工具栏实际宽度限制在窗口内（英文按钮更宽）；第一次渲染还没量到时按 440 估
+  const left = Math.max(4, Math.min(window.innerWidth - (ref.current?.offsetWidth ?? 440) - 4, pr.left + firstR.left));
 
   const done = () => {
     setPending(null);

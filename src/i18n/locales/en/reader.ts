@@ -64,6 +64,7 @@ const reader: Messages["reader"] = {
     stop: "Stop reading",
     rateTitle: "Speed (click to change)",
     rateLabel: (rate) => `Speed ${rate}×, click to change`,
+    failed: "Can't read aloud: no voice is available in this browser",
   },
   card: {
     changeColor: "Change color",

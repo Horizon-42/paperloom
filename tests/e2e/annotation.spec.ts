@@ -868,12 +868,20 @@ async function installFakeSpeech(page: Page) {
         log.push({ text: u.text, rate: u.rate, voice: u.voice?.name });
         run(u);
       },
+      // 像真的浏览器：异步触发 error；cancel 不解除暂停（Safari 的行为）
       cancel() {
         window.clearTimeout(timer);
         const u = current;
         current = null;
-        u?.onerror?.({ error: "interrupted" });
+        if (u) window.setTimeout(() => u.onerror?.({ error: "interrupted" }), 0);
       },
+      get paused() {
+        return state.paused;
+      },
+      get speaking() {
+        return !!current;
+      },
+      pending: false,
       pause() {
         state.paused = true;
       },
@@ -890,7 +898,14 @@ async function installFakeSpeech(page: Page) {
         this.text = text;
       }
     };
-    (window as unknown as Record<string, unknown>).__tts = { log, state };
+    // 别处（另一个标签页、系统）打断了正在读的一段
+    const interrupt = () => {
+      window.clearTimeout(timer);
+      const u = current;
+      current = null;
+      u?.onerror?.({ error: "interrupted" });
+    };
+    (window as unknown as Record<string, unknown>).__tts = { log, state, interrupt };
   });
 }
 
@@ -900,10 +915,12 @@ test("朗读选中的文字：一句一句读，高亮当前句和当前词；�
   const { words } = await page.evaluate(measureWordsInBrowser, { paneId: "left", pageNumber: 1 });
   // 正文同一行的前几个词
   const body = words.filter((x) => x.truth.left[1] < 640);
-  const line = body.filter((x) => Math.abs(x.truth.left[1] - body[0].truth.left[1]) < 2).slice(0, 5);
-  expect(line.length).toBeGreaterThanOrEqual(3);
-  const [a] = await toClient(page, 1, [line[0].truth.left]);
-  const [, b] = await toClient(page, 1, [line[0].truth.left, line[line.length - 1].truth.right]);
+  // 正文的前三行：一定跨句
+  const ys = [...new Set(body.map((x) => Math.round(x.truth.left[1])))].sort((p, q) => q - p);
+  const lineAt = (y: number) => body.filter((x) => Math.abs(x.truth.left[1] - y) < 2).sort((p, q) => p.truth.left[0] - q.truth.left[0]);
+  const first = lineAt(ys[0]);
+  const third = lineAt(ys[2]);
+  const [a, b] = await toClient(page, 1, [first[0].truth.left, third[third.length - 1].truth.right]);
   await drag(page, a, b);
   await page.locator('[data-annotation-toolbar] [data-action="read-aloud"]').click();
   await expect(page.locator("[data-annotation-toolbar]")).toHaveCount(0);
@@ -912,9 +929,9 @@ test("朗读选中的文字：一句一句读，高亮当前句和当前词；�
   await expect(bar).toHaveAttribute("data-read-aloud-bar", "speaking");
   const log = () => page.evaluate(() => (window as unknown as { __tts: { log: { text: string; rate: number; voice?: string }[] } }).__tts.log);
   await expect.poll(async () => (await log()).length).toBeGreaterThan(0);
-  const first = (await log())[0];
-  expect(first.voice).toBe("Fake En");
-  expect(first.text.split(/\s+/)[0]).toBe(line[0].word);
+  const first0 = (await log())[0];
+  expect(first0.voice).toBe("Fake En");
+  expect(first0.text.split(/\s+/)[0]).toBe(first[0].word);
   // 当前句、当前词的高亮画在第 1 页上
   const page1 = pageEl(page, 1);
   await expect(page1.locator('[data-read-aloud="sentence"]').first()).toBeVisible();
@@ -933,15 +950,26 @@ test("朗读选中的文字：一句一句读，高亮当前句和当前词；�
   await expect.poll(async () => (await log()).at(-1)?.rate).toBe(1.25);
   expect(await page.evaluate(() => localStorage.getItem("paperlens.readAloud.rate"))).toBe("1.25");
 
-  // 读完：播放条和高亮消失
-  await expect(bar).toHaveCount(0, { timeout: 10_000 });
+  // 读完：一句一句读了不止一段，播放条和高亮消失
+  await expect(bar).toHaveCount(0, { timeout: 15_000 });
   await expect(page1.locator("[data-read-aloud]")).toHaveCount(0);
+  const texts = (await log()).map((x) => x.text);
+  expect(new Set(texts).size, JSON.stringify(texts)).toBeGreaterThan(1);
 
-  // 再读一次，中途停止
+  // 暂停后停止，再读新的：不会卡在暂停里没有声音
   await drag(page, a, b);
   await page.locator('[data-annotation-toolbar] [data-action="read-aloud"]').click();
   await expect(bar).toBeVisible();
+  await bar.getByRole("button", { name: "暂停" }).click();
   await bar.getByRole("button", { name: "停止朗读" }).click();
+  await expect(bar).toHaveCount(0);
+  await drag(page, a, b);
+  await page.locator('[data-annotation-toolbar] [data-action="read-aloud"]').click();
+  await expect(page1.locator('[data-read-aloud="word"]').first()).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __tts: { state: { paused: boolean } } }).__tts.state.paused)).toBe(false);
+
+  // 别处打断：停下，不卡在"正在朗读"
+  await page.evaluate(() => (window as unknown as { __tts: { interrupt(): void } }).__tts.interrupt());
   await expect(bar).toHaveCount(0);
   await expect(page1.locator("[data-read-aloud]")).toHaveCount(0);
 });

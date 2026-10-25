@@ -68,6 +68,7 @@ export default {
     stop: "停止朗读",
     rateTitle: "语速（点击切换）",
     rateLabel: (rate: number) => `语速 ${rate} 倍，点击切换`,
+    failed: "无法朗读：浏览器没有可用的语音",
   },
   /** 页边角注卡片、色条 */
   card: {

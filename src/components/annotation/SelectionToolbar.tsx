@@ -1,5 +1,5 @@
 // 选区工具栏：在文本层选中文字后浮在选区旁边。
-// 5 种高亮色（点击即保存）、写笔记（保存并打开角注卡片编辑）、设为术语（交给术语编辑器，同时保存出处批注）。
+// 5 种高亮色（点击即保存）、写笔记（保存并打开角注卡片编辑）、设为术语（交给术语编辑器，同时保存出处批注）、朗读（D19）。
 // 选区跨页时只取起点所在页的部分。Esc 或点击别处隐藏。保存失败时保留选区和工具栏，并提示错误。
 import { useEffect, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -11,8 +11,9 @@ import { pdfRectToScreen } from "@/lib/coords";
 import { createAnnotation } from "@/services/annotationService";
 import { reportError } from "./actions";
 import { DEFAULT_COLOR, HIGHLIGHT_COLORS, strongColor } from "./colors";
-import { IconPen, IconTagSmall } from "./icons";
+import { IconPen, IconSpeaker, IconTagSmall } from "./icons";
 import { getPageCtx } from "./pageRegistry";
+import { speechSupported, startReadAloud } from "./readAloud";
 import { anchorFromSelection, dragGesture, type PendingSelection, type PointerSample } from "./selectionAnchor";
 
 const TOOLBAR_H = 34;
@@ -109,7 +110,7 @@ export function SelectionToolbar() {
   const lastR = pdfRectToScreen(ctx.viewport, pending.anchor.rects[pending.anchor.rects.length - 1]);
   let top = pr.top + firstR.top - TOOLBAR_H - 6;
   if (top < 4) top = pr.top + lastR.top + lastR.height + 6;
-  const left = Math.max(4, Math.min(window.innerWidth - 300, pr.left + firstR.left));
+  const left = Math.max(4, Math.min(window.innerWidth - 370, pr.left + firstR.left));
 
   const done = () => {
     setPending(null);
@@ -145,6 +146,12 @@ export function SelectionToolbar() {
   const makeTerm = () => {
     done();
     useTermUiStore.getState().openTermEditor({ initialName: normalizeString(anchor.quote.exact), source: anchor });
+  };
+  // 朗读：读本页规范化文本里的这一段（与高亮用同一套下标）
+  const readAloud = () => {
+    const text = ctx.text?.normalized.text.slice(pending.range.start, pending.range.end) ?? "";
+    done();
+    void startReadAloud({ paneId, paperId: anchor.paperId, page: anchor.page, start: pending.range.start, end: pending.range.end, text });
   };
 
   return createPortal(
@@ -189,6 +196,17 @@ export function SelectionToolbar() {
       >
         <IconTagSmall /> {t.reader.selection.makeTerm}
       </button>
+      {speechSupported() && (
+        <button
+          type="button"
+          className="flex h-7 items-center gap-1 rounded-md px-1.5 text-[12.5px] text-neutral-700 hover:bg-neutral-100"
+          onClick={readAloud}
+          title={t.reader.readAloud.buttonTitle}
+          data-action="read-aloud"
+        >
+          <IconSpeaker /> {t.reader.readAloud.button}
+        </button>
+      )}
     </div>,
     document.body,
   );

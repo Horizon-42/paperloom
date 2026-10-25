@@ -15,6 +15,8 @@ export interface PendingSelection {
   key: string;
   paneId: PageLayerContext["paneId"];
   anchor: SelectionAnchor;
+  /** 选区在本页规范化文本里的区间（朗读高亮用） */
+  range: TextRange;
 }
 
 export interface ClientPoint {
@@ -95,6 +97,7 @@ function toPending(ctx: PageLayerContext, tr: TextRange): PendingSelection | nul
   return {
     key: pageKey(ctx.paneId, ctx.paperId, ctx.pageNumber),
     paneId: ctx.paneId,
+    range: { start: tr.start, end: tr.end },
     anchor: {
       paperId: ctx.paperId,
       page: ctx.pageNumber,

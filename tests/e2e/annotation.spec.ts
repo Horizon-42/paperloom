@@ -826,3 +826,122 @@ test.describe("真实论文", () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// 朗读（D19）：浏览器的语音合成换成假的实现，按固定节奏触发 start / boundary / end
+// ---------------------------------------------------------------------------
+
+async function installFakeSpeech(page: Page) {
+  await page.evaluate(() => {
+    type U = { text: string; rate: number; voice?: { name: string }; lang: string; onstart?: () => void; onend?: () => void; onboundary?: (e: unknown) => void; onerror?: (e: unknown) => void };
+    const log: { text: string; rate: number; voice?: string }[] = [];
+    let timer = 0;
+    let current: U | null = null;
+    const state = { paused: false };
+    const run = (u: U) => {
+      current = u;
+      const words = [...u.text.matchAll(/\S+/g)];
+      let i = -1;
+      const step = () => {
+        if (current !== u) return;
+        if (state.paused) {
+          timer = window.setTimeout(step, 50);
+          return;
+        }
+        if (i < 0) u.onstart?.();
+        else if (i < words.length) u.onboundary?.({ name: "word", charIndex: words[i].index, charLength: words[i][0].length });
+        else {
+          current = null;
+          u.onend?.();
+          return;
+        }
+        i++;
+        timer = window.setTimeout(step, 150);
+      };
+      timer = window.setTimeout(step, 30);
+    };
+    const synth = {
+      getVoices: () => [{ name: "Fake En", lang: "en-US", localService: true, default: true }],
+      addEventListener() {},
+      removeEventListener() {},
+      speak(u: U) {
+        log.push({ text: u.text, rate: u.rate, voice: u.voice?.name });
+        run(u);
+      },
+      cancel() {
+        window.clearTimeout(timer);
+        const u = current;
+        current = null;
+        u?.onerror?.({ error: "interrupted" });
+      },
+      pause() {
+        state.paused = true;
+      },
+      resume() {
+        state.paused = false;
+      },
+    };
+    Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+    (window as unknown as Record<string, unknown>).SpeechSynthesisUtterance = class {
+      text: string;
+      rate = 1;
+      lang = "";
+      constructor(text: string) {
+        this.text = text;
+      }
+    };
+    (window as unknown as Record<string, unknown>).__tts = { log, state };
+  });
+}
+
+test("朗读选中的文字：一句一句读，高亮当前句和当前词；暂停 / 继续、语速、停止", async ({ page }) => {
+  await openFixture(page);
+  await installFakeSpeech(page);
+  const { words } = await page.evaluate(measureWordsInBrowser, { paneId: "left", pageNumber: 1 });
+  // 正文同一行的前几个词
+  const body = words.filter((x) => x.truth.left[1] < 640);
+  const line = body.filter((x) => Math.abs(x.truth.left[1] - body[0].truth.left[1]) < 2).slice(0, 5);
+  expect(line.length).toBeGreaterThanOrEqual(3);
+  const [a] = await toClient(page, 1, [line[0].truth.left]);
+  const [, b] = await toClient(page, 1, [line[0].truth.left, line[line.length - 1].truth.right]);
+  await drag(page, a, b);
+  await page.locator('[data-annotation-toolbar] [data-action="read-aloud"]').click();
+  await expect(page.locator("[data-annotation-toolbar]")).toHaveCount(0);
+
+  const bar = page.locator("[data-read-aloud-bar]");
+  await expect(bar).toHaveAttribute("data-read-aloud-bar", "speaking");
+  const log = () => page.evaluate(() => (window as unknown as { __tts: { log: { text: string; rate: number; voice?: string }[] } }).__tts.log);
+  await expect.poll(async () => (await log()).length).toBeGreaterThan(0);
+  const first = (await log())[0];
+  expect(first.voice).toBe("Fake En");
+  expect(first.text.split(/\s+/)[0]).toBe(line[0].word);
+  // 当前句、当前词的高亮画在第 1 页上
+  const page1 = pageEl(page, 1);
+  await expect(page1.locator('[data-read-aloud="sentence"]').first()).toBeVisible();
+  await expect(page1.locator('[data-read-aloud="word"]').first()).toBeVisible();
+
+  // 暂停 / 继续
+  await bar.getByRole("button", { name: "暂停" }).click();
+  await expect(bar).toHaveAttribute("data-read-aloud-bar", "paused");
+  expect(await page.evaluate(() => (window as unknown as { __tts: { state: { paused: boolean } } }).__tts.state.paused)).toBe(true);
+  await bar.getByRole("button", { name: "继续" }).click();
+  await expect(bar).toHaveAttribute("data-read-aloud-bar", "speaking");
+
+  // 语速：从当前句重新读，记在本浏览器里
+  await bar.locator("[data-read-aloud-rate]").click();
+  await expect(bar.locator("[data-read-aloud-rate]")).toHaveText("1.25×");
+  await expect.poll(async () => (await log()).at(-1)?.rate).toBe(1.25);
+  expect(await page.evaluate(() => localStorage.getItem("paperlens.readAloud.rate"))).toBe("1.25");
+
+  // 读完：播放条和高亮消失
+  await expect(bar).toHaveCount(0, { timeout: 10_000 });
+  await expect(page1.locator("[data-read-aloud]")).toHaveCount(0);
+
+  // 再读一次，中途停止
+  await drag(page, a, b);
+  await page.locator('[data-annotation-toolbar] [data-action="read-aloud"]').click();
+  await expect(bar).toBeVisible();
+  await bar.getByRole("button", { name: "停止朗读" }).click();
+  await expect(bar).toHaveCount(0);
+  await expect(page1.locator("[data-read-aloud]")).toHaveCount(0);
+});

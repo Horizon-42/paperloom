@@ -8,11 +8,13 @@ import * as reanchorService from "@/services/reanchorService";
 import { HighlightLayer } from "./HighlightLayer";
 import { MarginRail } from "./MarginRail";
 import { PageCtxRegistrar } from "./pageRegistry";
+import { ReadAloudLayer } from "./ReadAloudLayer";
 import { annotationSearchProvider } from "./searchProvider";
 
 if (!pageOverlays.some((e) => e.key === "annotation-highlights")) {
   pageOverlays.push(
     { key: "annotation-highlights", slot: "under-text", Component: HighlightLayer },
+    { key: "read-aloud", slot: "under-text", Component: ReadAloudLayer },
     { key: "annotation-page-registry", slot: "over-text", Component: PageCtxRegistrar },
   );
   docOverlays.push({ key: "annotation-margin", slot: "margin", Component: MarginRail });

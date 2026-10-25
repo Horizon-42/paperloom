@@ -53,6 +53,18 @@ const reader: Messages["reader"] = {
     makeTerm: "Make term",
     saveFailed: "Couldn't save highlight",
   },
+  readAloud: {
+    button: "Read aloud",
+    buttonTitle: "Read the selected text aloud (browser's built-in voices)",
+    barLabel: "Read aloud",
+    reading: "Reading",
+    paused: "Paused",
+    pause: "Pause",
+    resume: "Resume",
+    stop: "Stop reading",
+    rateTitle: "Speed (click to change)",
+    rateLabel: (rate) => `Speed ${rate}×, click to change`,
+  },
   card: {
     changeColor: "Change color",
     colorTitle: (color) => `Color: ${color}. Click to change`,

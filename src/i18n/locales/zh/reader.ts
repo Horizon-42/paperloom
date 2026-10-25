@@ -56,6 +56,19 @@ export default {
     makeTerm: "设为术语",
     saveFailed: "保存高亮失败",
   },
+  /** 朗读（D19，浏览器自带的语音合成） */
+  readAloud: {
+    button: "朗读",
+    buttonTitle: "朗读选中的文字（浏览器自带的语音）",
+    barLabel: "朗读",
+    reading: "正在朗读",
+    paused: "已暂停",
+    pause: "暂停",
+    resume: "继续",
+    stop: "停止朗读",
+    rateTitle: "语速（点击切换）",
+    rateLabel: (rate: number) => `语速 ${rate} 倍，点击切换`,
+  },
   /** 页边角注卡片、色条 */
   card: {
     changeColor: "更改颜色",

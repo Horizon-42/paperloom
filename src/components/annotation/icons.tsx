@@ -36,3 +36,24 @@ export const IconAlert = (p: P) => (
     <path d="M12 3 2 20h20L12 3zM12 10v4M12 17.5v.01" />
   </svg>
 );
+/** 朗读（喇叭） */
+export const IconSpeaker = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
+  </svg>
+);
+export const IconPause = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 5v14M15 5v14" />
+  </svg>
+);
+export const IconPlay = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7 5l12 7-12 7z" />
+  </svg>
+);
+export const IconStop = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+  </svg>
+);

@@ -2,33 +2,13 @@
 import { t } from "@/i18n";
 import { memo } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { useAnnotationStore } from "@/app/stores/annotation";
 import { useLibraryStore } from "@/app/stores/library";
 import { REF_MIME, encodeRef } from "@/components/canvas/model";
-import { deleteNote, restoreNote } from "@/services/noteService";
 import type { Note } from "@/types/models";
 import { IconNote } from "./icons";
 import { TREE_INDENT } from "./TreePaperRow";
+import { deleteFieldNote, noteLabel } from "./fieldNotes";
 import { cx, menuContent, menuItem, menuItemDanger } from "./ui";
-
-/** 笔记在列表里的名字：第一行非空文字（去掉 Markdown 标题、强调等标记）；空白笔记返回 "" */
-export function noteLabel(text: string): string {
-  const line = text.split(/\r?\n/).find((l) => l.trim()) ?? "";
-  return line
-    .replace(/^\s*(?:#{1,6}\s+|[-*+]\s+|>\s*|\d+[.)]\s+)/, "")
-    .replace(/[*_`~]+/g, "")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .trim();
-}
-
-/** 删除领域笔记（连线和画布节点一起删），给出可撤销的提示 */
-export async function deleteFieldNote(id: string) {
-  const store = useLibraryStore.getState();
-  const snap = await deleteNote(id);
-  if (!snap) return;
-  if (store.openNoteId === id) store.openNote(null);
-  useAnnotationStore.getState().showToast(t.library.fieldNotes.deleted, { undo: () => restoreNote(snap) });
-}
 
 interface Props {
   note: Note;
@@ -42,7 +22,12 @@ interface Props {
 
 export const TreeNoteRow = memo(function TreeNoteRow({ note, depth, parentId, active, height, focusFolder }: Props) {
   const label = noteLabel(note.text);
-  const open = () => useLibraryStore.getState().openNote(note.id);
+  const open = () => {
+    const store = useLibraryStore.getState();
+    // 已经打开着：把焦点交给编辑器（面板不会重新挂载）
+    if (store.openNoteId === note.id) document.querySelector<HTMLElement>(`[data-note-panel="${CSS.escape(note.id)}"] .cm-content`)?.focus();
+    else store.openNote(note.id);
+  };
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
@@ -55,8 +40,8 @@ export const TreeNoteRow = memo(function TreeNoteRow({ note, depth, parentId, ac
           draggable
           onDragStart={(e) => {
             // 拖到画布上 = 放一个笔记节点
+            // 不带 text/plain：拖到编辑器里不会插入文字
             e.dataTransfer.setData(REF_MIME, encodeRef({ kind: "note", id: note.id }));
-            e.dataTransfer.setData("text/plain", label || t.library.fieldNotes.untitled);
             e.dataTransfer.effectAllowed = "copy";
           }}
           onClick={open}
@@ -64,7 +49,8 @@ export const TreeNoteRow = memo(function TreeNoteRow({ note, depth, parentId, ac
             if (e.target !== e.currentTarget) return;
             if (e.key === "Enter") open();
             else if (e.key === "ArrowLeft") focusFolder(parentId);
-            else if (e.key === "Delete" || e.key === "Backspace") void deleteFieldNote(note.id);
+            // 只认 Delete（不认 Backspace：以为焦点在编辑器里时按退格会误删）；删后焦点回到所在领域
+            else if (e.key === "Delete") void deleteFieldNote(note.id).then(() => focusFolder(parentId));
           }}
           title={label || t.library.fieldNotes.untitled}
           style={{ height: height - 1, paddingLeft: 4 + depth * TREE_INDENT + 18 }}

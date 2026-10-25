@@ -45,7 +45,7 @@ export function findNodeForRef(nodes: readonly BoardNode[], boardId: string, ref
 }
 
 /**
- * 纯函数：删除画布时可以一并删除的自由笔记——在这块画布上、不在其他画布上、也没有任何连线。
+ * 纯函数：删除画布时可以一并删除的自由笔记——在这块画布上、不在其他画布上、也没有任何连线（领域笔记由调用方另外排除）。
  * nodes 至少包含引用这些笔记的全部节点；links 至少包含与这些笔记相连的全部连线。
  */
 export function orphanNotesOfBoard(boardId: string, nodes: readonly BoardNode[], links: readonly Link[]): string[] {
@@ -101,7 +101,7 @@ export interface BoardDeletionPlan {
 }
 
 export async function planBoardDeletion(boardId: string): Promise<BoardDeletionPlan | null> {
-  return db.transaction("r", [db.boards, db.boardNodes, db.links], async () => {
+  return db.transaction("r", [db.boards, db.boardNodes, db.links, db.notes], async () => {
     const board = await getBoard(boardId);
     if (!board) return null;
     const nodes = await listBoardNodes(boardId);
@@ -118,7 +118,11 @@ async function findOrphanNotes(boardId: string, nodes: BoardNode[]): Promise<str
     db.links.where("from.id").anyOf(noteIds).toArray(),
     db.links.where("to.id").anyOf(noteIds).toArray(),
   ]);
-  return orphanNotesOfBoard(boardId, [...nodes, ...others], [...out, ...inc]);
+  const orphans = orphanNotesOfBoard(boardId, [...nodes, ...others], [...out, ...inc]);
+  if (!orphans.length) return [];
+  // 领域笔记不随画布删除（D18）：它属于领域，不只是这块画布上的卡片
+  const notes = await db.notes.bulkGet(orphans);
+  return orphans.filter((_, i) => !notes[i]?.domainId);
 }
 
 /**

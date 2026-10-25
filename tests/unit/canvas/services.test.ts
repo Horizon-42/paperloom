@@ -374,3 +374,34 @@ describe("画布界面状态", () => {
     expect(useCanvasStore.getState().focus).toBeNull();
   });
 });
+
+describe("领域笔记（D18）", () => {
+  beforeEach(async () => {
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+
+  it("删除画布时选了删除孤立笔记：领域笔记不删", async () => {
+    await db.domains.put({ id: "d1", name: "A", parentId: null, color: "#3b82f6", order: 0 });
+    const board = await createBoard("B");
+    const free = await createNote("free");
+    const field = await createNote("field", Date.now(), "d1");
+    await addNodeToBoard(board.id, { kind: "note", id: free.id }, { x: 0, y: 0 });
+    await addNodeToBoard(board.id, { kind: "note", id: field.id }, { x: 0, y: 0 });
+    expect((await planBoardDeletion(board.id))?.orphanNoteIds).toEqual([free.id]);
+    const r = await deleteBoard(board.id, { deleteOrphanNotes: true });
+    expect(r.deletedNotes).toBe(1);
+    expect(await db.notes.get(free.id)).toBeUndefined();
+    expect((await db.notes.get(field.id))?.domainId).toBe("d1");
+  });
+
+  it("撤销删除时所属领域已被删除：恢复成自由笔记", async () => {
+    await db.domains.put({ id: "d1", name: "A", parentId: null, color: "#3b82f6", order: 0 });
+    const n = await createNote("x", Date.now(), "d1");
+    const snap = (await deleteNote(n.id))!;
+    await db.domains.delete("d1");
+    await restoreNote(snap);
+    const back = await db.notes.get(n.id);
+    expect(back?.text).toBe("x");
+    expect(back && "domainId" in back).toBe(false);
+  });
+});

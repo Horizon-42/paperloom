@@ -53,9 +53,12 @@ export async function deleteNote(id: string): Promise<DeletedNote | null> {
 
 /** 撤销删除：另一端已不存在的连线、所在画布已不存在的节点不恢复 */
 export async function restoreNote(snap: DeletedNote): Promise<void> {
-  const tables = [db.notes, db.links, db.boardNodes, db.boards, db.annotations, db.terms, db.papers];
+  const tables = [db.notes, db.links, db.boardNodes, db.boards, db.annotations, db.terms, db.papers, db.domains];
   await db.transaction("rw", tables, async () => {
-    await db.notes.put(snap.note);
+    // 所属领域在此期间被删除：恢复成自由笔记
+    const note = { ...snap.note };
+    if (note.domainId && !(await db.domains.get(note.domainId))) delete note.domainId;
+    await db.notes.put(note);
     const self = snap.note.id;
     const exists = async (r: EntityRef): Promise<boolean> => {
       if (r.kind === "note") return r.id === self || !!(await db.notes.get(r.id));

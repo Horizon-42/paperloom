@@ -89,6 +89,8 @@ export function buildInbox(
   }
   for (const n of input.notes) {
     if (input.placed.has(`note:${n.id}`)) continue;
+    // 按领域筛选时，领域笔记只在它的领域在范围内时出现（自由笔记照旧）
+    if (q.domainIds && n.domainId && !q.domainIds.has(n.domainId)) continue;
     if (hideNotes) hiddenNotes++;
     else items.push({ ref: { kind: "note", id: n.id }, note: n, updatedAt: n.updatedAt });
   }

@@ -140,6 +140,9 @@ const library: Messages["library"] = {
     empty: "(Blank note)",
     saving: "Saving…",
     saved: "Saved automatically",
+    saveFailed: "Couldn't save the note",
+    createFailed: "Couldn't create the field note",
+    modeLabel: "Edit or preview",
   },
 
   paperRow: {

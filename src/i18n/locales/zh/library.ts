@@ -142,6 +142,9 @@ export default {
     empty: "（空白笔记）",
     saving: "正在保存…",
     saved: "已自动保存",
+    saveFailed: "保存笔记失败",
+    createFailed: "新建领域笔记失败",
+    modeLabel: "编辑或预览",
   },
 
   paperRow: {

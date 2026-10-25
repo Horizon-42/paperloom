@@ -11,7 +11,6 @@ import { useLibraryStore } from "@/app/stores/library";
 import { filterPapersByTags } from "@/lib/tags";
 import { DOMAIN_COLORS, createDomain, moveDomain, renameDomain, setDomainColor } from "@/services/domainService";
 import { computeDomainMove, type DomainDrop, type DropPosition } from "@/services/domainTree";
-import { createNote } from "@/services/noteService";
 import { movePaperOutOfDomains, movePaperToDomain, restorePaperDomains } from "@/services/paperService";
 import type { Domain } from "@/types/models";
 import { DOMAIN_MIME, PAPER_FROM_MIME, PAPER_MIME, hasType, isFileDrag } from "./dnd";
@@ -23,6 +22,7 @@ import { PaperContextMenu } from "./PaperContextMenu";
 import { useActivePaperId } from "./PaperList";
 import { sortPapers } from "./paperQuery";
 import { paperRowHeight } from "./PaperRow";
+import { createFieldNote } from "./fieldNotes";
 import { TreeNoteRow } from "./TreeNoteRow";
 import { TREE_INDENT, TreePaperRow } from "./TreePaperRow";
 import { cx, iconBtn, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
@@ -38,14 +38,6 @@ interface DropHint {
   /** 领域 id；UNFILED 是「未分类」；null 是顶层末尾的放置区 */
   targetId: string | null;
   position: DropPosition;
-}
-
-/** 在领域下新建一条空白的领域笔记：展开该领域，在右侧面板打开 */
-export async function createFieldNote(domainId: string) {
-  const note = await createNote("", Date.now(), domainId);
-  const store = useLibraryStore.getState();
-  store.setExpanded(domainId, true);
-  store.openNote(note.id);
 }
 
 /** 新建领域并进入重命名状态 */
@@ -478,15 +470,22 @@ export function DomainTree() {
                 );
               }
               if (row.kind === "note") {
+                // 和论文行一样：把论文（或文件）拖到这一行上 = 拖到它所在的领域上
                 return (
-                  <TreeNoteRow
-                    note={row.note}
-                    depth={row.depth}
-                    parentId={row.parentId}
-                    active={row.note.id === openNoteId}
-                    height={NOTE_ROW_HEIGHT}
-                    focusFolder={handlers.focusFolder}
-                  />
+                  <div
+                    onDragOver={(e) => handlers.onTargetDragOver(e, row.parentId)}
+                    onDragLeave={(e) => handlers.onDragLeave(e, row.parentId)}
+                    onDrop={(e) => handlers.onTargetDrop(e, row.parentId)}
+                  >
+                    <TreeNoteRow
+                      note={row.note}
+                      depth={row.depth}
+                      parentId={row.parentId}
+                      active={row.note.id === openNoteId}
+                      height={NOTE_ROW_HEIGHT}
+                      focusFolder={handlers.focusFolder}
+                    />
+                  </div>
                 );
               }
               if (row.kind === "unfiled") {

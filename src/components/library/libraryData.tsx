@@ -8,6 +8,7 @@ import { listPapers } from "@/db/repo/papers";
 import { collectTags, sameTagInfos, type TagInfo } from "@/lib/tags";
 import { buildDomainTree, countPapersByDomain, isUnfiled, type DomainNode } from "@/services/domainTree";
 import type { Domain, Note, Paper } from "@/types/models";
+import { noteLabel } from "./fieldNotes";
 import { shareById, type Shared } from "./structural";
 
 export interface LibraryData {
@@ -45,13 +46,19 @@ export function LibraryDataProvider({ children }: { children: ReactNode }) {
   const papersShared = useShared(useLiveQuery(listPapers, []));
   const domainsShared = useShared(useLiveQuery(listDomains, []));
   const fieldNotes = useLiveQuery(listFieldNotes, []) ?? EMPTY_NOTES;
+  // notes 表任何一次写入（面板自动保存、画布上改自由笔记）都会给出新数组；
+  // 领域树只用到 id、所属领域和列表里的名字，这些没变时沿用上一次的 Map，整棵树不必重新算
+  const prevNotes = useRef<{ sig: string; map: Map<string, Note[]> } | null>(null);
   const notesByDomain = useMemo(() => {
+    const sig = fieldNotes.map((n) => `${n.id}\u0000${n.domainId}\u0000${noteLabel(n.text)}`).join("\u0001");
+    if (prevNotes.current?.sig === sig) return prevNotes.current.map;
     const m = new Map<string, Note[]>();
     for (const n of fieldNotes) {
       const list = m.get(n.domainId!);
       if (list) list.push(n);
       else m.set(n.domainId!, [n]);
     }
+    prevNotes.current = { sig, map: m };
     return m;
   }, [fieldNotes]);
   const loaded = papersShared !== undefined && domainsShared !== undefined;

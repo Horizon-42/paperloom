@@ -12,7 +12,8 @@ import { domainPathNames } from "@/services/domainTree";
 import { setNoteText } from "@/services/noteService";
 import type { Note } from "@/types/models";
 import { IconNote, IconX } from "./icons";
-import { deleteFieldNote } from "./TreeNoteRow";
+import { deleteFieldNote, registerNoteFlush } from "./fieldNotes";
+import { reportError } from "@/components/annotation/actions";
 import { cx, iconBtn } from "./ui";
 
 const SAVE_DELAY_MS = 500;
@@ -38,23 +39,48 @@ function Panel({ note }: { note: Note }) {
   const path = domain ? domainPathNames(domainById, domain.id).join(" / ") : "";
   const [draft, setDraft] = useState(note.text);
   const [preview, setPreview] = useState(false);
-  const [status, setStatus] = useState<"saved" | "saving">("saved");
+  const [status, setStatus] = useState<"saved" | "saving" | "error">("saved");
   const timer = useRef<number>();
   const pending = useRef<string | null>(null);
+  /** 正在写入的次数：写入期间数据库传回来的可能是更早一次写入的内容，不能拿来覆盖输入 */
+  const inflight = useRef(0);
   const tx = t.library.fieldNotes;
 
-  const flush = () => {
+  const flush = (): Promise<void> => {
     window.clearTimeout(timer.current);
     const text = pending.current;
-    if (text === null) return;
+    if (text === null) return Promise.resolve();
     pending.current = null;
-    void setNoteText(note.id, text).finally(() => setStatus(pending.current === null ? "saved" : "saving"));
+    inflight.current++;
+    return setNoteText(note.id, text)
+      .then(() => setStatus(pending.current === null ? "saved" : "saving"))
+      .catch((e) => {
+        // 失败时留着，下次输入或关闭时再试
+        if (pending.current === null) pending.current = text;
+        setStatus("error");
+        reportError(tx.saveFailed)(e);
+      })
+      .finally(() => {
+        inflight.current--;
+      });
   };
-  // 关闭面板、切换到别的笔记时立即保存
-  useEffect(() => () => flush(), []);
-  // 别处（画布、其他标签页）改了内容，而这里没有未保存的输入：跟着更新
+  // 关闭面板、切换到别的笔记时立即保存；页面隐藏（切标签、关闭、刷新、切项目）时也立即保存
   useEffect(() => {
-    if (pending.current === null) setDraft(note.text);
+    const onHide = () => void flush();
+    const onVisibility = () => document.visibilityState === "hidden" && onHide();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    registerNoteFlush(flush);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+      registerNoteFlush(null, flush);
+      void flush();
+    };
+  }, []);
+  // 别处（画布、其他标签页）改了内容，而这里没有未保存、也没有正在写入的输入：跟着更新
+  useEffect(() => {
+    if (pending.current === null && inflight.current === 0) setDraft(note.text);
   }, [note.text]);
 
   const onChange = (text: string) => {
@@ -65,12 +91,25 @@ function Panel({ note }: { note: Note }) {
     timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
   };
   const close = () => {
-    flush();
+    void flush();
     useLibraryStore.getState().openNote(null);
+    // 焦点回到领域树里的这一行
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-note-id="${CSS.escape(note.id)}"]`)?.focus());
   };
 
   return (
-    <aside className="flex w-[400px] shrink-0 flex-col border-l border-neutral-200 bg-white" aria-label={tx.panelLabel} data-note-panel={note.id}>
+    <aside
+      className="flex w-[400px] shrink-0 flex-col border-l border-neutral-200 bg-white"
+      aria-label={tx.panelLabel}
+      data-note-panel={note.id}
+      onKeyDown={(e) => {
+        // 预览时也能按 Esc 关闭（编辑器里的 Esc 由编辑器处理）
+        if (e.key === "Escape" && !e.defaultPrevented) {
+          e.preventDefault();
+          close();
+        }
+      }}
+    >
       <header className="flex items-start gap-2 border-b border-neutral-100 px-3 pb-2 pt-3">
         <IconNote width={16} height={16} className="mt-0.5 shrink-0 text-amber-500" />
         <div className="min-w-0 flex-1">
@@ -82,7 +121,7 @@ function Panel({ note }: { note: Note }) {
             </div>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-neutral-100 p-0.5" role="group">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-neutral-100 p-0.5" role="group" aria-label={tx.modeLabel}>
           {([false, true] as const).map((p) => (
             <button
               key={String(p)}
@@ -109,8 +148,8 @@ function Panel({ note }: { note: Note }) {
         )}
       </div>
       <footer className="flex items-center gap-2 border-t border-neutral-100 px-3 py-2 text-[11.5px] text-neutral-400">
-        <span className="flex-1" data-note-status={status}>
-          {status === "saving" ? tx.saving : tx.saved}
+        <span className={cx("flex-1", status === "error" && "text-red-600")} data-note-status={status}>
+          {status === "saving" ? tx.saving : status === "error" ? tx.saveFailed : tx.saved}
         </span>
         <button type="button" className="rounded px-1.5 py-0.5 text-red-600 hover:bg-red-50" onClick={() => void deleteFieldNote(note.id)}>
           {tx.delete}

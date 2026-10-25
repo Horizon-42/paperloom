@@ -560,6 +560,39 @@ test("领域笔记：右键新建，在右侧面板编辑并自动保存；列�
   expect(errors).toEqual([]);
 });
 
+test("领域笔记：刚输入就删除，撤销恢复的是最新内容；预览时 Esc 关闭；Backspace 不删除", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await createDomain(sidebar, "甲");
+  await domainRow(sidebar, "甲").click({ button: "right" });
+  await page.locator("[data-new-field-note]").click();
+  const panel = page.locator("[data-note-panel]");
+  await expect(panel.locator(".cm-content")).toBeFocused();
+  await page.keyboard.type("最后几个字");
+  // 不等自动保存（0.5 秒），立即删除
+  await panel.getByRole("button", { name: "删除笔记" }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("button", { name: "撤销" }).click();
+  const row = sidebar.locator("[data-note-id]");
+  await expect(row).toHaveText("最后几个字");
+
+  // 焦点在行上按 Backspace：不删除
+  await row.focus();
+  await page.keyboard.press("Backspace");
+  await expect(row).toHaveCount(1);
+  // 预览时按 Esc 关闭，焦点回到这一行
+  await row.click();
+  await panel.getByRole("button", { name: "预览" }).click();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(row).toBeFocused();
+  // Delete 键删除
+  await page.keyboard.press("Delete");
+  await expect(row).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");

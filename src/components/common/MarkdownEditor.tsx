@@ -14,6 +14,8 @@ interface Props {
   placeholder?: string;
   autoFocus?: boolean;
   className?: string;
+  /** 撑满父元素的高度（笔记面板）；缺省时最高 16em，超出滚动 */
+  fill?: boolean;
 }
 
 const theme = EditorView.theme({
@@ -24,8 +26,15 @@ const theme = EditorView.theme({
   ".cm-scroller": { maxHeight: "16em", overflow: "auto" },
 });
 
+const fillTheme = EditorView.theme({
+  "&": { height: "100%" },
+  ".cm-scroller": { maxHeight: "none", height: "100%" },
+  ".cm-content": { padding: "10px 0", minHeight: "100%" },
+  ".cm-line": { padding: "0 12px" },
+});
+
 /** 基于 CodeMirror 6 的 Markdown 编辑器。value 只在外部变化时同步进编辑器，编辑过程中不重建 */
-export function MarkdownEditor({ value, onChange, onSubmit, onCancel, placeholder, autoFocus, className = "" }: Props) {
+export function MarkdownEditor({ value, onChange, onSubmit, onCancel, placeholder, autoFocus, className = "", fill = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // 回调放进 ref，避免每次渲染都重建编辑器
@@ -41,6 +50,7 @@ export function MarkdownEditor({ value, onChange, onSubmit, onCancel, placeholde
         markdown(),
         EditorView.lineWrapping,
         theme,
+        ...(fill ? [fillTheme] : []),
         cmPlaceholder(placeholder ?? ""),
         // minimalSetup 的默认键位把 Mod-Enter 绑到了 insertBlankLine，必须提高优先级才能先拿到
         Prec.highest(

@@ -3,10 +3,11 @@
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { listDomains } from "@/db/repo/domains";
+import { listFieldNotes } from "@/db/repo/notes";
 import { listPapers } from "@/db/repo/papers";
 import { collectTags, sameTagInfos, type TagInfo } from "@/lib/tags";
 import { buildDomainTree, countPapersByDomain, isUnfiled, type DomainNode } from "@/services/domainTree";
-import type { Domain, Paper } from "@/types/models";
+import type { Domain, Note, Paper } from "@/types/models";
 import { shareById, type Shared } from "./structural";
 
 export interface LibraryData {
@@ -21,6 +22,8 @@ export interface LibraryData {
   unfiledCount: number;
   /** 文库里所有标签及论文数（按名称排序） */
   tags: TagInfo[];
+  /** 领域 id → 该领域的领域笔记（按创建时间） */
+  notesByDomain: Map<string, Note[]>;
 }
 
 const LibraryDataContext = createContext<LibraryData | null>(null);
@@ -36,10 +39,21 @@ function useShared<T extends { id: string }>(list: T[] | undefined): Shared<T> |
 
 const EMPTY_PAPERS: Shared<Paper> = { list: [], byId: new Map() };
 const EMPTY_DOMAINS: Shared<Domain> = { list: [], byId: new Map() };
+const EMPTY_NOTES: Note[] = [];
 
 export function LibraryDataProvider({ children }: { children: ReactNode }) {
   const papersShared = useShared(useLiveQuery(listPapers, []));
   const domainsShared = useShared(useLiveQuery(listDomains, []));
+  const fieldNotes = useLiveQuery(listFieldNotes, []) ?? EMPTY_NOTES;
+  const notesByDomain = useMemo(() => {
+    const m = new Map<string, Note[]>();
+    for (const n of fieldNotes) {
+      const list = m.get(n.domainId!);
+      if (list) list.push(n);
+      else m.set(n.domainId!, [n]);
+    }
+    return m;
+  }, [fieldNotes]);
   const loaded = papersShared !== undefined && domainsShared !== undefined;
   const p = papersShared ?? EMPTY_PAPERS;
   const d = domainsShared ?? EMPTY_DOMAINS;
@@ -70,8 +84,9 @@ export function LibraryDataProvider({ children }: { children: ReactNode }) {
       tree,
       ...derived,
       tags,
+      notesByDomain,
     }),
-    [loaded, p, d, tree, derived, tags],
+    [loaded, p, d, tree, derived, tags, notesByDomain],
   );
 
   return <LibraryDataContext.Provider value={value}>{children}</LibraryDataContext.Provider>;

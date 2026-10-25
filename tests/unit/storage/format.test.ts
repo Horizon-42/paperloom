@@ -175,3 +175,24 @@ describe("工具函数", () => {
     expect(hasUserData(null)).toBe(false);
   });
 });
+
+describe("领域笔记", () => {
+  it("保留存在的领域；领域不存在时变成自由笔记", () => {
+    const { file } = parseDataFile(
+      fileOf({
+        domains: [{ id: "d1", name: "A", parentId: null, color: "#3b82f6", order: 0 }],
+        notes: [
+          { id: "n1", text: "a", domainId: "d1", createdAt: 1, updatedAt: 1 },
+          { id: "n2", text: "b", domainId: "gone", createdAt: 1, updatedAt: 1 },
+          { id: "n3", text: "c", domainId: 5, createdAt: 1, updatedAt: 1 },
+        ],
+      }),
+    );
+    expect(file.tables.notes.map((n) => [n.id, n.domainId])).toEqual([
+      ["n1", "d1"],
+      ["n2", undefined],
+      ["n3", undefined],
+    ]);
+    expect(file.tables.notes.every((n) => n.domainId !== undefined || !("domainId" in n))).toBe(true);
+  });
+});

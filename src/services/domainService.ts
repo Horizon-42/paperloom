@@ -70,6 +70,8 @@ export interface DomainDeleteImpact {
   paperCount: number;
   /** 作用范围包含这些领域的术语数 */
   termCount: number;
+  /** 领域笔记数（删除后变成画布上的自由笔记） */
+  noteCount: number;
 }
 
 export async function getDomainDeleteImpact(id: string): Promise<DomainDeleteImpact | null> {
@@ -81,7 +83,8 @@ export async function getDomainDeleteImpact(id: string): Promise<DomainDeleteImp
   const termCount = await db.terms
     .filter((t) => t.scope.kind === "domains" && t.scope.domainIds.some((d) => set.has(d)))
     .count();
-  return { domain, domainIds, descendantCount: domainIds.length - 1, paperCount, termCount };
+  const noteCount = await db.notes.filter((n) => !!n.domainId && set.has(n.domainId)).count();
+  return { domain, domainIds, descendantCount: domainIds.length - 1, paperCount, termCount, noteCount };
 }
 
 /**
@@ -90,7 +93,7 @@ export async function getDomainDeleteImpact(id: string): Promise<DomainDeleteImp
  * 画布的 domainIds 同样移除。返回被删除的领域 id。
  */
 export async function deleteDomain(id: string): Promise<string[]> {
-  return db.transaction("rw", [db.domains, db.papers, db.terms, db.boards], async () => {
+  return db.transaction("rw", [db.domains, db.papers, db.terms, db.boards, db.notes], async () => {
     const all = await listDomains();
     if (!all.some((d) => d.id === id)) return [];
     const ids = getSubtreeIds(all, id);
@@ -110,6 +113,12 @@ export async function deleteDomain(id: string): Promise<string[]> {
       .filter((b) => b.domainIds.some((d) => drop.has(d)))
       .modify((b) => {
         b.domainIds = b.domainIds.filter((d) => !drop.has(d));
+      });
+    // 领域笔记不删：变成画布上的自由笔记（画布上的节点和连线都保留）
+    await db.notes
+      .filter((n) => !!n.domainId && drop.has(n.domainId))
+      .modify((n) => {
+        delete n.domainId;
       });
     return ids;
   });

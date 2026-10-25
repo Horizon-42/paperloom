@@ -21,6 +21,7 @@ const canvas: Messages["canvas"] = {
   },
 
   entity: {
+    fieldNote: (domain) => `Field note · ${domain}`,
     kinds: {
       annotation: "Annotation",
       term: "Term",

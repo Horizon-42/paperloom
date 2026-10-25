@@ -15,6 +15,7 @@ import { setAnnotationNote } from "@/services/annotationService";
 import { MIN_NODE_SIZE } from "@/services/canvasService";
 import { refKey, resolveEntities, sameRef } from "@/services/linkService";
 import { setNoteText } from "@/services/noteService";
+import { getDomain } from "@/db/repo/domains";
 import { useCanvasActions } from "./context";
 import type { EntityRef } from "@/types/models";
 import type { CanvasFlowNode, EntityView } from "./flow";
@@ -361,9 +362,11 @@ export const NoteNode = memo(function NoteNode(props: Props) {
   const editing = useEditing(id);
   const low = useLowDetail();
   const actions = useCanvasActions();
+  // 领域笔记：标题上写明所属领域
+  const domain = useLiveQuery(() => (n.domainId ? getDomain(n.domainId) : undefined), [n.domainId]);
   return (
     <Frame props={props} tone="note">
-      <Header label={t.canvas.entity.kinds.note}>
+      <Header label={domain ? t.canvas.entity.fieldNote(domain.name) : t.canvas.entity.kinds.note}>
         {!editing && (
           <NodeButton label={t.canvas.node.editNote} onClick={() => startEdit(id)}>
             <IconPen width={13} height={13} />

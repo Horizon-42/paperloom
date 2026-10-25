@@ -2,6 +2,7 @@
 import "@/components/annotation/register";
 import "@/components/term/register";
 import "@/components/term/glossary/register";
+import { FieldNotePanel } from "@/components/library/FieldNotePanel";
 import { LibrarySidebar } from "@/components/library/LibrarySidebar";
 import { ReaderArea } from "@/components/viewer/ReaderArea";
 import { GlossaryView } from "@/components/term/GlossaryView";
@@ -25,6 +26,7 @@ export function App() {
         {view === "annotations" && <AnnotationList />}
         {view === "canvas" && <CanvasView />}
       </main>
+      <FieldNotePanel />
       <AnnotationHost />
       <TermHost />
     </div>

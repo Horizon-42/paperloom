@@ -90,6 +90,8 @@ interface LibraryState {
   reveal: { paperId: string; seq: number } | null;
   importJob: ImportJob | null;
   citationJob: CitationJob | null;
+  /** 右侧笔记面板里打开的笔记（领域笔记） */
+  openNoteId: string | null;
   tagEditor: TagEditorState | null;
 
   setView: (view: LibraryView) => void;
@@ -113,6 +115,7 @@ interface LibraryState {
   clearReveal: () => void;
   setImportJob: (job: ImportJob | null | ((prev: ImportJob | null) => ImportJob | null)) => void;
   setCitationJob: (job: CitationJob | null | ((prev: CitationJob | null) => CitationJob | null)) => void;
+  openNote: (id: string | null) => void;
   openTagEditor: (paperId: string, anchor: TagEditorAnchor) => void;
   closeTagEditor: () => void;
 }
@@ -140,6 +143,7 @@ export const useLibraryStore = create<LibraryState>()(
       reveal: null,
       importJob: null,
       citationJob: null,
+      openNoteId: null,
       tagEditor: null,
 
       setView: (view) => set({ view }),
@@ -181,6 +185,7 @@ export const useLibraryStore = create<LibraryState>()(
       clearReveal: () => set({ reveal: null }),
       setImportJob: (job) => set((s) => ({ importJob: typeof job === "function" ? job(s.importJob) : job })),
       setCitationJob: (job) => set((s) => ({ citationJob: typeof job === "function" ? job(s.citationJob) : job })),
+      openNote: (openNoteId) => set({ openNoteId }),
       openTagEditor: (paperId, anchor) => set({ tagEditor: { paperId, anchor, seq: ++tagEditorSeq } }),
       closeTagEditor: () => set({ tagEditor: null }),
     }),

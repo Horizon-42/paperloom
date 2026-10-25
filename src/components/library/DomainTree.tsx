@@ -11,6 +11,7 @@ import { useLibraryStore } from "@/app/stores/library";
 import { filterPapersByTags } from "@/lib/tags";
 import { DOMAIN_COLORS, createDomain, moveDomain, renameDomain, setDomainColor } from "@/services/domainService";
 import { computeDomainMove, type DomainDrop, type DropPosition } from "@/services/domainTree";
+import { createNote } from "@/services/noteService";
 import { movePaperOutOfDomains, movePaperToDomain, restorePaperDomains } from "@/services/paperService";
 import type { Domain } from "@/types/models";
 import { DOMAIN_MIME, PAPER_FROM_MIME, PAPER_MIME, hasType, isFileDrag } from "./dnd";
@@ -22,6 +23,7 @@ import { PaperContextMenu } from "./PaperContextMenu";
 import { useActivePaperId } from "./PaperList";
 import { sortPapers } from "./paperQuery";
 import { paperRowHeight } from "./PaperRow";
+import { TreeNoteRow } from "./TreeNoteRow";
 import { TREE_INDENT, TreePaperRow } from "./TreePaperRow";
 import { cx, iconBtn, menuContent, menuItem, menuItemDanger, menuSeparator } from "./ui";
 import { VirtualList, type VirtualListHandle } from "./VirtualList";
@@ -38,6 +40,14 @@ interface DropHint {
   position: DropPosition;
 }
 
+/** 在领域下新建一条空白的领域笔记：展开该领域，在右侧面板打开 */
+export async function createFieldNote(domainId: string) {
+  const note = await createNote("", Date.now(), domainId);
+  const store = useLibraryStore.getState();
+  store.setExpanded(domainId, true);
+  store.openNote(note.id);
+}
+
 /** 新建领域并进入重命名状态 */
 export async function createAndRename(parentId: string | null) {
   const store = useLibraryStore.getState();
@@ -46,7 +56,8 @@ export async function createAndRename(parentId: string | null) {
   store.setRenamingDomain(d.id);
 }
 
-const rowHeight = (r: FieldTreeRow) => (r.kind === "paper" ? paperRowHeight(r.paper) : FOLDER_ROW_HEIGHT);
+const NOTE_ROW_HEIGHT = 28;
+const rowHeight = (r: FieldTreeRow) => (r.kind === "paper" ? paperRowHeight(r.paper) : r.kind === "note" ? NOTE_ROW_HEIGHT : FOLDER_ROW_HEIGHT);
 const rowKey = (r: FieldTreeRow) => r.key;
 
 /**
@@ -83,7 +94,8 @@ function usePaperDragging(): boolean {
 }
 
 export function DomainTree() {
-  const { tree, domains, domainById, papers, paperById, loaded } = useLibraryData();
+  const { tree, domains, domainById, papers, paperById, loaded, notesByDomain } = useLibraryData();
+  const openNoteId = useLibraryStore((s) => s.openNoteId);
   const selection = useLibraryStore((s) => s.selection);
   const expanded = useLibraryStore((s) => s.expanded);
   const unfiledOpen = useLibraryStore((s) => s.unfiledOpen);
@@ -113,8 +125,9 @@ export function DomainTree() {
         filtering,
         showEmptyUnfiled: paperDragging && domains.length > 0,
         keepVisible: renamingId,
+        notesByDomain,
       }),
-    [tree, visiblePapers, domainById, filtering, filterCollapsed, expanded, unfiledOpen, paperDragging, domains.length, renamingId],
+    [tree, visiblePapers, domainById, filtering, filterCollapsed, expanded, unfiledOpen, paperDragging, domains.length, renamingId, notesByDomain],
   );
 
   const setOpen = (id: string, open: boolean) => {
@@ -461,6 +474,18 @@ export function DomainTree() {
                     hint={hint?.targetId === id ? hint.position : null}
                     flash={flashFolder === id}
                     handlers={handlers}
+                  />
+                );
+              }
+              if (row.kind === "note") {
+                return (
+                  <TreeNoteRow
+                    note={row.note}
+                    depth={row.depth}
+                    parentId={row.parentId}
+                    active={row.note.id === openNoteId}
+                    height={NOTE_ROW_HEIGHT}
+                    focusFolder={handlers.focusFolder}
                   />
                 );
               }
@@ -908,6 +933,9 @@ function DomainMenuItems({ parts: M, domain, onImport }: { parts: MenuParts; dom
   const store = useLibraryStore.getState;
   return (
     <>
+      <M.Item className={menuItem} onSelect={() => void createFieldNote(domain.id)} data-new-field-note>
+        {t.library.fieldNotes.newNote}
+      </M.Item>
       <M.Item className={menuItem} onSelect={onImport}>
         {t.library.domains.importHere}
       </M.Item>

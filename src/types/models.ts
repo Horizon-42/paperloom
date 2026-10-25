@@ -152,10 +152,12 @@ export interface Link {
   createdAt: number;
 }
 
-/** 只存在于画布上的自由笔记 */
+/** 笔记：画布上的自由笔记，或属于某个领域的领域笔记（D18；同样可以放上画布、连线） */
 export interface Note {
   id: string;
   text: string; // Markdown
+  /** 领域笔记所属的领域；没有时是画布上的自由笔记 */
+  domainId?: string;
   createdAt: number;
   updatedAt: number;
 }

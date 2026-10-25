@@ -1,7 +1,7 @@
 // 领域树（文件夹视图）的行：领域是文件夹，论文是其中的文件。纯函数，供虚拟列表使用。
 // 一篇论文属于几个领域，就在每个领域下各出现一次；不属于任何（现存）领域的放在末尾的「未分类」里。
 import type { DomainNode } from "@/services/domainTree";
-import type { Domain, Paper } from "@/types/models";
+import type { Domain, Note, Paper } from "@/types/models";
 
 export type FieldTreeRow =
   | {
@@ -25,6 +25,8 @@ export type FieldTreeRow =
       /** 也在其他领域里 */
       multi: boolean;
     }
+  /** 领域笔记：排在所属领域的最前面 */
+  | { kind: "note"; key: string; note: Note; depth: number; parentId: string }
   | { kind: "unfiled"; key: string; count: number; expanded: boolean };
 
 export interface FieldTreeInput {
@@ -40,11 +42,14 @@ export interface FieldTreeInput {
   showEmptyUnfiled: boolean;
   /** 筛选时也要显示的领域（及其上级），例如刚新建、正在重命名的领域 */
   keepVisible?: string | null;
+  /** 领域 id → 领域笔记；按标签筛选时不显示 */
+  notesByDomain?: ReadonlyMap<string, readonly Note[]>;
 }
 
 export const UNFILED_ROW_KEY = "unfiled";
 export const folderRowKey = (domainId: string) => `d:${domainId}`;
 export const paperRowKey = (parentId: string | null, paperId: string) => `p:${parentId ?? "-"}:${paperId}`;
+export const noteRowKey = (noteId: string) => `n:${noteId}`;
 
 export function buildFieldTreeRows(input: FieldTreeInput): FieldTreeRow[] {
   const { tree, papers, domainById, isExpanded, unfiledOpen, filtering, showEmptyUnfiled } = input;
@@ -86,12 +91,14 @@ export function buildFieldTreeRows(input: FieldTreeInput): FieldTreeRow[] {
       if (!shown(id)) continue;
       const children = node.children.filter((c) => shown(c.domain.id));
       const own = direct.get(id) ?? [];
-      const expandable = children.length > 0 || own.length > 0;
+      const notes = filtering ? [] : (input.notesByDomain?.get(id) ?? []);
+      const expandable = children.length > 0 || own.length > 0 || notes.length > 0;
       // keepVisible 的上级总是展开，它才能出现（如筛选时在收起的领域下新建子领域）
       const expanded = expandable && (isExpanded(id) || (keep.has(id) && id !== input.keepVisible));
       rows.push({ kind: "folder", key: folderRowKey(id), node, depth, count, expandable, expanded });
       if (!expanded) continue;
-      // 子领域在前，直接属于该领域的论文在后（与文件管理器一致）
+      // 领域笔记（对整个领域的总结）在最前，然后是子领域，直接属于该领域的论文在后（与文件管理器一致）
+      for (const n of notes) rows.push({ kind: "note", key: noteRowKey(n.id), note: n, depth: depth + 1, parentId: id });
       walk(children, depth + 1);
       for (const p of own) rows.push({ kind: "paper", key: paperRowKey(id, p.id), paper: p, depth: depth + 1, parentId: id, multi: multi(p) });
     }

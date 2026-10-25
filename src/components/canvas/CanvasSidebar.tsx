@@ -87,6 +87,7 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
 
   const paperMap = useMemo(() => new Map((data?.papers ?? []).map((p) => [p.id, p])), [data?.papers]);
   const domainOptions = useMemo(() => flattenTree(buildDomainTree(data?.domains ?? [])), [data?.domains]);
+  const domainNames = useMemo(() => new Map((data?.domains ?? []).map((d) => [d.id, d.name])), [data?.domains]);
   // id 是全局唯一的 nanoid，按 id 判断即可（不区分 kind）
   const placedAnywhere = useMemo(() => new Set((placedIds ?? []).flatMap((id) => [`annotation:${String(id)}`, `note:${String(id)}`])), [placedIds]);
   const placed = scope === "board" ? onBoard : placedAnywhere;
@@ -208,7 +209,7 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
       )}
       <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2 pb-3" data-inbox-list>
         {items.slice(0, limit).map((it) => (
-          <InboxRow key={refKey(it.ref)} item={it} bridgeRef={bridgeRef} />
+          <InboxRow key={refKey(it.ref)} item={it} bridgeRef={bridgeRef} domainNames={domainNames} />
         ))}
         {items.length > limit && (
           <li>
@@ -231,7 +232,7 @@ function Inbox({ board, bridgeRef }: { board: Board; bridgeRef: MutableRefObject
   );
 }
 
-function InboxRow({ item, bridgeRef }: { item: InboxItem; bridgeRef: MutableRefObject<BoardBridge | null> }) {
+function InboxRow({ item, bridgeRef, domainNames }: { item: InboxItem; bridgeRef: MutableRefObject<BoardBridge | null>; domainNames: ReadonlyMap<string, string> }) {
   const title = "annotation" in item ? item.annotation.quote.exact : plainExcerpt(item.note.text, 60);
   return (
     <li
@@ -253,7 +254,9 @@ function InboxRow({ item, bridgeRef }: { item: InboxItem; bridgeRef: MutableRefO
         <>
           <span className="absolute inset-y-0 left-0 w-1 bg-yellow-300" />
           <div className="line-clamp-2 leading-snug text-neutral-700">{plainExcerpt(item.note.text, 160) || t.canvas.entity.emptyNote}</div>
-          <div className="mt-0.5 text-[10.5px] text-neutral-400">{t.canvas.sidebar.freeNote}</div>
+          <div className="mt-0.5 text-[10.5px] text-neutral-400">
+            {item.note.domainId && domainNames.has(item.note.domainId) ? t.canvas.entity.fieldNote(domainNames.get(item.note.domainId)!) : t.canvas.sidebar.freeNote}
+          </div>
         </>
       )}
       <div className="absolute right-1 top-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100">

@@ -492,6 +492,74 @@ test("双击领域展开 / 收起（不再改名，改名用 F2 或菜单）", a
   expect(errors).toEqual([]);
 });
 
+test("领域笔记：右键新建，在右侧面板编辑并自动保存；列表里显示第一行；预览；删除可撤销；删除领域时笔记保留为自由笔记", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await createDomain(sidebar, "父领域");
+  const parent = domainRow(sidebar, "父领域");
+  const notes = () => page.evaluate(() => (window as any).__paperlens.db.notes.toArray());
+
+  // 右键 → 新建领域笔记：展开领域，右侧面板打开、焦点在编辑器里
+  await parent.click({ button: "right" });
+  await page.locator("[data-new-field-note]").click();
+  const panel = page.locator("[data-note-panel]");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("父领域");
+  const row = sidebar.locator("[data-note-id]");
+  await expect(row).toHaveText("空白笔记");
+  await expect(panel.locator(".cm-content")).toBeFocused();
+  await page.keyboard.type("## 整体总结\n这个领域关注轨迹预测");
+  await expect(row).toHaveText("整体总结");
+  await expect(panel.locator('[data-note-status="saved"]')).toBeVisible();
+  const [n] = await notes();
+  expect(n.text).toBe("## 整体总结\n这个领域关注轨迹预测");
+  expect(n.domainId).toBe(await parent.getAttribute("data-domain-id"));
+  await expect(row).toHaveAttribute("aria-current", "true");
+
+  // 预览
+  await panel.getByRole("button", { name: "预览" }).click();
+  await expect(panel.locator("h2")).toHaveText("整体总结");
+  // 关闭（Esc 在编辑器里）、再点列表里的条目打开
+  await panel.getByRole("button", { name: "编辑" }).click();
+  await panel.locator(".cm-content").click();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await row.click();
+  await expect(panel).toBeVisible();
+
+  // 右键删除：面板关闭，可撤销
+  await row.click({ button: "right" });
+  await page.locator("[data-delete-note]").click();
+  await expect(row).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(row).toHaveText("整体总结");
+
+  // 子领域也可以有领域笔记；删除父领域：笔记保留，变成画布上的自由笔记
+  await parent.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "新建子领域" }).click();
+  const input = sidebar.getByRole("textbox", { name: "领域名称" });
+  await input.fill("子领域");
+  await input.press("Enter");
+  const child = domainRow(sidebar, "子领域");
+  await child.click({ button: "right" });
+  await page.locator("[data-new-field-note]").click();
+  await expect(panel).toContainText("父领域 / 子领域");
+  await expect(panel.locator(".cm-content")).toBeFocused();
+  await page.keyboard.type("子领域的总结");
+  await expect(sidebar.locator("[data-note-id]")).toHaveText(["整体总结", "子领域的总结"]);
+  await parent.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "删除领域…" }).click();
+  await expect(page.getByRole("dialog")).toContainText("2 条领域笔记会保留");
+  await page.getByRole("dialog").getByRole("button", { name: "删除领域" }).click();
+  await expect(sidebar.locator("[data-note-id]")).toHaveCount(0);
+  const left = await notes();
+  expect(left).toHaveLength(2);
+  expect(left.every((x: any) => x.domainId === undefined)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");

@@ -1,12 +1,12 @@
-// 自由笔记（只存在于画布上的笔记卡片）的增删改。
+// 笔记（画布上的自由笔记、领域笔记）的增删改。
 // 删除时在同一事务中级联删除指向它的连线和各块画布上的节点，并返回快照供"撤销"恢复。
 import { db } from "@/db/schema";
 import { addNote, getNote, updateNote } from "@/db/repo/notes";
 import { newId } from "@/lib/id";
 import type { BoardNode, EntityRef, Link, Note } from "@/types/models";
 
-export async function createNote(text = "", now = Date.now()): Promise<Note> {
-  const note: Note = { id: newId(), text, createdAt: now, updatedAt: now };
+export async function createNote(text = "", now = Date.now(), domainId?: string): Promise<Note> {
+  const note: Note = { id: newId(), text, createdAt: now, updatedAt: now, ...(domainId ? { domainId } : {}) };
   await addNote(note);
   return note;
 }

@@ -368,16 +368,19 @@ export function normalizeTables(raw: Obj, now = Date.now()): { tables: DataTable
     }
   }
 
-  // 自由笔记
+  // 笔记（自由笔记、领域笔记）
   const notes: Note[] = [];
   for (const r of rowsOf("notes")) {
-    notes.push({
+    const n: Note = {
       ...r,
       id: r.id as string,
       text: strOr(r.text, ""),
       createdAt: numOr(r.createdAt, now),
       updatedAt: numOr(r.updatedAt, numOr(r.createdAt, now)),
-    });
+    };
+    // 所属领域不存在时变成自由笔记
+    if (!isId(r.domainId) || !domainIds.has(r.domainId)) delete n.domainId;
+    notes.push(n);
   }
   const noteIds = new Set(notes.map((n) => n.id));
 

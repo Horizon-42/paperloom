@@ -20,6 +20,8 @@ export default {
 
   /** 画布上的条目（批注、术语、论文、自由笔记） */
   entity: {
+    /** 领域笔记节点的标题 */
+    fieldNote: (domain: string) => `领域笔记 · ${domain}`,
     kinds: {
       annotation: "批注",
       term: "术语",

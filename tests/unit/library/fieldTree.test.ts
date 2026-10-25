@@ -26,7 +26,15 @@ function rows(over: Partial<FieldTreeInput> = {}) {
   });
 }
 const outline = (rs: ReturnType<typeof rows>) =>
-  rs.map((r) => (r.kind === "folder" ? `${"  ".repeat(r.depth)}[${r.node.domain.id} ${r.count}]` : r.kind === "unfiled" ? `[unfiled ${r.count}]` : `${"  ".repeat(r.depth)}${r.paper.id}${r.multi ? "*" : ""}`));
+  rs.map((r) =>
+    r.kind === "folder"
+      ? `${"  ".repeat(r.depth)}[${r.node.domain.id} ${r.count}]`
+      : r.kind === "unfiled"
+        ? `[unfiled ${r.count}]`
+        : r.kind === "note"
+          ? `${"  ".repeat(r.depth)}note:${r.note.id}`
+          : `${"  ".repeat(r.depth)}${r.paper.id}${r.multi ? "*" : ""}`,
+  );
 
 describe("buildFieldTreeRows", () => {
   it("全部展开：子领域在前、论文在后；多领域论文各出现一次；不属于现存领域的在「未分类」", () => {
@@ -87,5 +95,22 @@ describe("revealPath", () => {
     expect(revealPath(tree, p("x", ["a"]))).toEqual({ folderId: "a", ancestors: [] });
     expect(revealPath(tree, p("z", []))).toBeNull();
     expect(revealPath(tree, p("w", ["gone"]))).toBeNull();
+  });
+});
+
+describe("领域笔记", () => {
+  const note = (id: string, domainId: string) => ({ id, domainId, text: "", createdAt: 1, updatedAt: 1 });
+  it("排在所属领域的最前面（子领域和论文之前）；只有笔记的领域也可以展开；按标签筛选时不显示", () => {
+    const notesByDomain = new Map([
+      ["a", [note("n1", "a"), note("n2", "a")]],
+      ["b", [note("n3", "b")]],
+    ]);
+    const out = outline(rows({ notesByDomain }));
+    expect(out.slice(0, 4)).toEqual(["[a 3]", "  note:n1", "  note:n2", "  [a1 2]"]);
+    expect(out).toContain("  note:n3");
+    // 收起时不显示
+    expect(outline(rows({ notesByDomain, isExpanded: () => false })).some((x) => x.includes("note:"))).toBe(false);
+    // 筛选时不显示
+    expect(outline(rows({ notesByDomain, filtering: true })).some((x) => x.includes("note:"))).toBe(false);
   });
 });

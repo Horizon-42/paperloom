@@ -728,6 +728,32 @@ test("收件箱按论文/领域/颜色筛选；论文可从文库侧栏拖入画
   await expect(node(page, "paper:p-other")).toContainText("Other Paper");
 });
 
+test("领域笔记：收件箱里标明所属领域；从领域树拖到画布上成为可连线的笔记节点；在画布上改内容，列表跟着变", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { db } = (window as unknown as CW).__paperlens;
+    await db.domains.put({ id: "d-f", name: "强化学习", parentId: null, color: "#3b82f6", order: 0 });
+    await db.notes.put({ id: "fn1", text: "强化学习小结", domainId: "d-f", createdAt: 1, updatedAt: 1 });
+  });
+  await page.evaluate(() => (window as any).__paperlens.useLibraryStore.getState().setExpanded("d-f", true));
+  await setView(page, "canvas");
+  const boardId = await newBoardApi(page, "领域笔记");
+  await expect(inboxItem(page, "note:fn1")).toContainText("领域笔记 · 强化学习");
+
+  const treeRow = page.locator('[data-testid="library-sidebar"] [data-note-id="fn1"]');
+  await treeRow.dragTo(pane(page), { targetPosition: { x: 320, y: 260 } });
+  await expect(node(page, "note:fn1")).toContainText("领域笔记 · 强化学习");
+  await expect(node(page, "note:fn1")).toContainText("强化学习小结");
+  // 有连接点，可以连线
+  await expect(flowNode(page, "note:fn1").locator(".react-flow__handle").first()).toBeAttached();
+  expect((await dbAll<{ ref: Ref; boardId: string }>(page, "boardNodes")).some((n) => n.boardId === boardId && n.ref.id === "fn1")).toBe(true);
+  await expect(inboxItem(page, "note:fn1")).toHaveCount(0);
+
+  // 在画布上编辑，领域树里的名字跟着变
+  await page.evaluate(() => (window as unknown as CW).__paperlens.db.notes.update("fn1", { text: "改过的小结" }));
+  await expect(treeRow).toHaveText("改过的小结");
+  await expect(node(page, "note:fn1")).toContainText("改过的小结");
+});
+
 // ---------------------------------------------------------------------------
 // 评审修复
 // ---------------------------------------------------------------------------

@@ -125,6 +125,23 @@ const library: Messages["library"] = {
     settings: "Lookup settings…",
   },
 
+  fieldNotes: {
+    newNote: "New field note",
+    untitled: "Blank note",
+    open: "Open",
+    delete: "Delete note",
+    deleted: "Note deleted",
+    panelLabel: "Field note",
+    panelTitle: "Field note",
+    edit: "Edit",
+    preview: "Preview",
+    closeTitle: "Close (Esc)",
+    placeholder: "Write an overall summary of this field (Markdown, $math$ supported). The first line becomes its name in the list",
+    empty: "(Blank note)",
+    saving: "Saving…",
+    saved: "Saved automatically",
+  },
+
   paperRow: {
     unknownAuthors: "Unknown authors",
     domains: (names) => `Fields: ${common.list(names)}`,
@@ -195,6 +212,7 @@ const library: Messages["library"] = {
     papersNote: " (the papers themselves are not deleted)",
     terms: (n) => `${plural(n, "term")} will have these fields removed from their scope`,
     termsNote: " (a term whose scope becomes empty won't apply to any paper)",
+    notes: (n) => `${plural(n, "field note")} will be kept as free canvas notes`,
     confirm: "Delete field",
   },
 

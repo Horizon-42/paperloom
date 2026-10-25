@@ -126,6 +126,24 @@ export default {
     settings: "查询设置…",
   },
 
+  /** 领域笔记（D18） */
+  fieldNotes: {
+    newNote: "新建领域笔记",
+    untitled: "空白笔记",
+    open: "打开",
+    delete: "删除笔记",
+    deleted: "已删除笔记",
+    panelLabel: "领域笔记",
+    panelTitle: "领域笔记",
+    edit: "编辑",
+    preview: "预览",
+    closeTitle: "关闭（Esc）",
+    placeholder: "写下对这个领域的整体总结（Markdown，支持 $公式$）。第一行会作为列表里的名字",
+    empty: "（空白笔记）",
+    saving: "正在保存…",
+    saved: "已自动保存",
+  },
+
   paperRow: {
     unknownAuthors: "作者未知",
     domains: (names: readonly string[]) => `领域：${names.join("、")}`,
@@ -203,6 +221,7 @@ export default {
     papersNote: "（论文本身不会删除）",
     terms: (n: number) => `${n} 个术语的作用范围将移除这些领域`,
     termsNote: "（若范围因此变空，术语将不在任何论文中生效）",
+    notes: (n: number) => `${n} 条领域笔记会保留，变成画布上的自由笔记`,
     confirm: "删除领域",
   },
 

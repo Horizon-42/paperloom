@@ -10,6 +10,11 @@ export function listNotes(): Promise<Note[]> {
   return db.notes.toArray();
 }
 
+/** 领域笔记（属于某个领域的笔记），按创建时间排序 */
+export async function listFieldNotes(): Promise<Note[]> {
+  return (await db.notes.filter((n) => !!n.domainId).toArray()).sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
+}
+
 export async function addNote(n: Note): Promise<void> {
   await db.notes.add(n);
 }

@@ -378,6 +378,7 @@ function DeleteDomainDialog({ domainId, onClose }: { domainId: string; onClose: 
               <span className="text-neutral-400">{t.library.deleteDomain.termsNote}</span>
             </li>
           )}
+          {impact.noteCount > 0 && <li>{t.library.deleteDomain.notes(impact.noteCount)}</li>}
         </ul>
       }
     >

@@ -2,6 +2,7 @@
 import "@/components/annotation/register";
 import "@/components/term/register";
 import "@/components/term/glossary/register";
+import { UndoShortcuts } from "@/components/common/UndoShortcuts";
 import { FieldNotePanel } from "@/components/library/FieldNotePanel";
 import { LibrarySidebar } from "@/components/library/LibrarySidebar";
 import { ReaderArea } from "@/components/viewer/ReaderArea";
@@ -28,6 +29,7 @@ export function App() {
       </main>
       <FieldNotePanel />
       <AnnotationHost />
+      <UndoShortcuts />
       <TermHost />
     </div>
   );

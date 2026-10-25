@@ -35,6 +35,14 @@ const common: Messages["common"] = {
     hoursAgo: (n) => (n === 1 ? "1 hour ago" : `${n} hours ago`),
     dateTime: (d, withYear) => `${MONTHS[d.getMonth()]} ${d.getDate()}${withYear ? `, ${d.getFullYear()}` : ""} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
   },
+  undoRedo: {
+    undone: "Undone (⌘/Ctrl + Shift + Z to redo)",
+    redone: "Redone",
+    nothingToUndo: "Nothing to undo",
+    nothingToRedo: "Nothing to redo",
+    undoFailed: "Undo failed",
+    redoFailed: "Redo failed",
+  },
 };
 
 export default common;

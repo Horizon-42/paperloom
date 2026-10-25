@@ -3,11 +3,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@/app/App";
 import { requestPersistentStorage } from "@/db/schema";
+import { installUndo } from "@/db/undo";
 import { currentProjectId } from "@/lib/project";
 import { startIndexer } from "@/services/indexer";
 import { startStorageSync } from "@/services/storage/sync";
 
 void requestPersistentStorage();
+installUndo();
 startIndexer();
 startStorageSync();
 
@@ -22,7 +24,8 @@ if (import.meta.env.DEV) {
     import("@/app/stores/storage"),
     import("@/app/stores/canvas"),
     import("@/app/stores/projects"),
-  ]).then(([schema, app, reader, library, termUi, storage, canvas, projects]) => {
+    import("@/db/undo"),
+  ]).then(([schema, app, reader, library, termUi, storage, canvas, projects, undo]) => {
     (window as unknown as Record<string, unknown>).__paperlens = {
       projectId: currentProjectId(),
       db: schema.db,
@@ -33,6 +36,7 @@ if (import.meta.env.DEV) {
       useStorageStore: storage.useStorageStore,
       useCanvasStore: canvas.useCanvasStore,
       useProjectsStore: projects.useProjectsStore,
+      undo,
     };
   });
 }

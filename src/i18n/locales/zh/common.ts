@@ -39,4 +39,13 @@ export default {
     dateTime: (d: Date, withYear: boolean) =>
       `${withYear ? `${d.getFullYear()}年` : ""}${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`,
   },
+  /** 全局撤销 / 重做（D20） */
+  undoRedo: {
+    undone: "已撤销（⌘/Ctrl + Shift + Z 重做）",
+    redone: "已重做",
+    nothingToUndo: "没有可撤销的操作",
+    nothingToRedo: "没有可重做的操作",
+    undoFailed: "撤销失败",
+    redoFailed: "重做失败",
+  },
 };

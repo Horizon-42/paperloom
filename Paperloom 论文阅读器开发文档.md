@@ -324,7 +324,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ## 10. 当前现状与进度（2026-10-23）
 
-**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D19）。
+**一句话**：v1 的 M1–M5 已全部完成，并已开源发布（MIT）：仓库 <https://github.com/Horizon-42/paperloom>，在线版 <https://horizon-42.github.io/paperloom/>（GitHub Pages，推送到 main 后自动构建部署）。实现与本文的差异及原因都记在 `docs/decisions.md`（D1–D20）。
 
 ### 10.1 v1 目标完成情况
 
@@ -354,6 +354,8 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 - **领域笔记**（D18，2026-10-25）：领域右键新建空白笔记，写整体总结；在领域树里显示为条目，右侧面板编辑、自动保存；同一条笔记也是画布上可连线的节点。
 - **朗读**（D19，2026-10-25）：选区工具栏「朗读」，用浏览器自带的语音合成，一句一句读并高亮当前句和当前词；暂停 / 继续、语速、停止。
 
+- **撤销 / 重做**（D20，2026-10-25）：⌘/Ctrl + Z、⌘/Ctrl + Shift + Z，在数据库层统一记录，大部分操作都能撤销。
+
 ### 10.3 §8 风险的应对现状
 
 | 风险 | 现状 |
@@ -379,7 +381,7 @@ interface BoardNode {     // 某个实体在某块画布上的位置
 
 ### 10.6 质量与测试
 
-- 类型检查（app + node）；Vitest 单元测试 718 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
+- 类型检查（app + node）；Vitest 单元测试 736 个；Playwright e2e 按模块各有配置（viewer、annotation、term、glossary、canvas、storage、projects、tags、i18n、static），各自全部通过。
 - 真实论文用例只在本机运行：`PAPERLENS_LITERATURE_DIR` 指向论文目录，用哪几篇写在 git 忽略的 `tests/e2e/real-papers.local.json`。
 - 重要改动合并前由独立 agent 审阅（侧栏领域树经过两轮；D16 一轮，acro 的属性名按 acro 3.8 源码核对，本机没有 TeX、未实际编译）。
 - 已知问题：默认的 `npm run e2e` 会跑全部用例（单一 1280×720 视口、并发），其中 9 个（画布、阅读器缩放、字形映射、术语下划线贴合、批注卡片、在线版 CMap）失败，

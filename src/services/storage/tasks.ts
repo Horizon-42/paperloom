@@ -1,5 +1,6 @@
 // 存储模块里读写整库的工作：生成快照并保存、比对与上传 PDF、生成 Markdown、恢复、导入导出。
 // 默认在 storage.worker.ts 中执行（读表、序列化、哈希、解析都不占主线程），Worker 不可用时在主线程执行同样的代码。
+import { skipUndo } from "@/db/undo";
 import type { PaperLensDB } from "@/db/schema";
 import { t } from "@/i18n";
 import { sha256Hex } from "@/lib/hash";
@@ -238,7 +239,11 @@ export async function fetchPdfToDb(ctx: TaskContext, hash: string): Promise<Blob
   const blob = await ctx.api.getPdf(hash);
   if (!blob) return null;
   if ((await sha256Hex(blob)) !== hash) throw new Error(t.data.errors.pdfCorrupt);
-  await ctx.db.files.put({ hash, blob, size: blob.size });
+  // 从文件夹取回缺的 PDF：不是用户的操作，不进撤销记录（D20）
+  await ctx.db.transaction("rw", ctx.db.files, async () => {
+    skipUndo();
+    await ctx.db.files.put({ hash, blob, size: blob.size });
+  });
   return blob;
 }
 

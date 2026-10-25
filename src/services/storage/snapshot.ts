@@ -1,4 +1,5 @@
 // 在 IndexedDB 与 DataTables 之间读写（可在 Worker 中运行）。
+import { skipUndo } from "@/db/undo";
 import type { PaperLensDB } from "@/db/schema";
 import { t } from "@/i18n";
 import { STAMP_PREFIX } from "@/db/repo/occurrences";
@@ -78,6 +79,8 @@ export async function replaceAllData(db: PaperLensDB, tables: DataTables, opts: 
   const keep = new Set(tables.papers.map((p) => `${p.id}\u0000${p.fileHash}`));
   const termIds = new Set(tables.terms.map((t) => t.id));
   await db.transaction("rw", [...dataTables(db), db.occurrences, db.pageTexts], async () => {
+    // 整个数据库换成另一份：不进撤销记录（D20）
+    skipUndo();
     // 在同一个写事务里确认本地数据还是决定替换时的样子（指纹是同步计算的，不会让事务提前提交）
     if (opts.expectFingerprint !== undefined) {
       const { tables: current } = await readDataSnapshot(db);

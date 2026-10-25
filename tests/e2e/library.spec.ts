@@ -593,6 +593,45 @@ test("领域笔记：刚输入就删除，撤销恢复的是最新内容；预�
   expect(errors).toEqual([]);
 });
 
+test("撤销 / 重做（⌘/Ctrl + Z、⌘/Ctrl + Shift + Z）：移动论文、新建领域；输入框里不拦截", async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto("/");
+  const sidebar = sidebarOf(page);
+  await page.getByTestId("import-input").setInputFiles({ name: "u.pdf", mimeType: "application/pdf", buffer: await makePdf("Undo Me", "Ann") });
+  const row = paperRows(sidebar).first();
+  await expect(row).toBeVisible();
+  await createDomain(sidebar, "甲");
+  const jia = domainRow(sidebar, "甲");
+  const domainsOfPaper = () => page.evaluate(async () => (await (window as any).__paperlens.db.papers.toArray())[0].domainIds);
+  await page.waitForTimeout(400); // 让"新建领域"单独成为一步
+  await row.dragTo(jia);
+  await expect.poll(domainsOfPaper).toHaveLength(1);
+  await page.waitForTimeout(400);
+
+  // 焦点不在输入框里：撤销移动 → 回到未分类
+  await page.locator("body").click({ position: { x: 900, y: 400 } });
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(domainsOfPaper).toEqual([]);
+  await expect(page.getByRole("status").filter({ hasText: "已撤销" })).toBeVisible();
+  // 再撤销：新建的领域也没了
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(jia).toHaveCount(0);
+  // 重做两次
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(jia).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect.poll(domainsOfPaper).toHaveLength(1);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(page.getByRole("status").filter({ hasText: "没有可重做的操作" })).toBeVisible();
+
+  // 输入框里的 ⌘Z 交给输入框，不撤销数据
+  const search = sidebar.getByRole("searchbox", { name: "全局搜索" });
+  await search.fill("abc");
+  await search.press("ControlOrMeta+z");
+  await expect.poll(domainsOfPaper).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
 test("edit metadata and delete a domain", async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto("/");

@@ -10,6 +10,7 @@
 - `npm run migrate:projects` — 把旧版的 `data/`（根目录下直接是 `library.json`）迁移到项目结构。不加参数只预览；
   `-- --apply` 执行（先完整备份到 `data-backup-before-projects-<时间>/`）；`--data <目录>`、`--name <项目名>`、`--ports <端口|none>`、
   `--no-process-scan`（不用 lsof 检查其他端口上的 node 进程）、`--force`（端口上的程序无法确认身份、或目录不像 Paperloom 数据时仍执行）（见 D10）。
+  Vite 的依赖预打包缓存在 `<项目根>/.vite/deps-<端口>/`（不在 node_modules 里）：worktree 软链接共用 node_modules 时，各服务器互不覆盖。
 - `npm run typecheck` — tsc 类型检查（app + node 两个 tsconfig）
 - `npm test` — Vitest 单元测试（`tests/engine/**`、`tests/unit/**`）
 - `npm run e2e` — Playwright（`tests/e2e/**`，自动在 5199 端口起服务，界面多语言用例在 5198）。各模块另有独立配置：
